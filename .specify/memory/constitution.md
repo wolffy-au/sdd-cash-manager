@@ -22,6 +22,8 @@ This document is complemented by several other key files:
 
 *   **`NONFUNCTIONALS.md`**: This file contains the abstracted, high-level non-functional solution specific requirements derived from the feature specification and other sources. These define what the system must achieve in terms of quality attributes.
 *   **`TECHNICAL.md`**: This file provides detailed guidelines, best practices, and preferred standards that dictate how all requirements (functional and non-functional) should be implemented.
+*   **`PROJECT_CONSTITUTION.md`**: This document outlines additional principles specific to the project's domain, complementing the core SpecKit guidelines.
+*   **`PROJECT_SPECIFICATION.md`**: This document outlines the business requirements of the solution.
 
 ## Core Principles
 
