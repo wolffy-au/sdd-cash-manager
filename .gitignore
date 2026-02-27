@@ -41,3 +41,10 @@ Thumbs.db
 
 .aider.tags.*
 .aider.chat.*
+
+# MyPy cache
+.mypy_cache/
+
+# Ruff cache
+.ruff_cache/
+.sonar/

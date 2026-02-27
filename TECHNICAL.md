@@ -63,7 +63,7 @@ This document consolidates technical specifications, patterns, utilities, and pr
   * Use native types (e.g., `list`, `dict`) over `typing` library equivalents (e.g., `List`, `Dict`).
     * *For broader quality principles, see SpecKit Constitution I. Code Quality.*
 * **Diagramming**:
-  * When documenting in UML and C4, use PlantUML.
+  * When documenting in UML and C4, use PlantUML and C4-PlantUML.
   * Primarily focus on structural representation.
   * When documenting instance information, use appropriate diagram types such as UML Object diagrams, and include examples in parentheses.
 * **Shell Scripting Best Practices**:
@@ -127,6 +127,10 @@ The concept of using autonomous agents to uplift code quality and incrementally 
 * **Data Validation**: Utilize `Pydantic V2` for request and response data validation to ensure data integrity.
 * **State Transition Enforcement**: When designing APIs for entities modeled as FSMs, use Pydantic models to define valid states and enforce transition rules. Prefer action-based endpoints (e.g., `/resource/{id}/action`) that trigger state changes as side-effects, rather than direct state updates, to maintain workflow integrity.
 
+## Project Configuration
+
+*   **pyproject.toml**: Adhere to [PEP 621](https://peps.python.org/pep-0621/) for defining project metadata and configuration.
+
 ## Software Architectural Patterns
 
 * **Model-View-Controller (MVC)**: A common pattern for structuring applications, separating concerns into model (data and business logic), view (UI), and controller (handles input and updates).
@@ -151,3 +155,23 @@ The concept of using autonomous agents to uplift code quality and incrementally 
 * **Messaging/Orchestration**: `CrewAI` (implied by usage context)
 * **Utilities for LLM**: `LiteLLM`
 * **Data Validation**: `Pydantic V2`
+
+### Python Specifics
+
+*   **Dataclass Argument Order**: When defining dataclasses, ensure all non-default arguments (fields without default values) are listed before any arguments with default values. Failing to do so will result in a `TypeError`.
+*   **Avoiding Circular Imports**: Be mindful of import dependencies between modules. A common pitfall occurs when module A imports from module B, and module B simultaneously imports from module A, leading to `ImportError`. Refactor code to break these cycles, often by moving shared logic or type hints to a separate, lower-level module.
+*   **Import Style for `src` Layouts**: For projects using a `src` layout (where application code resides in a `src` directory), ensure `src` is correctly added to `PYTHONPATH` (e.g., via `pyproject.toml` or build tools). Subsequently, remove redundant `src.` prefixes from import statements (e.g., use `from sdd_cash_manager.models.module import ...` instead of `from src.models.module import ...`) for cleaner, more idiomatic Python.
+*   **Mypy Configuration for `src` Layouts**: For projects utilizing a `src` directory structure, correctly configuring `mypy` in `pyproject.toml` is crucial to avoid "Duplicate module named" or `[import-untyped]` errors.
+    *   **Module Name Collisions**: Ensure that Python files within different subdirectories of `src` (e.g., `src/models/account.py` and `src/schemas/account.py`) do not share the same base filename (e.g., `account.py`). If they do, rename one (e.g., `account_schema.py`) and update all corresponding import statements to prevent `mypy` from flagging duplicate module names.
+    *   **Package Discovery**: Use `mypy_path = "src"` to instruct `mypy` to find top-level modules (like `models`, `schemas`, `services`, `api`) directly within `src`.
+    *   **Explicit Package Listing**: Combine `mypy_path = "src"` with `packages = ["models", "schemas", "services", "api", "tests"]` within the `[tool.mypy]` section to explicitly tell `mypy` which packages (relative to `mypy_path`) to type-check, including the `tests` directory. Avoid `files = ["src", "tests"]` when using `mypy_path` and `packages` as it can lead to duplicate processing.
+
+### Testing
+
+*   **Static Analysis vs. Runtime Exception Tests**: When writing tests that specifically aim to assert a `TypeError` or other runtime exceptions for syntactically incorrect code (e.g., missing required arguments in a constructor call), static analysis tools like `pyright` may flag these test calls as errors. To satisfy static analyzers, consider providing valid but semantically "empty" or "invalid" values (e.g., empty strings for required string fields) and then validate these values with runtime logic (e.g., using `__post_init__` in dataclasses to raise `ValueError`).
+*   Write tests for all new functionality.
+*   Stub functions to facilitate testing before production code is fully implemented.
+*   Aim for greater than 90% test coverage.
+*   Test positive and negative cases.
+*   Use descriptive test function names.
+    *   *See SpecKit Constitution II. Testing Standards for core principles.*
