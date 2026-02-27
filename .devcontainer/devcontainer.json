@@ -1,6 +1,7 @@
 {
     "name": "SddCashManagerDevContainer",
     "image": "mcr.microsoft.com/devcontainers/python:3.12-trixie",
+    "runArgs": ["--network=sonar-net"],
     "features": {
         "ghcr.io/devcontainers/features/common-utils:2": {
             "upgradePackages": true,
