@@ -13,7 +13,7 @@ The Account Management feature aims to provide robust capabilities for creating,
 
 **Language/Version**: Leverage a modern, robust, and widely-supported version of Python for development.
 **Primary Dependencies**: Utilize a mature and performant web framework for efficient API development, a powerful ORM for robust database interaction and data integrity, data validation tools for schema enforcement, and a specialized accounting library for core financial logic.
-**Storage**: Employ a relational database system known for its ACID compliance and reliability in handling financial data.
+**Storage**: Employ a relational database system known for its ACID compliance and reliability in handling financial data. For the MVP, **SQLite** will be used.
 **Testing**: Adopt a comprehensive testing strategy using a flexible and widely-supported framework, adhering to Test-Driven Development (TDD) principles.
 **Target Platform**: Develop for broad cross-platform compatibility (Linux, macOS, Windows).
 **Project Type**: Library/API designed for integration.
@@ -40,7 +40,6 @@ specs/001-account-management/
 ├── plan.md              # This file (/speckit.plan command output)
 ├── research.md          # Phase 0 output (/speckit.plan command)
 ├── data-model.md        # Phase 1 output (/speckit.plan command)
-├── quickstart.md        # Phase 1 output (/speckit.plan command)
 ├── contracts/           # Phase 1 output (/speckit.plan command)
 └── tasks.md             # Phase 2 output (/speckit.tasks command - NOT created by /speckit.plan)
 ```

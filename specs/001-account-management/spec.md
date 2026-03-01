@@ -2,27 +2,28 @@
 
 | Requirement Key | Has Task? | Task IDs                                                              | Notes                                                                                                |
 | :-------------- | :-------- | :-------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------- |
-| FR-001          | Yes       | T008, T009, T010, T011, T012, T013, T014, T015, T016, T017                    | Core account creation/management.                                                                    |
-| FR-002          | Yes       | T008, T009, T015                                                      | Account types and enums defined. Ensure all defined AccountCategoryType and BankingAccountType are covered by T009 and T015. |
-| FR-003          | Yes       | T011, T016, T025, T026                                                | Running and reconciled balances.                                                                     |
-| FR-004          | Yes       | T011, T025, T026                                                      | Historical running balances. Clarify data fields in Transaction model: e.g., transaction\_running\_balance (after), historical\_running\_balance (prior). Differentiate from Account's available balance. |
-| FR-005          | Yes       | T008, T010                                                            | Account notes.                                                                                       |
-| FR-006          | Yes       | T031, T032, T034, T035, T036, T037                                          | Hierarchical accounts.                                                                               |
-| FR-007          | Yes       | T032, T034                                                            | Parent account group balances computed on-demand. Specify mechanism: recursively sum child running balances. Performance targets: <100ms for up to 5 levels. |
-| FR-008          | Yes       | T012, T013, T014, T016, T017                                                | Account search by name.                                                                              |
+| FR-001          | Yes       | T010, T011, T013, T014, T015, T016, T017, T018, T019                    | Core account creation/management.                                                                    |
+| FR-002          | Yes       | T012, T017                                                            | Account types and enums defined. Ensure all defined AccountCategoryType and BankingAccountType are covered by T012 and T017. |
+| FR-003          | Yes       | T011, T013, T025, T026, T029, T034                                    | Running and reconciled balances.                                                                     |
+| FR-004          | Yes       | T011, T025, T026, T029                                                | Historical running balances. Clarify data fields in Transaction model: e.g., transaction\_running\_balance (after), historical\_running\_balance (prior). Differentiate from Account's available balance. |
+| FR-005          | Yes       | T011                                                                  | Account notes.                                                                                       |
+| FR-006          | Yes       | T031, T032, T035, T036, T037                                          | Hierarchical accounts.                                                                               |
+| FR-007          | Yes       | T032, T034, T036                                                      | Parent account group balances computed on-demand. Specify mechanism: recursively sum child running balances. Performance targets: <100ms for up to 5 levels. |
+| FR-008          | Yes       | T014, T016, T018, T019                                                | Account search by name.                                                                              |
 | FR-009          | Yes       | T038                                                                  | Application state management for unsaved changes.                                                    |
 | FR-010          | Yes       | T023, T027, T029, T030                                                | Manual balance adjustment interface. This involves a user-facing window to set new balances, trigger transactions, and update account states. |
-| FR-011          | Yes       | T023, T029                                                            | Automatic transaction creation upon adjustment.                                                      |
-| FR-012          | Yes       | T023, T029                                                            | Adjustment transaction amount calculation.                                                           |
-| FR-013          | Yes       | T023, T029, T030                                                      | Transaction update to ledger/reconciliation views.                                                   |
+| FR-011          | Yes       | T022, T023, T028, T029                                                | Automatic transaction creation upon adjustment.                                                      |
+| FR-012          | Yes       | T022, T023, T029                                                      | Adjustment transaction amount calculation.                                                           |
+| FR-013          | Yes       | T023, T028, T029, T030                                                | Transaction update to ledger/reconciliation views.                                                   |
 
 ## User Story to Task Mapping
 
 | User Story Key | Task IDs                                                              | Notes                                                                                                |
 | :------------- | :-------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------- |
-| US1            | T008, T009, T010, T011, T012, T013, T014, T015, T016, T017                    | Account Creation and Management.                                                                     |
-| US2            | T027, T028, T029, T030, T031, T032                                    | Hierarchical Account Structure.                                                                      |
-| US3            | T018, T019, T020, T021, T022, T023, T024, T025, T026                    | Balance Adjustment.                                                                                  |
+| US1            | T010, T011, T012, T013, T014, T015, T016, T017, T018, T019                    | Account Creation and Management.                                                                     |
+| US2            | T031, T032, T034, T035, T036, T037                                    | Hierarchical Account Structure.                                                                      |
+| US3            | T020, T021, T022, T023, T025, T026, T027, T028, T029, T030                    | Balance Adjustment.                                                                                  |
+
 
 ## Non-Functional Requirements
 
