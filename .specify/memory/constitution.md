@@ -38,7 +38,10 @@ Logic must be self-documenting, modular, and adhere to SOLID principles. We prio
 
 Automated tests are non-negotiable. Every feature must include unit and integration tests. Test coverage MUST prioritize critical paths and edge cases. We follow the Red-Green-Refactor cycle, embracing **Test-Driven Development (TDD)** principles.
 
-- **Rules**: 100% coverage on core business logic; tests must be isolated and reproducible. For detailed testing practices and framework choices, see `TECHNICAL.md`'s "Patterns and Practices > Testing" section.
+- **Rules**:
+    - 100% coverage on core business logic; tests must be isolated and reproducible.
+    - Implementation should begin by writing tests first, checking the tests fail, stubbing out the code, confirming the tests pass, and then beginning implementation.
+    - For detailed testing practices and framework choices, see `TECHNICAL.md`'s "Patterns and Practices > Testing" section.
 - **Rationale**: Tests provide the confidence to refactor and ensure regressions are caught early.
 
 ### III. User Experience Consistency (Unified Interface)
@@ -84,7 +87,7 @@ Our workflow is designed to ensure that every change is intentional and verified
 Before any feature is considered "Done," it must pass these gates:
 
 - **Linting & Formatting**: Must pass all project-standard style checks, as detailed in `TECHNICAL.md`.
-- **Test Suite**: All new and existing tests must pass, adhering to the standards in `TECHNICAL.md`.
+- **Test Suite Pass**: All new and existing tests must pass without failure after the implementation of every user story, adhering to the standards in `TECHNICAL.md`.
 - **Documentation**: READMEs, specs, and inline comments must be updated.
 - **Constitution Check**: Implementation must be reviewed against these core principles.
 

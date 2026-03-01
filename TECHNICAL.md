@@ -71,6 +71,8 @@ This document consolidates technical specifications, patterns, utilities, and pr
   * Implement explicit error checking and informative logging for commands.
   * Prefer using helper functions for common operations (e.g., `run_command`).
 
+* **Configuration Management**: Always use fit-for-purpose utilities for managing project configuration and dependencies (e.g., use `uv add` or `uv remove` for dependency management instead of manual `pyproject.toml` edits).
+
 ## Automated Code Uplift and Quality Improvement
 
 The concept of using autonomous agents to uplift code quality and incrementally increase test coverage involves leveraging AI-driven tools and automated processes for iterative improvement. It is designed for an iterative development process where an AI coding assistant works alongside static analysis and test coverage tools.
@@ -148,7 +150,7 @@ The concept of using autonomous agents to uplift code quality and incrementally 
 * **Testing Frameworks**: `pytest`, `pytest-mock`, `behave` (for BDD)
 * **Linters/Formatters**: `Ruff`
 * **Type Checkers**: `MyPy`, `PyRight`
-* **Build/Dependency Management**: Prefer `uv` for dependency installation and resolution from `pyproject.toml` and `requirements.txt`. Use `Poetry` for comprehensive project management tasks such as building and publishing.
+* **Build/Dependency Management**: Prefer `uv` for dependency installation and resolution from `pyproject.toml`. Avoid use of `requirements.txt`. Only use `poetry` when `uv` has no equivalent option.
 * **Package Installation/Running**: `UV`
 * **API Framework**: `FastAPI`
 * **UI Frameworks**: `Streamlit`, `Chainlit` (for building interactive UIs and LLM-based applications)
@@ -175,3 +177,74 @@ The concept of using autonomous agents to uplift code quality and incrementally 
 *   Test positive and negative cases.
 *   Use descriptive test function names.
     *   *See SpecKit Constitution II. Testing Standards for core principles.*
+
+# Dependency Installation
+
+To set up `uv`, run:
+
+```bash
+sudo apt-get update
+pip install --upgrade uv
+```
+
+- Add dependency
+  - uv: `uv add <package> [--group <group>] [--dev] [--version <constraint>]`
+  - examples: `uv add requests`, `uv add pytest --group dev`
+
+- Remove dependency
+  - uv: `uv remove <package>`
+
+- Install / sync including all groups / extras
+  - uv: `uv sync --upgrade --all`
+  - or to include specific groups: `uv sync --upgrade --groups dev,tests,lint,docs`
+
+- Update dependencies
+  - uv: `uv update [<packages>...] [--group <group>]`
+
+- Lock dependencies / generate lockfile
+  - uv: `uv lock [--no-update]`
+
+- Show dependencies / tree
+  - uv: `uv show [--tree] [<package>]`
+
+- Run a command in the venv, run scripts / entry points defined in pyproject
+  - uv: `uv run -- <command>` or `uv run <command> [args...]`
+  - example: `uv run python`, `uv run pytest`
+  - uv: `uv run <script-name>` (scripts exposed via project config)
+
+- Spawn a shell in the venv
+  - uv: `uv shell`
+
+- Env / venv management (uv venv namespace)
+  - List venvs: `uv venv list`
+  - Create venv: `uv venv create [--python <python>] [--path <path>]`
+  - Use/select venv: `uv venv use <name-or-path>`
+  - Remove venv: `uv venv remove <name>`
+  - Show venv info: `uv venv show <name>`
+  - Activate shell for specific venv: `uv venv shell <name>`
+
+- Build package
+  - uv: `uv build [--format wheel,sdist]`
+
+- Publish package
+  - uv: `uv publish [--repository <repo>]`
+
+- Show project info / metadata
+  - uv: `uv info`
+
+- Security audit
+  - uv: `uv audit`
+
+Notes:
+- Flags/option names above follow the uv CLI documented patterns (e.g., `--all`, `--groups`, `--python`). Use `uv <command> --help` for full option lists and exact formatting for your uv version.
+
+# SonarQube
+
+To force a SonarQube check, run:
+```bash
+sudo apt-get update && sudo apt-get install -y default-jre
+pysonar \
+  --sonar-host-url=http://host.containers.internal:9000 \
+  --sonar-token=squ_0ef6cbaa955c58d8b5e8073b4c64a71fe3ccd7bf \
+  --sonar-project-key=sdd-cash-manager
+```

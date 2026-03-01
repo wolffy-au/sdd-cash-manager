@@ -36,9 +36,9 @@
                 "ms-python.vscode-mypy",
                 "ms-python.vscode-pyright",
                 "vivaxy.vscode-commitizen",
-                "ms-python.python",
                 "ms-python.vscode-pylance",
-                "ms-python.autopep8"
+                "ms-python.autopep8",
+                "ms-python.debugpy"
             ],
             "settings": {
                 "debug.javascript.autoAttachFilter": "disabled",
