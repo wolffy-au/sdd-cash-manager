@@ -195,11 +195,8 @@ pip install --upgrade uv
   - uv: `uv remove <package>`
 
 - Install / sync including all groups / extras
-  - uv: `uv sync --upgrade --all`
+  - uv: `uv sync --upgrade --all-groups`
   - or to include specific groups: `uv sync --upgrade --groups dev,tests,lint,docs`
-
-- Update dependencies
-  - uv: `uv update [<packages>...] [--group <group>]`
 
 - Lock dependencies / generate lockfile
   - uv: `uv lock [--no-update]`

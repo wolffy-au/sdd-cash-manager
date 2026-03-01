@@ -78,7 +78,7 @@ reportUnknownMemberType = false
 [tool.mypy]
 strict = true
 mypy_path = "src"
-packages = ["models", "schemas", "services", "api", "tests"]
+packages = ["sdd_cash_manager", "tests"]
 show_error_codes = true
 ignore_missing_imports = false
 allow_redefinition = false

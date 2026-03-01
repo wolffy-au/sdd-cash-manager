@@ -1,7 +1,8 @@
 import uuid
 from typing import Optional
 
-from sqlalchemy import Boolean, Column, Float, String
+from sqlalchemy import Boolean, Float, String
+from sqlalchemy.orm import Mapped, mapped_column
 
 from sdd_cash_manager.models.base import Base
 
@@ -9,18 +10,20 @@ from sdd_cash_manager.models.base import Base
 class Account(Base):
     __tablename__ = "accounts"
 
-    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    name = Column(String, nullable=False)
-    currency = Column(String, nullable=False)
-    accounting_category = Column(String, nullable=False)
-    account_number = Column(String, nullable=True)
-    banking_product_type = Column(String, nullable=True)
-    available_balance = Column(Float, nullable=False, default=0.0)
-    credit_limit = Column(Float, nullable=True)
-    notes = Column(String, nullable=True)
-    parent_account_id = Column(String, nullable=True)
-    hidden = Column(Boolean, nullable=False, default=False)
-    placeholder = Column(Boolean, nullable=False, default=False)
+    # Define attributes with explicit types that align with SQLAlchemy Columns
+    # Using Mapped for better type hinting with SQLAlchemy 2.0+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    currency: Mapped[str] = mapped_column(String, nullable=False)
+    accounting_category: Mapped[str] = mapped_column(String, nullable=False)
+    account_number: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    banking_product_type: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    available_balance: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    credit_limit: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    notes: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    parent_account_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    hidden: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    placeholder: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     def __init__(
         self,
@@ -37,7 +40,13 @@ class Account(Base):
         hidden: bool = False,
         placeholder: bool = False
     ):
-        self.id = id or str(uuid.uuid4())
+        # Assign values to the ORM-mapped attributes.
+        # SQLAlchemy will handle the actual column mapping.
+        # The `id` default handles creation, so we only assign if provided.
+        if id is not None:
+            self.id = id
+        else:
+            self.id = str(uuid.uuid4())  # Ensure id is always set, even if not provided
         self.name = name
         self.currency = currency
         self.accounting_category = accounting_category
