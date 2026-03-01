@@ -37,7 +37,7 @@ None. The plan explicitly states "Constitution Check: Passed. No violations iden
 The following tasks are not directly mapped to a specific functional requirement, non-functional requirement, or user story, but are foundational, cross-cutting, or testing-related, which is acceptable:
 - T001: Setup Python project structure
 - T002: Set up virtual environment and install core dependencies
-- T003: Configure PostgreSQL database connection and ORM setup
+- T003: Configure SQLite database connection and ORM setup
 - T004: Configure Pytest for testing
 - T005: Define base SQLAlchemy models and migration setup
 - T006: Implement common utility functions
