@@ -1,9 +1,8 @@
 from sqlalchemy import create_engine
-from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy.orm import sessionmaker
 
-# Define Base for declarative models
-# Assuming your models are defined using declarative_base
-Base = declarative_base()
+# Import Base from the dedicated models.base file
+from sdd_cash_manager.models.base import Base
 
 # Define the database URL (using SQLite for simplicity, can be configured via env var)
 # For production, use a more robust URL like PostgreSQL or MySQL
@@ -27,4 +26,3 @@ def get_db():
 # Function to create tables if they don't exist (e.g., for initial setup or testing)
 def create_tables():
     Base.metadata.create_all(bind=engine)
-

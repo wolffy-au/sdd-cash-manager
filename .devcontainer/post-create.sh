@@ -23,7 +23,7 @@ run_command() {
 
 # Installing UV (Python package manager)
 echo -e "\n🐍 Installing UV - Python Package Manager..."
-run_command "pipx install uv"
+run_command "pip install uv"
 echo "✅ Done"
 
 # Installing CLI-based AI Agents
@@ -43,7 +43,7 @@ echo "✅ Done"
 
 # Installing commitizen
 echo -e "\n🛠️ Installing commitizen..."
-run_command "pipx install commitizen"
+run_command "pip install commitizen"
 echo "✅ Done"
 
 echo -e "\n🧹 Cleaning cache..."

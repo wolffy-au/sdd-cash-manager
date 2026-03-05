@@ -60,7 +60,7 @@ class AccountService:
 
     def get_all_accounts(self) -> List[Account]:
         if self.db_session:
-            return self.db_session.scalars(select(Account)).all()
+            return list(self.db_session.scalars(select(Account)).all())
         return list(self.accounts.values())
 
     def update_account(self, account_id: str, **kwargs: Any) -> Optional[Account]:

@@ -1,30 +1,30 @@
 {
     "name": "SddCashManagerDevContainer",
     "image": "mcr.microsoft.com/devcontainers/python:3.12-trixie",
-    "runArgs": ["--network=sonar-net"],
+    "init": true,
+    "remoteUser": "devcontainer",
+    "updateRemoteUserUID": true,
     "features": {
         "ghcr.io/devcontainers/features/common-utils:2": {
-            "upgradePackages": true,
-            "username": "devcontainer"
+            "installZsh": true,
+            "installOhMyZsh": true,
+            "installOhMyZshConfig": true,
+            "upgradePackages": true
         },
         "ghcr.io/devcontainers/features/git:1": {
             "ppa": true,
             "version": "latest"
         },
-        "ghcr.io/devcontainers/features/python:1": {
-            "version": "3.12",
-            "installTools": true,
-            "toolsToInstall": "flake8,autopep8,black,yapf,mypy,pydocstyle,pycodestyle,bandit,pipenv,virtualenv,pytest,pylint"
-        },
         "ghcr.io/devcontainers/features/node": {
             "version": "lts"
         }
     },
-    "forwardPorts": [],
-    "containerUser": "devcontainer",
-    "updateRemoteUserUID": true,
-    "remoteUser": "root",
-    "postCreateCommand": "chown -R ${containerUser}:${containerUser} /workspaces/sdd-cash-manager && chmod +x ./.devcontainer/post-create.sh && ./.devcontainer/post-create.sh || true",
+    "mounts": [
+        "source=python-cache,target=/home/devcontainer/.cache,type=volume",
+        "source=node-cache,target=/home/devcontainer/.npm,type=volume"
+    ],
+    "onCreateCommand": "sudo chown -R devcontainer:devcontainer /home/devcontainer/.cache && sudo chown -R devcontainer:devcontainer /home/devcontainer/.npm",
+    "postCreateCommand": "chown -R ${containerUser}:${containerUser} ${containerWorkspaceFolder} && sudo chmod +x .devcontainer/post-create.sh && .devcontainer/post-create.sh || true",
     "postStartCommand": "git config --global --add safe.directory ${containerWorkspaceFolder}",
     "customizations": {
         "vscode": {
@@ -37,7 +37,6 @@
                 "ms-python.vscode-pyright",
                 "vivaxy.vscode-commitizen",
                 "ms-python.vscode-pylance",
-                "ms-python.autopep8",
                 "ms-python.debugpy"
             ],
             "settings": {

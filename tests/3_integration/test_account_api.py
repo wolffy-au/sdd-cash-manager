@@ -67,7 +67,7 @@ async def test_create_account_success(async_client: TestClient, override_get_db:
     """
     Tests successful creation of a new account.
     """
-    print("\n--- Testing create_account_success ---")
+    print("--- Testing create_account_success ---")
 
     account_data_input = {
         "name": "New Integration Account",
@@ -102,7 +102,7 @@ async def test_get_all_accounts(async_client: TestClient, override_get_db: Sessi
     """
     Tests retrieving all accounts.
     """
-    print("\n--- Testing get_all_accounts ---")
+    print("--- Testing get_all_accounts ---")
 
     # Create a couple of accounts directly in the database for testing
     account_service = AccountService(override_get_db)
@@ -135,7 +135,7 @@ async def test_get_account_by_id_success(async_client: TestClient, override_get_
     """
     Tests retrieving a specific account by its ID.
     """
-    print("\n--- Testing get_account_by_id_success ---")
+    print("--- Testing get_account_by_id_success ---")
 
     # Create an account directly in the database
     account_service = AccountService(override_get_db)
@@ -160,7 +160,7 @@ async def test_get_account_by_id_not_found(async_client: TestClient):
     """
     Tests retrieving a non-existent account, expecting a 404.
     """
-    print("\n--- Testing get_account_by_id_not_found ---")
+    print("--- Testing get_account_by_id_not_found ---")
 
     non_existent_id = str(uuid.uuid4())
 
@@ -175,7 +175,7 @@ async def test_update_account_success(async_client: TestClient, override_get_db:
     """
     Tests successfully updating an existing account.
     """
-    print("\n--- Testing update_account_success ---")
+    print("--- Testing update_account_success ---")
 
     # Create an account to update
     account_service = AccountService(override_get_db)
@@ -211,7 +211,7 @@ async def test_delete_account_success(async_client: TestClient, override_get_db:
     """
     Tests successfully deleting an account.
     """
-    print("\n--- Testing delete_account_success ---")
+    print("--- Testing delete_account_success ---")
 
     # Create an account to delete
     account_service = AccountService(override_get_db)
@@ -234,7 +234,7 @@ async def test_perform_balance_adjustment_success(async_client: TestClient, over
     """
     Tests performing a balance adjustment for an account.
     """
-    print("\n--- Testing perform_balance_adjustment_success ---")
+    print("--- Testing perform_balance_adjustment_success ---")
 
     # Create an account
     account_service = AccountService(override_get_db)
@@ -275,7 +275,7 @@ async def test_create_account_validation_error(async_client: TestClient):
     """
     Tests account creation with invalid data, expecting a 422 error.
     """
-    print("\n--- Testing create_account_validation_error ---")
+    print("--- Testing create_account_validation_error ---")
 
     invalid_payload_input = {
         "name": "Invalid Account",
@@ -288,7 +288,9 @@ async def test_create_account_validation_error(async_client: TestClient):
 
     assert response.status_code == 422
     response_data = response.json()
-    detail_str = str(response_data["detail"])
+    if response_data is None:
+        response_data = {} # Treat None as an empty dict
+    detail_str = str(response_data.get("detail", "")) # pyright: ignore[reportOptionalMemberAccess]
     assert "Input should be a valid number" in detail_str
 
 @pytest.mark.asyncio
@@ -296,7 +298,7 @@ async def test_update_account_not_found(async_client: TestClient):
     """
     Tests updating a non-existent account, expecting a 404.
     """
-    print("\n--- Testing update_account_not_found ---")
+    print("--- Testing update_account_not_found ---")
 
     non_existent_id = str(uuid.uuid4())
     update_data_input = {
@@ -315,7 +317,7 @@ async def test_delete_account_not_found(async_client: TestClient):
     """
     Tests deleting a non-existent account, expecting a 404.
     """
-    print("\n--- Testing delete_account_not_found ---")
+    print("--- Testing delete_account_not_found ---")
 
     non_existent_id = str(uuid.uuid4())
 
@@ -330,7 +332,7 @@ async def test_perform_balance_adjustment_not_found(async_client: TestClient):
     """
     Tests performing a balance adjustment on a non-existent account, expecting a 400.
     """
-    print("\n--- Testing perform_balance_adjustment_not_found ---")
+    print("--- Testing perform_balance_adjustment_not_found ---")
 
     non_existent_account_id = str(uuid.uuid4())
     adjustment_payload_input = {
@@ -354,9 +356,9 @@ async def test_perform_balance_adjustment_not_found(async_client: TestClient):
 @pytest.mark.asyncio
 async def test_perform_balance_adjustment_validation_error(async_client: TestClient):
     """
-    Tests balance adjustment with invalid input data, expecting a 422.
+    Tests balance adjustment with invalid input data, expecting a 422 error.
     """
-    print("\n--- Testing perform_balance_adjustment_validation_error ---")
+    print("--- Testing perform_balance_adjustment_validation_error ---")
 
     # This test no longer needs a created account, as validation happens before service call
     account_id_for_adjustment = str(uuid.uuid4()) # A dummy ID is fine here
@@ -375,6 +377,8 @@ async def test_perform_balance_adjustment_validation_error(async_client: TestCli
 
     assert response.status_code == 422
     response_data = response.json()
-    detail_str = str(response_data["detail"])
+    if response_data is None:
+        response_data = {} # Treat None as an empty dict
+    detail_str = str(response_data.get("detail", "")) # pyright: ignore[reportOptionalMemberAccess]
     assert "Input should be a valid number" in detail_str
     assert "invalid character in year" in detail_str

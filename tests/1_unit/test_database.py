@@ -86,7 +86,7 @@ def test_get_db_yields_session(patch_database_globals):
 
     # Assert that our mock `SessionLocal` (which is `mock_session_factory`)
     # was called exactly once to create the session.
-    database.SessionLocal.assert_called_once()
+    (database.SessionLocal).assert_called_once() # pyright: ignore[reportAttributeAccessIssue]
 
 def test_get_db_closes_session(patch_database_globals):
     """
