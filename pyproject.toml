@@ -14,7 +14,7 @@ include = [
 ]
 dynamic = ["version"]
 
-requires-python = ">=3.10,<3.14"
+requires-python = ">=3.10,<3.13.0"
 dependencies = [
     "fastapi (>=0.128.0,<0.129.0)",
     "psycopg2-binary>=2.9.11",

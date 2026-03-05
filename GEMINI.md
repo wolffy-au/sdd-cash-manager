@@ -3,6 +3,8 @@
 Auto-generated from all feature plans. Last updated: 2026-02-22
 
 ## Active Technologies
+- Python 3.11 + FastAPI, SQLAlchemy, Pydantic, python-accounting (for core financial logic) (001-account-management)
+- SQLite (for MVP, extensible to PostgreSQL) (001-account-management)
 
 - Python 3.11 (Inferred from .python-version) (001-account-management)
 
@@ -32,6 +34,7 @@ ruff check .
 Python 3.11 (Inferred from .python-version): Follow standard conventions
 
 ## Recent Changes
+- 001-account-management: Added Python 3.11 + FastAPI, SQLAlchemy, Pydantic, python-accounting (for core financial logic)
 
 - 001-account-management: Added Python 3.11 (Inferred from .python-version)
 

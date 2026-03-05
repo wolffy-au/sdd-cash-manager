@@ -1,127 +1,92 @@
 # Data Model: Account Management
 
-This document outlines the core data entities and their relationships for the Account Management feature, based on the feature specification and research findings.
+This document outlines the data model for the Account Management feature, based on the requirements specified in `spec.md` and derived from the implementation plan.
 
-## Core Entities
+## Entities
 
-### 1. Account
+### Account
 
 Represents a financial account within the system.
 
-*   **Attributes:**
-    *   `id` (str): Unique identifier for the account.
-    *   `name` (String): The name of the account (e.g., "Checking Account", "Savings").
-    *   `account_number` (String): The primary account number.
-    *   `currency` (String): The currency of the account (e.g., "AUD").
-    *   `accounting_category` (Enum): The classification of the account. Must be one of:
-        *   `ASSET` (Asset Accounts: Bank, Cash, Portfolio, Mutual Fund, General Asset)
-        *   `LIABILITY` (Liability Accounts: Credit Card, General Liability)
-        *   `EQUITY` (Equity Accounts: For representing ownership)
-        *   `INCOME` (Income Accounts: For tracking sources of revenue)
-        *   `EXPENSE` (Expense Accounts: For tracking expenditures)
-    *   `banking_product_type` (Enum): The classification of the account according to banking product types. Must be one of:
-        * `TRANSACTION` (This type generally refers to accounts used for day-to-day banking, payments, and frequent monetary transactions. Examples include checking accounts or current accounts.)
-        * `DEPOSIT` (This type typically covers accounts where funds are held, often with the purpose of saving or earning interest. Examples include savings accounts, term deposits, or high-yield savings accounts.)
-        * `CREDIT_CARD` (This classification is for revolving credit facilities, such as credit card accounts, that allow users to borrow money up to a certain limit.)
-        * `LOAN` (This type represents accounts where money has been borrowed and needs to be repaid, such as personal loans, mortgages, or car loans.)
-        * `OTHER` (This is a general category for any banking product or account type that does not fit into the more specific )classifications listed above.
-    *   `available_balance` (Decimal/Float): The readily available balance.
-    *   `credit_limit` (Decimal/Float, Nullable): The credit limit for credit accounts.
-    *   `parent_account_id` (str, Nullable): Foreign key referencing the `id` of the parent account for hierarchical organization. Null if it's a top-level account.
-    *   `notes` (Text, Nullable): Additional textual information or remarks about the account.
-    *   `running_balance` (Decimal/Float): The current balance reflecting all entered transactions.
-    *   `reconciled_balance` (Decimal/Float): The balance reflecting only transactions that have been cleared or formally reconciled.
-    *   `created_at` (DateTime): Timestamp of account creation.
-    *   `updated_at` (DateTime): Timestamp of last account update.
+| Field Name              | Type    | Constraints                                                                    | Description                                                                                                                  |
+| :---------------------- | :------ | :----------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------- |
+| `id`                    | UUID    | Primary Key                                                                    | Unique identifier for the account.                                                                                           |
+| `account_number`        | String  | Unique, Not Null                                                               | Unique account number.                                                                                                       |
+| `name`                  | String  | Not Null                                                                       | User-friendly name for the account.                                                                                          |
+| `currency`              | String  | Not Null, e.g., "USD", "EUR"                                                   | Currency code for the account balance.                                                                                       |
+| `accounting_category`   | Enum    | Not Null, FK to `AccountingCategoryType`                                       | Categorizes the account for accounting purposes (e.g., Asset, Liability, Equity, Revenue, Expense).                           |
+| `banking_product_type`  | Enum    | Not Null, FK to `BankingAccountType`                                           | Type of banking product (e.g., Checking, Savings, Credit Card).                                                              |
+| `available_balance`     | Decimal | Not Null, Default: 0.00                                                        | The readily available balance, which may differ from the running balance due to holds or pending transactions.               |
+| `credit_limit`          | Decimal | Optional                                                                       | The credit limit for accounts like credit cards.                                                                             |
+| `notes`                 | Text    | Optional                                                                       | Any additional notes or descriptions for the account.                                                                        |
+| `parent_account_id`     | UUID    | Foreign Key to `Account.id`, Optional                                          | Identifier of the parent account in a hierarchical structure. If null, it's a top-level account.                             |
+| `created_at`            | DateTime| Not Null, Default: CURRENT_TIMESTAMP                                           | Timestamp when the account was created.                                                                                      |
+| `updated_at`            | DateTime| Not Null, Default: CURRENT_TIMESTAMP, On Update: CURRENT_TIMESTAMP             | Timestamp when the account was last updated.                                                                                 |
 
-*   **Relationships:**
-    *   One-to-Many: An Account can have many child accounts (`parent_account_id` links to `Account.id`).
-    *   Many-to-One: An Account can belong to one parent account (`parent_account_id` references `Account.id`).
-    *   One-to-Many: An Account can have many associated Transactions.
+### Transaction
 
-*   **Validation Rules:**
-    *   `name`: Must be a non-empty string. Should ideally be unique within its parent account's scope or at the top level.
-    *   `account_number`: Must be a non-empty string.
-    *   `currency`: Must be a valid currency code.
-    *   `accounting_category`: Must be one of the defined `AccountingCategoryType` enumeration values.
-    *   `banking_product_type`: Must be one of the defined `BankingAccountType` enumeration values.
-    *   `available_balance`: Must be a valid numerical type.
-    *   `credit_limit`: Must be a valid numerical type if present.
-    *   `running_balance` & `reconciled_balance`: Must be valid numerical types.
-    *   `parent_account_id`: If present, must reference an existing `Account.id`.
+Represents a financial transaction.
 
-### 2. Transaction
+| Field Name                     | Type    | Constraints                                                    | Description                                                                                                                                                                                                                                                                                                                                                       |
+| :----------------------------- | :------ | :------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                           | UUID    | Primary Key                                                    | Unique identifier for the transaction.                                                                                                                                                                                                                                                                                                                            |
+| `effective_date`               | Date    | Not Null                                                       | The date the transaction is intended to be effective.                                                                                                                                                                                                                                                                                                             |
+| `booking_date`                 | Date    | Not Null                                                       | The date the transaction is booked in the system.                                                                                                                                                                                                                                                                                                                 |
+| `description`                  | String  | Not Null                                                       | A brief description of the transaction.                                                                                                                                                                                                                                                                                                                           |
+| `amount`                       | Decimal | Not Null                                                       | The monetary value of the transaction. Positive for credits (income/deposits) and negative for debits (expenses/withdrawals).                                                                                                                                                                                                                                     |
+| `debit_account_id`             | UUID    | Foreign Key to `Account.id`, Not Null                          | The account from which funds are debited.                                                                                                                                                                                                                                                                                                                         |
+| `credit_account_id`            | UUID    | Foreign Key to `Account.id`, Not Null                          | The account to which funds are credited.                                                                                                                                                                                                                                                                                                                          |
+| `processing_status`            | Enum    | Not Null, FK to `ProcessingStatus`                             | The current status of the transaction processing (e.g., Pending, Processed, Failed).                                                                                                                                                                                                                                                                              |
+| `reconciliation_status`        | Enum    | Not Null, FK to `ReconciliationStatus`                         | The status of the transaction regarding reconciliation with external statements (e.g., Unreconciled, Reconciled).                                                                                                                                                                                                                                                 |
+| `action_type`                  | String  | Not Null, e.g., "adjustment", "transfer", "payment"            | Categorizes the type of action performed by the transaction.                                                                                                                                                                                                                                                                                                      |
+| `running_balance_after_transaction` | Decimal | Not Null                                                       | The running balance of the primary account (e.g., debit account for a withdrawal) *after* this transaction has been applied. This helps in reconstructing account balances.                                                                                                                                                                                             |
+| `created_at`                   | DateTime| Not Null, Default: CURRENT_TIMESTAMP                           | Timestamp when the transaction was created.                                                                                                                                                                                                                                                                                                                       |
 
-Represents a financial movement between accounts.
+## Enums
 
-*   **Attributes:**
-    *   `id` (str): Unique identifier for the transaction.
-    *   `effective_date` (Date/DateTime): The date the transaction effectively impacts the balance.
-    *   `booking_date` (Date/DateTime): The date the transaction was recorded.
-    *   `description` (String): A brief description of the transaction.
-    *   `merchant_name` (String, Nullable): Name of the merchant or payee.
-    *   `payee_details` (String, Nullable): Additional details about the payee.
-    *   `amount` (Decimal/Float): The monetary value of the transaction.
-    *   `debit_account_id` (UUID/Integer): Foreign key referencing the `id` of the account debited.
-    *   `credit_account_id` (UUID/Integer): Foreign key referencing the `id` of the account credited.
-    *   `processing_status` (Enum): The status of the transaction as processed by the bank. Must be one of:
-        *   `PENDING`
-        *   `COMPLETED`
-        *   `FAILED`
-    *   `reconciliation_status` (Enum): Indicates if the transaction has been reconciled within the application. Values could be: `UNCLEARED`, `CLEARED`, `RECONCILED`.
-    *   `memo` (Text, Nullable): Additional details or reference for the transaction.
-    *   `action_type` (Enum, Nullable): Specifies the type of transaction, e.g., `ADJUSTMENT`, `TRANSFER`, `PAYMENT`, `INVOICE`.
-    *   `created_at` (DateTime): Timestamp of transaction creation.
-    *   `updated_at` (DateTime): Timestamp of last transaction update.
+### `AccountingCategoryType`
 
-*   **Relationships:**
-    *   Many-to-One: A Transaction is associated with two Accounts (debit and credit).
+Used to categorize accounts for accounting purposes.
 
-*   **Validation Rules:**
-    *   `effective_date` and `booking_date`: Must be valid date/datetime values.
-    *   `description`, `merchant_name`, `payee_details`: Must be strings.
-    *   `amount`: Must be a valid numerical type.
-    *   `debit_account_id` & `credit_account_id`: Must be present and reference valid, existing `Account.id`s.
-    *   `processing_status`: Must be one of the defined `ProcessingStatus` enumeration values.
-    *   `reconciliation_status`: Must be one of the defined `ReconciliationStatus` enumeration values.
-    *   `action_type`: Must be a valid type if provided.
+-   `Asset`
+-   `Liability`
+-   `Equity`
+-   `Revenue`
+-   `Expense`
 
-### 3. Account Group Balance (Implicit Entity/Concept)
+### `BankingAccountType`
 
-Represents the aggregated balance of a parent account and its sub-accounts. This is not a separate table but a calculated view or property derived from child accounts.
+Used to specify the type of banking product.
 
-*   **Attributes:**
-    *   `account_id` (str): The ID of the parent account.
-    *   `consolidated_running_balance` (Decimal/Float): Sum of running balances of all its child accounts.
-    *   `consolidated_reconciled_balance` (Decimal/Float): Sum of reconciled balances of all its child accounts.
+-   `Checking`
+-   `Savings`
+-   `CreditCard`
+-   `Loan`
+-   `Investment`
 
-*   **Calculation:** The consolidated balances are derived by summing the respective balances of all accounts that list the group account as their parent (directly or indirectly through multiple levels of hierarchy).
+### `ProcessingStatus`
 
-### 4. Application State (Conceptual)
+Indicates the status of transaction processing.
 
-Tracks the state of unsaved changes for accounts.
+-   `Pending`
+-   `Processed`
+-   `Failed`
 
-*   **Attributes:**
-    *   `has_unsaved_changes` (Boolean): True if modifications have been made to account data without being saved.
-    *   `is_new_state` (Boolean): True if the current data represents a new, unsaved entity.
+### `ReconciliationStatus`
 
-*   **Note:** This is a conceptual entity related to user interaction and workflow management, rather than a persistent data model.
+Indicates the status of transaction reconciliation.
 
-## State Transitions
+-   `Unreconciled`
+-   `Reconciled`
 
-*   **Account:**
-    *   A new account is created in a "new" state with zero balances.
-    *   An existing account's balances are updated by new transactions.
-    *   An account can be deleted.
-*   **Transaction:**
-    *   Transactions are created, linked to debit and credit accounts.
-    *   Transactions can be marked as `UNCLEARED`, `CLEARED`, or `RECONCILED`.
-*   **Balance Adjustment:**
-    *   Triggered by the "Adjust Balance" window.
-    *   Creates a new `Transaction` record representing the difference between the old and new balance.
-    *   Updates the `running_balance` and `reconciled_balance` of the affected account(s).
-    *   This adjustment transaction itself will have a `status` and `action_type`.
+## Relationships
 
-## Historical Balances
+-   **Account to Account**: A one-to-many relationship where an `Account` can have many child `Account`s, and each child `Account` has one `parent_account_id` referencing its parent `Account`.
+-   **Transaction to Account**: Each `Transaction` involves two accounts: a `debit_account_id` and a `credit_account_id`, establishing a many-to-one relationship from `Transaction` to `Account` for each role.
 
-The system maintains historical running balances for each transaction. This implies that as transactions are added or modified, a historical ledger of account balances at any given point in time can be reconstructed. This is typically managed by storing transaction details and recalculating balances, or by maintaining a ledger table that records balance changes.
+## Terminology Definitions (from Spec)
+
+-   **Running Balance**: The current balance reflecting all entered transactions. Stored as `running_balance_after_transaction` on the `Transaction` entity.
+-   **Reconciled Balance**: The balance reflecting only transactions that have been cleared or formally reconciled against external statements. (Note: This is typically an attribute of the `Account` and derived/maintained by logic, not directly stored per transaction in this model).
+-   **Available Balance**: The readily available balance, which may differ from the running balance due to holds or pending transactions. Stored directly on the `Account` entity.
+-   **Account Group**: An `Account` used to aggregate the balances of its child accounts, creating a hierarchical view. Achieved via the `parent_account_id` relationship.
