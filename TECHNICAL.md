@@ -182,11 +182,7 @@ The concept of using autonomous agents to uplift code quality and incrementally 
 
 Unit tests live under `tests/unit/...`, so there is one `test_<module>.py` file per production module.
 
-## Testing Layout
-
-Unit tests live under `tests/1_unit/sdd_cash_manager/...`, mirroring `src/sdd_cash_manager/...` so there is one `test_<module>.py` file per production module. The numeric prefixes (`1_unit`, `2_security`, `3_integration`) determine the execution ordering of the suites.
-
-# Dependency Installation
+## Dependency Installation
 
 To set up `uv`, run:
 
@@ -257,9 +253,10 @@ pip install --upgrade uv
   - uv: `uv audit`
 
 Notes:
+
 - Flags/option names above follow the uv CLI documented patterns (e.g., `--all`, `--groups`, `--python`). Use `uv <command> --help` for full option lists and exact formatting for your uv version.
 
-# SonarQube
+## SonarQube
 
 To force a SonarQube check, run:
 
