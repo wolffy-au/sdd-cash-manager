@@ -5,6 +5,7 @@ __pycache__/
 *.pyd
 
 # Virtual environment
+.venv
 .venv/
 venv/
 env/
@@ -41,3 +42,10 @@ Thumbs.db
 
 .aider.tags.*
 .aider.chat.*
+
+# MyPy cache
+.mypy_cache/
+
+# Ruff cache
+.ruff_cache/
+.sonar/

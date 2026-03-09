@@ -1,29 +1,15 @@
-<!--
-  Sync Impact Report:
-  - Version change: v1.0.1 -> v1.0.2
-  - List of modified principles:
-    - I. Code Quality (Added DRY)
-    - II. Testing Standards (Added TDD and cross-ref)
-    - V. Security Practices (New section)
-  - Added sections: V. Security Practices
-  - Removed sections: None
-  - Templates requiring updates:
-    - .specify/templates/plan-template.md (pending)
-    - .specify/templates/spec-template.md (pending)
-    - .specify/templates/tasks-template.md (pending)
-  - Follow-up TODOs: None
--->
-
 # SpecKit Constitution
 
-## Supporting Documentation
+## Detailed References (Deeper Detail)
 
-This document is complemented by several other key files:
+This document is complemented by several other key files. Consult the following living documents when you need deeper implementation or operational detail:
 
-*   **`NONFUNCTIONALS.md`**: This file contains the abstracted, high-level non-functional solution specific requirements derived from the feature specification and other sources. These define what the system must achieve in terms of quality attributes.
-*   **`TECHNICAL.md`**: This file provides detailed guidelines, best practices, and preferred standards that dictate how all requirements (functional and non-functional) should be implemented.
+*   **`NONFUNCTIONALS.md`**: This file contains the abstracted, high-level non-functional solution specific requirements, quality attribute requirements such as performance, reliability, security, and compliance, derived from the feature specification and other sources. These define what the system must achieve in terms of quality attributes.
+*   **`TECHNICAL.md`**: This file provides Implementation-level guidance, coding standards, process expectations, detailed guidelines, best practices, and preferred standards that dictate how all requirements (functional and non-functional) should be implemented.
 *   **`PROJECT_CONSTITUTION.md`**: This document outlines additional principles specific to the project's domain, complementing the core SpecKit guidelines.
-*   **`PROJECT_SPECIFICATION.md`**: This document outlines the business requirements of the solution.
+*   **`PROJECT_SPECIFICATION.md`**: This document outlines the business requirements of the solution. Business and domain requirements derived from user needs. View it as a historical reference that should be used as input when deriving user stories, requirements, and acceptance criteria for new specs.
+
+Mark those files as “for deeper detail” and link back here whenever you need quick orientation.
 
 ## Core Principles
 
@@ -38,36 +24,39 @@ Logic must be self-documenting, modular, and adhere to SOLID principles. We prio
 
 Automated tests are non-negotiable. Every feature must include unit and integration tests. Test coverage MUST prioritize critical paths and edge cases. We follow the Red-Green-Refactor cycle, embracing **Test-Driven Development (TDD)** principles.
 
-- **Rules**: 100% coverage on core business logic; tests must be isolated and reproducible. For detailed testing practices and framework choices, see `TECHNICAL.md`'s "Patterns and Practices > Testing" section.
-- **Rationale**: Tests provide the confidence to refactor and ensure regressions are caught early.
+- **Rules**:
+    - 100% coverage on core business logic; tests must be isolated and reproducible.
+    - Implementation should begin by writing tests first, checking the tests fail, stubbing out the code, confirming the tests pass, and then beginning implementation.
+    - For detailed testing practices and framework choices, see `TECHNICAL.md`'s "Patterns and Practices > Testing" section.
+-   **Rationale**: Tests provide the confidence to refactor and ensure regressions are caught early.
 
 ### III. User Experience Consistency (Unified Interface)
 
 Interfaces MUST follow established patterns to ensure predictability. Whether CLI or GUI, the user's mental model MUST be respected. Error messages must be actionable and clear.
 
-- **Rules**: Use consistent command structures for CLI; provide helpful error messages with resolution steps. For comprehensive guidance on API design principles that ensure consistency, refer to `TECHNICAL.md`.
-- **Rationale**: Consistency reduces cognitive load and improves user trust and efficiency.
+-   **Rules**: Use consistent command structures for CLI; provide helpful error messages with resolution steps. For comprehensive guidance on API design principles that ensure consistency, refer to `TECHNICAL.md`.
+-   **Rationale**: Consistency reduces cognitive load and improves user trust and efficiency.
 
 ### IV. Performance Requirements (Efficiency by Design)
 
 System responsiveness is a first-class citizen. Code must be optimized for resource efficiency. Any operation exceeding 200ms must be asynchronous or justified.
 
-- **Rules**: Profile critical paths; avoid premature optimization but maintain O(n) awareness. Performance considerations are further detailed in `TECHNICAL.md`'s "Performance" section.
-- **Rationale**: Performance is a feature; a slow system is a broken system for the user.
+-   **Rules**: Profile critical paths; avoid premature optimization but maintain O(n) awareness. Performance considerations are further detailed in `TECHNICAL.md`'s "Performance" section.
+-   **Rationale**: Performance is a feature; a slow system is a broken system for the user.
 
 ### V. Security Practices (Proactive Defense)
 
 Security is paramount throughout the development lifecycle. We adhere to secure coding practices, referencing established guidelines such as **OWASP**, **CWE**, **CERT Secure Coding Standards**, etc.
 
-- **Rules**: Never commit sensitive information; validate all user inputs; use environment variables for configuration. Detailed security guidelines are available in `TECHNICAL.md`'s "Security" section.
-- **Rationale**: Protecting data and systems from threats is a fundamental responsibility.
+-   **Rules**: Never commit sensitive information; validate all user inputs; use environment variables for configuration. Detailed security guidelines are available in `TECHNICAL.md`'s "Security" section.
+-   **Rationale**: Protecting data and systems from threats is a fundamental responsibility.
 
 ### VI. State Management and Workflow Integrity (Predictable Evolution)
 
 Logic must define clear lifecycles and state transitions for key entities to ensure predictable evolution and auditable workflows. Data integrity must be maintained through controlled state changes, preventing invalid transitions.
 
-- **Rules**: Document entity lifecycles and state transition rules. Implement these rules rigorously. Refer to `TECHNICAL.md` for detailed patterns on implementing state management and workflow control.
-- **Rationale**: Robust state management and enforced workflows enhance system predictability, reliability, audibility, and maintainability, crucial for governance and complex processes.
+-   **Rules**: Document entity lifecycles and state transition rules. Implement these rules rigorously. Refer to `TECHNICAL.md` for detailed patterns on implementing state management and workflow control.
+-   **Rationale**: Robust state management and enforced workflows enhance system predictability, reliability, audibility, and maintainability, crucial for governance and complex processes.
 
 ## Development Workflow
 
@@ -83,17 +72,17 @@ Our workflow is designed to ensure that every change is intentional and verified
 
 Before any feature is considered "Done," it must pass these gates:
 
-- **Linting & Formatting**: Must pass all project-standard style checks, as detailed in `TECHNICAL.md`.
-- **Test Suite**: All new and existing tests must pass, adhering to the standards in `TECHNICAL.md`.
-- **Documentation**: READMEs, specs, and inline comments must be updated.
-- **Constitution Check**: Implementation must be reviewed against these core principles.
+-   **Linting & Formatting**: Must pass all project-standard style checks, as detailed in `TECHNICAL.md`.
+-   **Test Suite Pass**: All new and existing tests must pass without failure after the implementation of every user story, adhering to the standards in `TECHNICAL.md`.
+-   **Documentation**: READMEs, specs, and inline comments must be updated.
+-   **Constitution Check**: Implementation must be reviewed against these core principles.
 
 ## Governance
 
 This constitution is the supreme guide for SpecKit development.
 
-- **Amendments**: Proposed via PR; requires explanation of why the change improves project governance.
-- **Versioning**: Follows semantic versioning.
-- **Compliance**: All contributors must adhere to these principles; deviations must be justified in the `plan.md` complexity tracking section.
+-   **Amendments**: Proposed via PR; requires explanation of why the change improves project governance.
+-   **Versioning**: Follows semantic versioning.
+-   **Compliance**: All contributors must adhere to these principles; deviations must be justified in the `plan.md` complexity tracking section.
 
 **Version**: 1.0.2 | **Ratified**: 2026-02-18 | **Last Amended**: 2026-02-21

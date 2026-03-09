@@ -23,27 +23,31 @@ run_command() {
 
 # Installing UV (Python package manager)
 echo -e "\n🐍 Installing UV - Python Package Manager..."
-run_command "pipx install uv"
+run_command "pip install uv"
 echo "✅ Done"
 
 # Installing CLI-based AI Agents
+
+echo -e "\n🤖 Installing Codex CLI..."
+run_command "npm install -g @openai/codex@latest"
+echo "✅ Done"
 
 echo -e "\n🤖 Installing Gemini CLI..."
 run_command "npm install -g @google/gemini-cli@latest"
 echo "✅ Done"
 
 # Installing Aider
-echo -e "\n🤖 Installing Aider - AI-Assisted Fixing..."
-run_command "uv tool install --upgrade aider-chat --force --from git+https://github.com/wolffy-au/aider-speckit.git@uplift-linting"
+echo -e "\n🤖 Installing Aider CLI..."
+run_command "uv tool install aider-chat --from git+https://github.com/wolffy-au/aider-speckit.git@feat-spec-kit"
 echo "✅ Done"
 
 echo -e "\n🤖 Installing Specify CLI..."
-run_command "uv tool install --upgrade specify-cli --force --from git+https://github.com/github/spec-kit.git"
+run_command "uv tool install specify-cli --from git+https://github.com/wolffy-au/spec-kit-aider.git@feat-speckit-aider"
 echo "✅ Done"
 
 # Installing commitizen
 echo -e "\n🛠️ Installing commitizen..."
-run_command "pipx install commitizen"
+run_command "pip install commitizen"
 echo "✅ Done"
 
 echo -e "\n🧹 Cleaning cache..."

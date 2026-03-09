@@ -1,0 +1,4 @@
+{
+    "sonarQubeUri": "http://host.containers.internal:9000",
+    "projectKey": "sdd-cash-manager"
+}
