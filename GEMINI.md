@@ -37,11 +37,6 @@ Python 3.11 (Inferred from .python-version): Follow standard conventions
 
 - 001-account-management: Added Python 3.11 + FastAPI, SQLAlchemy, Pydantic, python-accounting
 - 001-account-management: Added [if applicable, e.g., PostgreSQL, CoreData, files or N/A]
-- 001-account-management: Added [if applicable, e.g., PostgreSQL, CoreData, files or N/A]
-
-- 001-account-management: Added Python 3.11 + FastAPI, SQLAlchemy, Pydantic, python-accounting
-- 001-account-management: Added [if applicable, e.g., PostgreSQL, CoreData, files or N/A]
-- 001-account-management: Added [if applicable, e.g., PostgreSQL, CoreData, files or N/A]
 
 <!-- MANUAL ADDITIONS START -->
 ## Reference Documents
