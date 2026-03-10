@@ -52,18 +52,18 @@ Functionality to manually adjust account balances, creating corresponding double
 
 Enabling accounts to be organized in a tree-like structure and aggregating group balances.
 
-- [ ] T024 [US2] Update `Account` model to include `parent_account_id` and implement relationship in `src/models/account.py`.
-- [ ] T025 [US2] Implement AccountService for hierarchical account creation, retrieval, and balance aggregation using TDD principles, writing tests before implementation code, in `src/services/account_service.py`.
-- [ ] T026 [US2] Implement AccountGroup balance calculation logic by aggregating balances from individual accounts (summing `Entry` debits/credits).
-- [ ] T027 [US2] Update account API endpoints to support hierarchical structures (e.g., creating sub-accounts, retrieving aggregated balances) in `src/api/accounts.py`.
-- [ ] T028 [US2] Write unit tests for hierarchical account logic in `tests/unit/test_account_service.py`.
-- [ ] T029 [US2] Write integration tests for hierarchical account API endpoints in `tests/integration/test_account_api.py`.
+- [x] T024 [US2] Update `Account` model to include `parent_account_id` and implement relationship in `src/models/account.py`.
+- [x] T025 [US2] Implement AccountService for hierarchical account creation, retrieval, and balance aggregation using TDD principles, writing tests before implementation code, in `src/services/account_service.py`.
+- [x] T026 [US2] Implement AccountGroup balance calculation logic by aggregating balances from individual accounts (summing `Entry` debits/credits).
+- [x] T027 [US2] Update account API endpoints to support hierarchical structures (e.g., creating sub-accounts, retrieving aggregated balances) in `src/api/accounts.py`.
+- [x] T028 [US2] Write unit tests for hierarchical account logic in `tests/unit/test_account_service.py`.
+- [x] T029 [US2] Write integration tests for hierarchical account API endpoints in `tests/integration/test_account_api.py`.
 
 ### Phase 6: Polish & Cross-Cutting Concerns
 
 Finalization tasks including state management, documentation, and performance optimization.
 
-- [ ] T030 Implement application state management for unsaved changes ("Save/New"), and define/implement clear lifecycles and state transitions for `Account`, `Transaction`, and `Entry` entities in `src/lib/state_management.py` and integrate with relevant services/APIs.
+- [x] T030 Implement application state management for unsaved changes ("Save/New"), and define/implement clear lifecycles and state transitions for `Account`, `Transaction`, and `Entry` entities in `src/lib/state_management.py` and integrate with relevant services/APIs.
 - [ ] T031 Add comprehensive docstrings and type hints across the codebase.
 - [ ] T032 Refactor and optimize database queries for performance, focusing on those identified as bottlenecks by performance testing.
 - [ ] T033 Benchmark account creation latency, transaction processing throughput, and scalability of account balance aggregation. Ensure these meet performance goals.
@@ -129,4 +129,5 @@ Finalization tasks including state management, documentation, and performance op
 
 ## Next Step
 
-With US1 (T008-T015) and US3 (T016-T023) now complete, the focus moves on to User Story 2 (T024-T029). Phase 5 is the new current priority.
+With US1 (T008-T015), US3 (T016-T023), and now US2 (T024-T029) complete, the focus moves on to Phase 6: Polish & Cross-Cutting Concerns.
+```
