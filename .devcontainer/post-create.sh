@@ -28,6 +28,10 @@ echo "✅ Done"
 
 # Installing CLI-based AI Agents
 
+echo -e "\n🤖 Installing Copilot CLI..."
+run_command "npm install -g @github/copilot@latest"
+echo "✅ Done"
+
 echo -e "\n🤖 Installing Codex CLI..."
 run_command "npm install -g @openai/codex@latest"
 echo "✅ Done"
