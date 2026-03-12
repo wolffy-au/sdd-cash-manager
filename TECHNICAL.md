@@ -264,6 +264,6 @@ To force a SonarQube check, run:
 sudo apt-get update && sudo apt-get install -y default-jre
 pysonar \
   --sonar-host-url=http://host.containers.internal:9000 \
-  --sonar-token=squ_0ef6cbaa955c58d8b5e8073b4c64a71fe3ccd7bf \
+  --sonar-token=sqa_7dd818bf6c9db3aed46fd6a8463669f5a885970d \
   --sonar-project-key=sdd-cash-manager
 ```
