@@ -249,7 +249,17 @@ def _account_response_from_model(account: Account, account_service: AccountServi
     payload = account.__dict__.copy()
     decrypt_notes = getattr(account_service, "decrypt_notes", lambda value: value)
     payload["notes"] = decrypt_notes(getattr(account, "notes", None))
-    payload["hierarchy_balance"] = account_service.get_account_hierarchy_balance(account.id)
+
+    available_balance = getattr(account, "available_balance", None)
+    if isinstance(available_balance, Decimal):
+        payload["available_balance"] = float(available_balance)
+
+    credit_limit = getattr(account, "credit_limit", None)
+    if isinstance(credit_limit, Decimal):
+        payload["credit_limit"] = float(credit_limit)
+
+    hierarchy_balance = account_service.get_account_hierarchy_balance(account.id)
+    payload["hierarchy_balance"] = float(hierarchy_balance)
     return AccountResponse(**payload)
 
 
@@ -272,23 +282,26 @@ def _get_account_service_impl(db: Session) -> AccountService:
     """
     return AccountService(db)
 
-def _get_transaction_service_impl(account_service: AccountService) -> TransactionService:
+# Module-level dependency instances (these ARE the FastAPI providers) - Defined early for use in other _get_..._impl functions
+db_dependency = Depends(get_db)
+account_service_dependency = Depends(lambda db=db_dependency: _get_account_service_impl(db=db))
+
+
+def _get_transaction_service_impl(db: Session = db_dependency, account_service: AccountService = account_service_dependency) -> TransactionService:
     """Instantiate the transaction service and attach the account service.
 
     Args:
+        db: The current SQLAlchemy session.
         account_service: The account service used to load account data.
 
     Returns:
         A TransactionService configured with the account service.
     """
-    ts = TransactionService()
+    ts = TransactionService(db_session=db) # Pass db_session here
     ts.set_account_service(account_service)
     return ts
 
-# Module-level dependency instances (these ARE the FastAPI providers)
-db_dependency = Depends(get_db)
-account_service_dependency = Depends(lambda db=db_dependency: _get_account_service_impl(db=db))
-transaction_service_dependency = Depends(lambda acc_svc=account_service_dependency: _get_transaction_service_impl(account_service=acc_svc))
+transaction_service_dependency = Depends(_get_transaction_service_impl)
 _operator_dependency = Depends(require_role(Role.OPERATOR))
 _viewer_dependency = Depends(require_role(Role.VIEWER))
 logger = get_logger(__name__)
@@ -335,13 +348,11 @@ def create_account(
     )
     parent_account_id = _ensure_parent_account_exists(account_service, account_data.parent_account_id)
     available_balance_decimal = _quantize_amount(account_data.available_balance)
-    available_balance_float = float(available_balance_decimal)
     credit_limit_decimal = (
         _quantize_amount(account_data.credit_limit)
         if account_data.credit_limit is not None
         else None
     )
-    credit_limit_float = float(credit_limit_decimal) if credit_limit_decimal is not None else None
 
     try:
         new_account = account_service.create_account(
@@ -350,8 +361,8 @@ def create_account(
             accounting_category=account_data.accounting_category.value,
             account_number=account_data.account_number,
             banking_product_type=account_data.banking_product_type.value,
-            available_balance=available_balance_float,
-            credit_limit=credit_limit_float,
+            available_balance=available_balance_decimal,
+            credit_limit=credit_limit_decimal,
             notes=account_data.notes,
             parent_account_id=parent_account_id,
             hidden=account_data.hidden,
@@ -480,9 +491,12 @@ def update_account(
         update_kwargs["parent_account_id"] = _ensure_parent_account_exists(account_service, parent_account_id)
 
     if "available_balance" in update_kwargs:
-        update_kwargs["available_balance"] = float(_quantize_amount(update_kwargs["available_balance"]))
+        quantized_balance = _quantize_amount(update_kwargs["available_balance"])
+        update_kwargs["available_balance"] = float(quantized_balance)
+
     if "credit_limit" in update_kwargs and update_kwargs["credit_limit"] is not None:
-        update_kwargs["credit_limit"] = float(_quantize_amount(update_kwargs["credit_limit"]))
+        quantized_limit = _quantize_amount(update_kwargs["credit_limit"])
+        update_kwargs["credit_limit"] = float(quantized_limit)
 
     try:
         updated_account = account_service.update_account(str(account_id), **update_kwargs)
@@ -567,7 +581,7 @@ def adjust_account_balance(
         adjustment_datetime = datetime.combine(request_data.adjustment_date, datetime.min.time())
         transaction = transaction_service.perform_balance_adjustment(
             account_id=str(account_id),
-            target_balance=float(target_balance_decimal),
+            target_balance=target_balance_decimal,
             adjustment_date=adjustment_datetime,
             description=request_data.description,
             action_type=request_data.action_type.value,
@@ -593,7 +607,7 @@ def adjust_account_balance(
         return BalanceAdjustmentResponse(
             transaction_id=transaction.id,
             account_id=str(account_id),
-            new_balance=float(target_balance_decimal),
+            new_balance=target_balance_decimal,
             **transaction_data
         )
 

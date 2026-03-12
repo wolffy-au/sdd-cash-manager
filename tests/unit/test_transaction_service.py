@@ -1,278 +1,493 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
+from decimal import Decimal
 from unittest.mock import MagicMock
 
 import pytest
+from sqlalchemy import create_engine, select
+from sqlalchemy.orm import sessionmaker
 
 from sdd_cash_manager.models.account import Account
-from sdd_cash_manager.models.enums import ProcessingStatus, ReconciliationStatus
-from sdd_cash_manager.services.transaction_service import TransactionService
+from sdd_cash_manager.models.base import Base
+from sdd_cash_manager.models.enums import AccountingCategory, ProcessingStatus, ReconciliationStatus
+from sdd_cash_manager.models.transaction import Entry, Transaction
+from sdd_cash_manager.services.account_service import AccountService
+from sdd_cash_manager.services.transaction_service import BALANCING_ACCOUNT_ID, TransactionService
 
 
 # Mocking uuid.uuid4 for deterministic IDs
 @pytest.fixture(autouse=True)
 def mock_uuid(monkeypatch):
-    uuids = [
-        uuid.UUID('dddddddd-dddd-dddd-dddd-dddddddddd01'),
-        uuid.UUID('dddddddd-dddd-dddd-dddd-dddddddddd02'),
-        uuid.UUID('dddddddd-dddd-dddd-dddd-dddddddddd03'),
-        uuid.UUID('dddddddd-dddd-dddd-dddd-dddddddddd04'),
-        uuid.UUID('dddddddd-dddd-dddd-dddd-dddddddddd05'),
-        uuid.UUID('dddddddd-dddd-dddd-dddd-dddddddddd06'),
-        uuid.UUID('dddddddd-dddd-dddd-dddd-dddddddddd07'),
-        uuid.UUID('dddddddd-dddd-dddd-dddd-dddddddddd08'),
-        uuid.UUID('dddddddd-dddd-dddd-dddd-dddddddddd09'),
-        uuid.UUID('dddddddd-dddd-dddd-dddd-dddddddddd10'),
+    uuids_list = [
+        uuid.UUID('00000000-0000-0000-0000-000000000001'), # Acc1 in setup
+        uuid.UUID('00000000-0000-0000-0000-000000000002'), # Acc2 in setup
+        uuid.UUID('00000000-0000-0000-0000-000000000003'), # Balancing Acc in setup
+        uuid.UUID('00000000-0000-0000-0000-000000000004'), # Tx in test_create_transaction_persists_to_db
+        uuid.UUID('00000000-0000-0000-0000-000000000005'), # Entry 1 for above Tx
+        uuid.UUID('00000000-0000-0000-0000-000000000006'), # Entry 2 for above Tx
+        uuid.UUID('00000000-0000-0000-0000-000000000007'), # Tx in test_get_transaction_from_db
+        uuid.UUID('00000000-0000-0000-0000-000000000008'), # Entry 1 for above Tx
+        uuid.UUID('00000000-0000-0000-0000-000000000009'), # Entry 2 for above Tx
+        uuid.UUID('00000000-0000-0000-0000-000000000010'), # Tx1 in test_get_transactions_by_account_from_db
+        uuid.UUID('00000000-0000-0000-0000-000000000011'), # Entry 1 for Tx1
+        uuid.UUID('00000000-0000-0000-0000-000000000012'), # Entry 2 for Tx1
+        uuid.UUID('00000000-0000-0000-0000-000000000013'), # Tx2 in test_get_transactions_by_account_from_db
+        uuid.UUID('00000000-0000-0000-0000-000000000014'), # Entry 1 for Tx2
+        uuid.UUID('00000000-0000-0000-0000-000000000015'), # Entry 2 for Tx2
+        uuid.UUID('00000000-0000-0000-0000-000000000016'), # Tx3 in test_get_transactions_by_account_from_db
+        uuid.UUID('00000000-0000-0000-0000-000000000017'), # Tx in test_update_transaction_status_persists_to_db
+        uuid.UUID('00000000-0000-0000-0000-000000000018'), # Entry 1 for above Tx
+        uuid.UUID('00000000-0000-0000-0000-000000000019'), # Entry 2 for above Tx
+        uuid.UUID('00000000-0000-0000-0000-000000000020'), # Tx in test_perform_balance_adjustment_credit_persists_to_db
+        uuid.UUID('00000000-0000-0000-0000-000000000021'), # Entry 1 for above Tx
+        uuid.UUID('00000000-0000-0000-0000-000000000022'), # Entry 2 for above Tx
+        uuid.UUID('00000000-0000-0000-0000-000000000023'), # Tx in test_perform_balance_adjustment_debit_persists_to_db
+        uuid.UUID('00000000-0000-0000-0000-000000000024'), # Entry 1 for above Tx
+        uuid.UUID('00000000-0000-0000-0000-000000000025'), # Entry 2 for above Tx
     ]
-    monkeypatch.setattr(
-        'sdd_cash_manager.services.transaction_service.uuid.uuid4', MagicMock(side_effect=uuids))
+    monkeypatch.setattr(uuid, 'uuid4', MagicMock(side_effect=uuids_list))
 
-# Mock AccountService for testing TransactionService independently
+
+@pytest.fixture(scope="function")
+def db_session():
+    # Use a named in-memory database for shared access
+    engine = create_engine("sqlite:///file:test_db_tx?mode=memory&cache=shared")
+    Base.metadata.create_all(bind=engine)
+    TestingSession = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    session = TestingSession()
+    try:
+        yield session
+    finally:
+        session.close()
+        Base.metadata.drop_all(bind=engine)
+
+
 @pytest.fixture
-def mock_account_service():
-    mock_service = MagicMock()
-    # Mock accounts with initial balances
-    mock_account_1_id = "acc-mock-1"
-    mock_account_2_id = "acc-mock-2"
-    mock_account_1 = Account(id=mock_account_1_id, name="Mock Checking", currency="USD", accounting_category="Asset", available_balance=1000.0)
-    mock_account_2 = Account(id=mock_account_2_id, name="Mock Liability", currency="USD", accounting_category="Liability", available_balance=-500.0, credit_limit=1000.0)
+def account_service(db_session):
+    return AccountService(db_session=db_session)
 
-    # Mock get_account to return specific accounts based on ID
-    mock_service.get_account.side_effect = lambda acc_id: {
-        mock_account_1_id: mock_account_1,
-        mock_account_2_id: mock_account_2
-    }.get(acc_id)
 
-    # Correctly mock update_account to allow assertion methods
-    mock_service.update_account = MagicMock(return_value=mock_account_1) # Default return value, can be adjusted by specific tests
+@pytest.fixture
+def transaction_service(db_session, account_service):
+    service = TransactionService(db_session=db_session)
+    service.set_account_service(account_service)
+    return service
 
-    # The internal mock_update_account function from before is no longer needed
-    # If specific update behavior is needed, it can be set on mock_service.update_account.side_effect
 
-    return mock_service
+@pytest.fixture
+def setup_accounts(db_session, account_service):
+    acc1 = account_service.create_account(
+        name="Checking Account",
+        currency="USD",
+        accounting_category=AccountingCategory.ASSET,
+        available_balance=Decimal("1000.00")
+    )
+    acc2 = account_service.create_account(
+        name="Savings Account",
+        currency="USD",
+        accounting_category=AccountingCategory.ASSET,
+        available_balance=Decimal("500.00")
+    )
+    # Create a balancing account for adjustments
+    balancing_acc = account_service.create_account(
+        name="Balancing Account",
+        currency="USD",
+        accounting_category=AccountingCategory.EQUITY, # or appropriate category
+        available_balance=Decimal("0.00"),
+        id=BALANCING_ACCOUNT_ID # Use the predefined ID
+    )
+    db_session.commit()
+    return acc1, acc2, balancing_acc
 
-def test_transaction_service_create_transaction(mock_account_service):
+
+def test_transaction_service_acquire_session_without_db_raises(monkeypatch):
     service = TransactionService()
-    service.set_account_service(mock_account_service)
+    monkeypatch.setattr(
+        "sdd_cash_manager.services.transaction_service.log_critical_application_error",
+        lambda *args, **kwargs: None
+    )
+    with pytest.raises(
+        RuntimeError,
+        match="Failed to acquire database session for transaction service due to unexpected error."
+    ):
+        service._acquire_session()
 
-    now = datetime.now()
-    debit_acc_id = "acc-mock-1"
-    credit_acc_id = "acc-mock-2"
 
-    transaction = service.create_transaction(
+@pytest.mark.parametrize(
+    "scenario, expected_match",
+    [
+        ("same_accounts", "Debit and credit accounts cannot be the same."),
+        ("non_positive_amount", "Transaction amount must be greater than zero."),
+        ("missing_action_type", "Debit account ID, credit account ID, and action type are required."),
+    ]
+)
+def test_create_transaction_validation_errors(transaction_service, setup_accounts, scenario, expected_match):
+    acc1, acc2, _ = setup_accounts
+    now = datetime.now(timezone.utc)
+
+    if scenario == "same_accounts":
+        debit_id = acc1.id
+        credit_id = acc1.id
+        amount = Decimal("100.00")
+        action_type = "Test"
+    elif scenario == "non_positive_amount":
+        debit_id = acc1.id
+        credit_id = acc2.id
+        amount = Decimal("0.00")
+        action_type = "Test"
+    else:
+        debit_id = acc1.id
+        credit_id = acc2.id
+        amount = Decimal("10.00")
+        action_type = ""
+
+    with pytest.raises(ValueError, match=expected_match):
+        transaction_service.create_transaction(
+            effective_date=now,
+            booking_date=now,
+            description="Validation Scenario",
+            amount=amount,
+            debit_account_id=debit_id,
+            credit_account_id=credit_id,
+            action_type=action_type
+        )
+
+
+def test_ensure_double_entry_raises_when_unbalanced(transaction_service):
+    entries = [
+        Entry(transaction_id=None, account_id="acc-1", debit_amount=Decimal("100.00"), credit_amount=Decimal("0.0")),
+        Entry(transaction_id=None, account_id="acc-2", debit_amount=Decimal("0.0"), credit_amount=Decimal("50.00"))
+    ]
+    with pytest.raises(ValueError, match="Transaction entries must balance."):
+        transaction_service._ensure_double_entry(entries)
+
+
+def test_create_transaction_persists_to_db(transaction_service, db_session, setup_accounts):
+    acc1, acc2, _ = setup_accounts
+    now = datetime.now(timezone.utc)
+    amount = Decimal("150.75")
+
+    transaction = transaction_service.create_transaction(
         effective_date=now,
         booking_date=now,
-        description="Initial Transaction",
-        amount=150.75,
-        debit_account_id=debit_acc_id,
-        credit_account_id=credit_acc_id,
-        action_type="Initial Entry"
+        description="Test Deposit",
+        amount=amount,
+        debit_account_id=acc1.id,
+        credit_account_id=acc2.id,
+        action_type="Deposit"
     )
+    db_session.commit()
 
-    assert transaction.id == str(uuid.UUID('dddddddd-dddd-dddd-dddd-dddddddddd01')) # From fixture mock
-    assert transaction.effective_date == now
-    assert transaction.booking_date == now
-    assert transaction.description == "Initial Transaction"
-    assert transaction.amount == 150.75
-    assert transaction.debit_account_id == debit_acc_id
-    assert transaction.credit_account_id == credit_acc_id
-    assert transaction.processing_status == ProcessingStatus.PENDING
-    assert transaction.reconciliation_status == ReconciliationStatus.PENDING_RECONCILIATION
-    assert transaction.action_type == "Initial Entry"
-    assert len(service.transactions) == 1
-    assert service.transactions[transaction.id] == transaction
-
-def test_transaction_service_create_transaction_required_fields():
-    service = TransactionService()
-    now = datetime.now()
-    with pytest.raises(ValueError, match="Description, debit account ID, credit account ID, and action type are required."):
-        service.create_transaction(now, now, "", 100.0, "d", "c", "type")
-    with pytest.raises(ValueError, match="Description, debit account ID, credit account ID, and action type are required."):
-        service.create_transaction(now, now, "Desc", 100.0, "", "c", "type")
-    with pytest.raises(ValueError, match="Description, debit account ID, credit account ID, and action type are required."):
-        service.create_transaction(now, now, "Desc", 100.0, "d", "", "type")
-    with pytest.raises(ValueError, match="Description, debit account ID, credit account ID, and action type are required."):
-        service.create_transaction(now, now, "Desc", 100.0, "d", "c", "")
-
-def test_transaction_service_create_transaction_same_account():
-    service = TransactionService()
-    now = datetime.now()
-    with pytest.raises(ValueError, match="Debit and credit accounts cannot be the same."):
-        service.create_transaction(now, now, "Same Account", 100.0, "acc1", "acc1", "Transfer")
-
-def test_transaction_service_get_transaction():
-    service = TransactionService()
-    now = datetime.now()
-    tx = service.create_transaction(now, now, "Get Tx", 50.0, "d", "c", "Get")
-    retrieved_tx = service.get_transaction(tx.id)
+    # Verify transaction is in DB
+    retrieved_tx = db_session.get(Transaction, transaction.id)
     assert retrieved_tx is not None
-    assert retrieved_tx.id == tx.id
+    assert retrieved_tx.id == transaction.id
+    assert retrieved_tx.description == "Test Deposit"
+    assert retrieved_tx.amount == amount
 
-    assert service.get_transaction("non-existent-id") is None
+    # Verify entries are in DB
+    retrieved_entries = db_session.scalars(
+        select(Entry).where(Entry.transaction_id == transaction.id)
+    ).all()
+    assert len(retrieved_entries) == 2
+    assert any(e.account_id == acc1.id and e.debit_amount == amount for e in retrieved_entries)
+    assert any(e.account_id == acc2.id and e.credit_amount == amount for e in retrieved_entries)
 
-def test_transaction_service_get_transactions_by_account():
-    service = TransactionService()
-    now = datetime.now()
-    acc1_id = "acc-mock-1"
-    acc2_id = "acc-mock-2"
 
-    tx1 = service.create_transaction(now, now, "Tx 1", 100.0, acc1_id, acc2_id, "Transfer")
-    tx2 = service.create_transaction(now, now, "Tx 2", 50.0, acc2_id, acc1_id, "Transfer")
-    tx3 = service.create_transaction(now, now, "Tx 3", 25.0, acc1_id, "other-acc", "Payment")
+def test_get_transaction_from_db(transaction_service, db_session, setup_accounts):
+    acc1, acc2, _ = setup_accounts
+    now = datetime.now(timezone.utc)
+    transaction = transaction_service.create_transaction(
+        effective_date=now,
+        booking_date=now,
+        description="Fetch Test",
+        amount=Decimal("200.00"),
+        debit_account_id=acc1.id,
+        credit_account_id=acc2.id,
+        action_type="Transfer"
+    )
+    db_session.commit()
 
-    txs_for_acc1 = service.get_transactions_by_account(acc1_id)
+    retrieved_tx = transaction_service.get_transaction(transaction.id)
+    assert retrieved_tx is not None
+    assert retrieved_tx.id == transaction.id
+    assert retrieved_tx.description == "Fetch Test"
+
+    assert transaction_service.get_transaction(str(uuid.uuid4())) is None
+
+
+def test_get_transactions_by_account_from_db(transaction_service, db_session, setup_accounts):
+    acc1, acc2, _ = setup_accounts
+    now = datetime.now(timezone.utc)
+
+    tx1 = transaction_service.create_transaction(now, now, "Tx1", Decimal("100.00"), acc1.id, acc2.id, "Type1")
+    tx2 = transaction_service.create_transaction(now, now, "Tx2", Decimal("50.00"), acc2.id, acc1.id, "Type2")
+    tx3 = transaction_service.create_transaction(now, now, "Tx3", Decimal("25.00"), acc1.id, acc2.id, "Type3",
+                                                 entries=[Entry(transaction_id=None, account_id=acc1.id, debit_amount=Decimal("25.00"), credit_amount=Decimal("0.0")),
+                                                          Entry(transaction_id=None, account_id=acc2.id, debit_amount=Decimal("0.0"), credit_amount=Decimal("25.00"))]) # Balanced entries
+    db_session.commit()
+
+    txs_for_acc1 = transaction_service.get_transactions_by_account(acc1.id)
     assert len(txs_for_acc1) == 3
-    assert tx1 in txs_for_acc1
-    assert tx2 in txs_for_acc1
-    assert tx3 in txs_for_acc1
+    assert {tx.id for tx in txs_for_acc1} == {tx1.id, tx2.id, tx3.id}
 
-    txs_for_acc2 = service.get_transactions_by_account(acc2_id)
-    assert len(txs_for_acc2) == 2
-    assert tx1 in txs_for_acc2
-    assert tx2 in txs_for_acc2
+    txs_for_acc2 = transaction_service.get_transactions_by_account(acc2.id)
+    assert len(txs_for_acc2) == 3
+    assert {tx.id for tx in txs_for_acc2} == {tx1.id, tx2.id, tx3.id}
 
-    txs_for_non_existent = service.get_transactions_by_account("non-existent-id")
-    assert len(txs_for_non_existent) == 0
 
-def test_transaction_service_update_transaction_status(mock_account_service): # Added mock_account_service as it's used in perform_balance_adjustment
-    service = TransactionService()
-    service.set_account_service(mock_account_service) # Set the dependency
+def test_update_transaction_status_persists_to_db(transaction_service, db_session, setup_accounts):
+    acc1, acc2, _ = setup_accounts
+    now = datetime.now(timezone.utc)
+    transaction = transaction_service.create_transaction(
+        effective_date=now,
+        booking_date=now,
+        description="Status Update Test",
+        amount=Decimal("300.00"),
+        debit_account_id=acc1.id,
+        credit_account_id=acc2.id,
+        action_type="Test"
+    )
+    db_session.commit()
 
-    now = datetime.now()
-    tx = service.create_transaction(now, now, "Update Status", 75.0, "d", "c", "Update")
-
-    updated_tx = service.update_transaction_status(
-        tx.id,
+    transaction_service.update_transaction_status(
+        transaction.id,
         processing_status=ProcessingStatus.POSTED,
         reconciliation_status=ReconciliationStatus.RECONCILED
     )
-    assert updated_tx is not None
-    assert updated_tx.processing_status == ProcessingStatus.POSTED
-    assert updated_tx.reconciliation_status == ReconciliationStatus.RECONCILED
+    db_session.commit()
+
+    retrieved_tx = db_session.get(Transaction, transaction.id)
+    assert retrieved_tx is not None
+    assert retrieved_tx.processing_status == ProcessingStatus.POSTED
+    assert retrieved_tx.reconciliation_status == ReconciliationStatus.RECONCILED
 
     # Test updating only one status
-    updated_tx_partially = service.update_transaction_status(
-        tx.id,
+    transaction_service.update_transaction_status(
+        transaction.id,
         processing_status=ProcessingStatus.FAILED
     )
-    assert updated_tx_partially is not None
-    assert updated_tx_partially.processing_status == ProcessingStatus.FAILED
-    assert updated_tx_partially.reconciliation_status == ReconciliationStatus.RECONCILED # Should remain unchanged
+    db_session.commit()
 
-    # Test updating non-existent transaction
-    non_existent_update = service.update_transaction_status("non-existent-id", processing_status=ProcessingStatus.POSTED)
-    assert non_existent_update is None
+    retrieved_tx_partially = db_session.get(Transaction, transaction.id)
+    assert retrieved_tx_partially is not None
+    assert retrieved_tx_partially.processing_status == ProcessingStatus.FAILED
+    assert retrieved_tx_partially.reconciliation_status == ReconciliationStatus.RECONCILED
 
-def test_transaction_service_perform_balance_adjustment_credit(mock_account_service):
-    service = TransactionService()
-    service.set_account_service(mock_account_service)
 
-    account_id = "acc-mock-1" # Mock Checking account with balance 1000.0
-    target_balance = 1250.75 # Increase balance
-    adjustment_date = datetime(2026, 2, 25, 10, 0, 0)
+def test_perform_balance_adjustment_credit_persists_to_db(transaction_service, account_service, db_session, setup_accounts):
+    acc1, _, balancing_acc = setup_accounts
+    initial_balance = account_service.get_account(acc1.id).available_balance
+    target_balance = initial_balance + Decimal("250.75") # Increase balance
+    adjustment_date = datetime(2026, 2, 25, 10, 0, 0, tzinfo=timezone.utc)
     description = "Customer Payment Received"
 
-    transaction = service.perform_balance_adjustment(
-        account_id=account_id,
+    transaction = transaction_service.perform_balance_adjustment(
+        account_id=acc1.id,
         target_balance=target_balance,
         adjustment_date=adjustment_date,
         description=description,
         action_type="Customer Payment"
     )
+    db_session.commit()
 
     assert transaction is not None
-    assert transaction.amount == 250.75 # Difference is 1250.75 - 1000.0 = 250.75
-    # Credit to the account means debit from balancing account
-    assert transaction.debit_account_id == "balancing-account-id"
-    assert transaction.credit_account_id == account_id
-    assert transaction.effective_date == adjustment_date
-    assert transaction.action_type == "Customer Payment"
-    assert transaction.description == f"{description} for account Mock Checking"
+    assert transaction.amount == Decimal("250.75")
+    assert transaction.debit_account_id == balancing_acc.id # Debited from balancing account
+    assert transaction.credit_account_id == acc1.id # Credited to acc1
     assert transaction.processing_status == ProcessingStatus.POSTED
-    assert transaction.reconciliation_status == ReconciliationStatus.PENDING_RECONCILIATION
 
-    # Verify account balance was updated by the service mock
-    # The mock_account_service.update_account is called, so we check the mock object state.
-    mock_account_service.update_account.assert_called_once()
-    mock_account_service.update_account.assert_called_with(account_id, available_balance=target_balance)
+    # Verify transaction and entries are in DB
+    retrieved_tx = db_session.get(Transaction, transaction.id)
+    assert retrieved_tx is not None
+    assert retrieved_tx.description == f"{description} for account {acc1.name}"
+    assert retrieved_tx.amount == Decimal("250.75")
 
-def test_transaction_service_perform_balance_adjustment_debit(mock_account_service):
-    service = TransactionService()
-    service.set_account_service(mock_account_service)
+    retrieved_entries = db_session.scalars(
+        select(Entry).where(Entry.transaction_id == transaction.id)
+    ).all()
+    assert len(retrieved_entries) == 2
+    assert any(e.account_id == balancing_acc.id and e.debit_amount == Decimal("250.75") for e in retrieved_entries)
+    assert any(e.account_id == acc1.id and e.credit_amount == Decimal("250.75") for e in retrieved_entries)
 
-    account_id = "acc-mock-2" # Mock Liability account with balance -500.0
-    target_balance = -750.00 # Decrease balance (make it more negative)
-    adjustment_date = datetime(2026, 2, 25, 11, 0, 0)
+    # Verify account balance was updated in DB
+    updated_account = db_session.get(Account, acc1.id)
+    assert updated_account.available_balance == target_balance
+
+
+def test_perform_balance_adjustment_debit_persists_to_db(transaction_service, account_service, db_session, setup_accounts):
+    _, acc2, balancing_acc = setup_accounts
+    initial_balance = account_service.get_account(acc2.id).available_balance
+    target_balance = initial_balance - Decimal("250.00") # Decrease balance
+    adjustment_date = datetime(2026, 2, 25, 11, 0, 0, tzinfo=timezone.utc)
     description = "Customer Refund Issued"
 
-    transaction = service.perform_balance_adjustment(
-        account_id=account_id,
+    transaction = transaction_service.perform_balance_adjustment(
+        account_id=acc2.id,
         target_balance=target_balance,
         adjustment_date=adjustment_date,
         description=description,
         action_type="Customer Refund"
     )
+    db_session.commit()
 
     assert transaction is not None
-    assert transaction.amount == 250.00 # Difference is |-750.00 - (-500.00)| = |-250.00| = 250.00
-    # Debit to the account means credit to balancing account
-    assert transaction.debit_account_id == account_id
-    assert transaction.credit_account_id == "balancing-account-id"
-    assert transaction.effective_date == adjustment_date
-    assert transaction.action_type == "Customer Refund"
-    assert transaction.description == f"{description} for account Mock Liability"
+    assert transaction.amount == Decimal("250.00")
+    assert transaction.debit_account_id == acc2.id # Debited from acc2
+    assert transaction.credit_account_id == balancing_acc.id # Credited to balancing account
     assert transaction.processing_status == ProcessingStatus.POSTED
-    assert transaction.reconciliation_status == ReconciliationStatus.PENDING_RECONCILIATION
 
-    # Verify account balance was updated
-    mock_account_service.update_account.assert_called_once()
-    mock_account_service.update_account.assert_called_with(account_id, available_balance=target_balance)
+    # Verify transaction and entries are in DB
+    retrieved_tx = db_session.get(Transaction, transaction.id)
+    assert retrieved_tx is not None
+    assert retrieved_tx.description == f"{description} for account {acc2.name}"
+    assert retrieved_tx.amount == Decimal("250.00")
 
-def test_transaction_service_perform_balance_adjustment_no_change(mock_account_service):
-    service = TransactionService()
-    service.set_account_service(mock_account_service)
+    retrieved_entries = db_session.scalars(
+        select(Entry).where(Entry.transaction_id == transaction.id)
+    ).all()
+    assert len(retrieved_entries) == 2
+    assert any(e.account_id == acc2.id and e.debit_amount == Decimal("250.00") for e in retrieved_entries)
+    assert any(e.account_id == balancing_acc.id and e.credit_amount == Decimal("250.00") for e in retrieved_entries)
 
-    account_id = "acc-mock-1"
-    # Get current balance from mock account
-    mock_account = mock_account_service.get_account(account_id)
-    current_balance = mock_account.available_balance if mock_account else 0.0
+    # Verify account balance was updated in DB
+    updated_account = db_session.get(Account, acc2.id)
+    assert updated_account.available_balance == target_balance
 
-    # Target balance is the same as current balance
-    transaction = service.perform_balance_adjustment(
-        account_id=account_id,
-        target_balance=current_balance,
-        adjustment_date=datetime.now(),
+
+def test_perform_balance_adjustment_no_change_persists(transaction_service, account_service, db_session, setup_accounts):
+    acc1, _, _ = setup_accounts
+    initial_balance = account_service.get_account(acc1.id).available_balance
+
+    transaction = transaction_service.perform_balance_adjustment(
+        account_id=acc1.id,
+        target_balance=initial_balance,
+        adjustment_date=datetime.now(timezone.utc),
         description="No change needed",
         action_type="No Change"
     )
+    db_session.commit()
 
     assert transaction is None # No transaction should be created
-    # Verify account balance was not updated (no call to mock_account_service.update_account)
-    mock_account_service.update_account.assert_not_called()
 
-def test_transaction_service_perform_balance_adjustment_account_not_found(mock_account_service):
-    service = TransactionService()
-    service.set_account_service(mock_account_service)
+    # Verify no transaction was created in DB
+    txs = db_session.scalars(select(Transaction)).all()
+    assert len(txs) == 0
 
+    # Verify account balance was not updated (remains initial_balance)
+    updated_account = db_session.get(Account, acc1.id)
+    assert updated_account.available_balance == initial_balance
+
+
+def test_perform_balance_adjustment_no_net_change_returns_none(
+    transaction_service,
+    account_service,
+    setup_accounts
+):
+    acc1, _, _ = setup_accounts
+    current_balance = account_service.get_account(acc1.id).available_balance
+
+    result = transaction_service.perform_balance_adjustment(
+        account_id=acc1.id,
+        target_balance=current_balance,
+        adjustment_date=datetime.now(timezone.utc),
+        description="No net change",
+        action_type="No Change"
+    )
+
+    assert result is None
+
+
+def test_create_transaction_string_field_validation_description(transaction_service, db_session, setup_accounts):
+    acc1, acc2, _ = setup_accounts
+    now = datetime.now(timezone.utc)
+
+    # Test description too long
+    with pytest.raises(ValueError, match="description cannot exceed 255 characters."):
+        transaction_service.create_transaction(
+            effective_date=now,
+            booking_date=now,
+            description="a" * 256,
+            amount=Decimal("10.00"),
+            debit_account_id=acc1.id,
+            credit_account_id=acc2.id,
+            action_type="Test"
+        )
+    db_session.rollback()
+
+    # Test description with forbidden characters
+    with pytest.raises(ValueError, match="description contains forbidden characters"):
+        transaction_service.create_transaction(
+            effective_date=now,
+            booking_date=now,
+            description="Description <Script>",
+            amount=Decimal("10.00"),
+            debit_account_id=acc1.id,
+            credit_account_id=acc2.id,
+            action_type="Test"
+        )
+    db_session.rollback()
+
+
+def test_create_transaction_string_field_validation_notes(transaction_service, db_session, setup_accounts):
+    acc1, acc2, _ = setup_accounts
+    now = datetime.now(timezone.utc)
+
+    # Test notes too long
+    with pytest.raises(ValueError, match="notes cannot exceed 500 characters."):
+        transaction_service.create_transaction(
+            effective_date=now,
+            booking_date=now,
+            description="Valid Description",
+            amount=Decimal("10.00"),
+            debit_account_id=acc1.id,
+            credit_account_id=acc2.id,
+            action_type="Test",
+            notes="a" * 501
+        )
+    db_session.rollback()
+
+    # Test notes with forbidden characters
+    with pytest.raises(ValueError, match="notes contains forbidden characters"):
+        transaction_service.create_transaction(
+            effective_date=now,
+            booking_date=now,
+            description="Valid Description",
+            amount=Decimal("10.00"),
+            debit_account_id=acc1.id,
+            credit_account_id=acc2.id,
+            action_type="Test",
+            notes="Notes with <script>"
+        )
+    db_session.rollback()
+
+
+def test_perform_balance_adjustment_account_not_found_raises_error(transaction_service, db_session):
     with pytest.raises(ValueError, match="Account with ID non-existent-id not found."):
-        service.perform_balance_adjustment(
+        transaction_service.perform_balance_adjustment(
             account_id="non-existent-id",
-            target_balance=100.0,
-            adjustment_date=datetime.now(),
+            target_balance=Decimal("100.00"),
+            adjustment_date=datetime.now(timezone.utc),
             description="Should fail",
             action_type="Fail Test"
         )
+    # Ensure no transaction was created if account not found
+    db_session.rollback() # Rollback any pending operations
+    txs = db_session.scalars(select(Transaction)).all()
+    assert len(txs) == 0
 
-def test_transaction_service_perform_balance_adjustment_no_account_service():
-    service = TransactionService()
+
+def test_perform_balance_adjustment_no_account_service_raises_error(db_session):
+    service = TransactionService(db_session=db_session)
     # Ensure account_service is not set
     service.account_service = None
 
     with pytest.raises(RuntimeError, match="AccountService is not set."):
         service.perform_balance_adjustment(
             account_id="acc-mock-1",
-            target_balance=100.0,
-            adjustment_date=datetime.now(),
+            target_balance=Decimal("100.00"),
+            adjustment_date=datetime.now(timezone.utc),
             description="Should fail",
-            action_type="Test Failure" # Added missing argument
+            action_type="Test Failure"
         )
+    db_session.rollback() # Rollback any pending operations

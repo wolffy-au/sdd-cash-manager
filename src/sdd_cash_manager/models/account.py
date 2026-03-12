@@ -1,9 +1,16 @@
-import uuid
+from __future__ import annotations
 
-from sqlalchemy import Boolean, Float, Index, String
-from sqlalchemy.orm import Mapped, mapped_column
+import uuid
+from decimal import Decimal  # New import
+from typing import TYPE_CHECKING, List
+
+from sqlalchemy import Boolean, Index, Numeric, String  # Changed Float to Numeric
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from sdd_cash_manager.models.base import Base
+
+if TYPE_CHECKING:
+    from sdd_cash_manager.models.transaction import Entry
 
 
 class Account(Base):
@@ -22,12 +29,15 @@ class Account(Base):
     accounting_category: Mapped[str] = mapped_column(String, nullable=False)
     account_number: Mapped[str | None] = mapped_column(String, nullable=True)
     banking_product_type: Mapped[str | None] = mapped_column(String, nullable=True)
-    available_balance: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
-    credit_limit: Mapped[float | None] = mapped_column(Float, nullable=True)
+    available_balance: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False, default=Decimal("0.0"))
+    credit_limit: Mapped[Decimal | None] = mapped_column(Numeric(18, 2), nullable=True)
     notes: Mapped[str | None] = mapped_column(String, nullable=True)
     parent_account_id: Mapped[str | None] = mapped_column(String, nullable=True)
     hidden: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     placeholder: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+    # Relationships
+    entries: Mapped[List["Entry"]] = relationship(back_populates="account")
 
     def __init__(
         self,
@@ -37,8 +47,8 @@ class Account(Base):
         id: str | None = None,
         account_number: str | None = None,
         banking_product_type: str | None = None,
-        available_balance: float = 0.0,
-        credit_limit: float | None = None,
+        available_balance: Decimal = Decimal("0.0"),
+        credit_limit: Decimal | None = None,
         notes: str | None = None,
         parent_account_id: str | None = None,
         hidden: bool = False,

@@ -19,7 +19,7 @@ def get_logger(name: str = "sdd_cash_manager") -> Logger:
     logger = logging.getLogger(name)
     if not logger.handlers:
         handler = StreamHandler()
-        handler.setFormatter(Formatter("%(asctime)s %(levelname)s %(name)s %(message)s"))
+        handler.setFormatter(Formatter(settings.log_format))
         logger.addHandler(handler)
     logger.setLevel(_resolve_log_level())
     logger.propagate = False

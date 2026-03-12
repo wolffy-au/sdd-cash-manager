@@ -45,6 +45,23 @@ The sdd-cash-manager is a FastAPI application. You can run it using `uvicorn` (w
 
     *(Note: You might need to adjust `sdd_cash_manager.main:app` based on the actual entry point of the application.)*
 
+## Horizontal Scaling Considerations
+
+For horizontal scaling of the application layer, run multiple Uvicorn worker processes. This is commonly achieved using a production-ready WSGI HTTP server like Gunicorn.
+
+1. **Install Gunicorn**:
+    ```bash
+    uv pip install gunicorn
+    ```
+
+2. **Run with Gunicorn and multiple Uvicorn workers**:
+    ```bash
+    gunicorn -w 4 -k uvicorn.workers.UvicornWorker sdd_cash_manager.main:app -b 0.0.0.0:8000
+    ```
+    (Replace `4` with the desired number of workers, typically `2 * CPU_CORES + 1`).
+
+For database scalability beyond the MVP SQLite, consider migrating to PostgreSQL or another robust relational database solution. The application code using SQLAlchemy is designed to be extensible to different SQL databases.
+
 ## API Endpoints
 
 The Account Management feature exposes the following API endpoints:

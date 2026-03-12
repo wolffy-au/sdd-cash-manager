@@ -1,6 +1,8 @@
+import json  # New import
 import uuid
 from asyncio import AbstractEventLoop
 from datetime import datetime
+from decimal import Decimal  # New import
 from typing import AsyncGenerator, Generator
 
 import pytest
@@ -17,6 +19,13 @@ from sdd_cash_manager.services.account_service import (
 )
 
 # The files already shared cover the current scope; no additional files are needed for these changes.
+
+# Custom JSON encoder for Decimal objects
+class DecimalEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, Decimal):
+            return str(obj)
+        return json.JSONEncoder.default(self, obj)
 
 # --- Fixtures ---
 
@@ -73,13 +82,14 @@ async def test_create_account_success(async_client: TestClient, override_get_db:
     """
     print("--- Testing create_account_success ---")
 
+    initial_balance = Decimal("500.75")
     account_data_input = {
         "name": "New Integration Account",
         "account_number": f"ACC-INT-{uuid.uuid4()}",
         "currency": "USD",
         "accounting_category": "ASSET",
         "banking_product_type": "BANK",
-        "available_balance": 500.75,
+        "available_balance": str(initial_balance), # Convert Decimal to str for JSON serialization
         "notes": "Created via integration test"
     }
 
@@ -91,8 +101,8 @@ async def test_create_account_success(async_client: TestClient, override_get_db:
     assert "id" in response_data
     assert response_data["name"] == account_data_input["name"]
     assert response_data["account_number"] == account_data_input["account_number"]
-    assert response_data["available_balance"] == account_data_input["available_balance"]
-    assert response_data["hierarchy_balance"] == response_data["available_balance"]
+    assert Decimal(str(response_data["available_balance"])) == initial_balance
+    assert Decimal(str(response_data["hierarchy_balance"])) == initial_balance
 
     # Verify that the account is actually in the database
     account_service = AccountService(override_get_db)
@@ -100,7 +110,7 @@ async def test_create_account_success(async_client: TestClient, override_get_db:
     assert db_account is not None
     assert db_account.name == account_data_input["name"]
     assert db_account.account_number == account_data_input["account_number"]
-    assert db_account.available_balance == account_data_input["available_balance"]
+    assert db_account.available_balance == initial_balance
 
 @pytest.mark.asyncio
 async def test_get_all_accounts(async_client: TestClient, override_get_db: Session) -> None:
@@ -129,7 +139,7 @@ async def test_get_all_accounts(async_client: TestClient, override_get_db: Sessi
 
     assert isinstance(response_data, list)
     assert len(response_data) == 2
-    assert all(acc["hierarchy_balance"] == acc["available_balance"] for acc in response_data)
+    assert all(Decimal(str(acc["hierarchy_balance"])) == Decimal(str(acc["available_balance"])) for acc in response_data)
 
     # Check if the created accounts are in the response
     response_ids = {acc["id"] for acc in response_data}
@@ -146,14 +156,14 @@ async def test_get_accounts_hierarchy_balance_field(async_client: TestClient, ov
         name="Hierarchy Parent",
         currency="USD",
         accounting_category="ASSET",
-        available_balance=300.0
+        available_balance=Decimal("300.0")
     )
     child = account_service.create_account(
         name="Hierarchy Child",
         currency="USD",
         accounting_category="ASSET",
         parent_account_id=parent.id,
-        available_balance=75.0
+        available_balance=Decimal("75.0")
     )
 
     response = async_client.get("/api/accounts")
@@ -163,8 +173,8 @@ async def test_get_accounts_hierarchy_balance_field(async_client: TestClient, ov
     parent_data = next(acc for acc in accounts_data if acc["id"] == parent.id)
     child_data = next(acc for acc in accounts_data if acc["id"] == child.id)
 
-    assert parent_data["hierarchy_balance"] == pytest.approx(parent.available_balance + child.available_balance)
-    assert child_data["hierarchy_balance"] == pytest.approx(child.available_balance)
+    assert Decimal(str(parent_data["hierarchy_balance"])) == pytest.approx(parent.available_balance + child.available_balance)
+    assert Decimal(str(child_data["hierarchy_balance"])) == pytest.approx(child.available_balance)
 
 @pytest.mark.asyncio
 async def test_get_account_by_id_success(async_client: TestClient, override_get_db: Session) -> None:
@@ -190,7 +200,7 @@ async def test_get_account_by_id_success(async_client: TestClient, override_get_
     assert response_data["id"] == created_account.id
     assert response_data["name"] == created_account.name
     assert response_data["account_number"] == created_account.account_number
-    assert response_data["hierarchy_balance"] == response_data["available_balance"]
+    assert Decimal(str(response_data["hierarchy_balance"])) == Decimal(str(response_data["available_balance"]))
 
 @pytest.mark.asyncio
 async def test_get_account_by_id_not_found(async_client: TestClient) -> None:
@@ -224,7 +234,7 @@ async def test_update_account_success(async_client: TestClient, override_get_db:
 
     update_data_input = {
         "name": "Updated Account Name",
-        "available_balance": 123.456,
+        "available_balance": str(Decimal("123.456")), # Convert Decimal to str for JSON serialization
         "notes": "Updated notes for integration test"
     }
 
@@ -235,16 +245,16 @@ async def test_update_account_success(async_client: TestClient, override_get_db:
 
     assert response_data["id"] == created_account.id
     assert response_data["name"] == update_data_input["name"]
-    assert response_data["available_balance"] == 123.46
+    assert Decimal(str(response_data["available_balance"])) == Decimal("123.46")
     assert response_data["notes"] == update_data_input["notes"]
-    assert response_data["hierarchy_balance"] == response_data["available_balance"]
+    assert Decimal(str(response_data["hierarchy_balance"])) == Decimal(str(response_data["available_balance"]))
 
     # Verify update in the database
     db_account = override_get_db.query(Account).filter(Account.id == created_account.id).first()
     assert db_account is not None
 
     assert db_account.name == update_data_input["name"]
-    assert db_account.available_balance == 123.46
+    assert db_account.available_balance == Decimal("123.46") # Expected quantized Decimal
 
 @pytest.mark.asyncio
 async def test_update_account_with_unsupported_field_integration(async_client: TestClient, override_get_db: Session) -> None:
@@ -324,7 +334,7 @@ async def test_perform_balance_adjustment_success(async_client: TestClient, over
 
     # Create an account
     account_service = AccountService(override_get_db)
-    initial_balance = 100.00
+    initial_balance = Decimal("100.00")
     created_account = account_service.create_account(
         name="Account for Adjustment",
         currency="USD",
@@ -332,9 +342,9 @@ async def test_perform_balance_adjustment_success(async_client: TestClient, over
         available_balance=initial_balance
     )
 
-    target_balance = 150.00
+    target_balance = Decimal("150.00")
     adjustment_payload_input = {
-        "target_balance": target_balance,
+        "target_balance": str(target_balance), # Convert Decimal to str for JSON serialization
         "adjustment_date": datetime.now().date().isoformat(),
         "description": "Integration test adjustment",
         "action_type": "ADJUSTMENT"
@@ -350,7 +360,7 @@ async def test_perform_balance_adjustment_success(async_client: TestClient, over
 
     assert "transaction_id" in response_data
     assert response_data["account_id"] == created_account.id
-    assert response_data["new_balance"] == target_balance
+    assert Decimal(str(response_data["new_balance"])) == Decimal(adjustment_payload_input["target_balance"])
 
     # Verify account balance update in the database
     db_account = override_get_db.query(Account).filter(Account.id == created_account.id).first()
@@ -370,7 +380,7 @@ async def test_create_account_validation_error(async_client: TestClient) -> None
         "currency": "USD",
         "accounting_category": "ASSET",
         "banking_product_type": "BANK",
-        "available_balance": "not a float" # Invalid type
+        "available_balance": "not a decimal" # Invalid type, changed from "not a float"
     }
 
     response = async_client.post("/api/accounts", json=invalid_payload_input)
@@ -392,7 +402,7 @@ async def test_update_account_not_found(async_client: TestClient) -> None:
     non_existent_id = str(uuid.uuid4())
     update_data_input = {
         "name": "Attempted Update",
-        "available_balance": 100.0
+        "available_balance": str(Decimal("100.0")) # Convert Decimal to str for JSON serialization
     }
 
     response = async_client.put(f"/api/accounts/{non_existent_id}", json=update_data_input)
@@ -425,7 +435,7 @@ async def test_perform_balance_adjustment_not_found(async_client: TestClient) ->
 
     non_existent_account_id = str(uuid.uuid4())
     adjustment_payload_input = {
-        "target_balance": 1500.0,
+        "target_balance": str(Decimal("1500.0")), # Convert Decimal to str for JSON serialization
         "adjustment_date": datetime.now().date().isoformat(),
         "description": "Adjustment on non-existent account",
         "action_type": "ADJUSTMENT"
@@ -453,7 +463,7 @@ async def test_perform_balance_adjustment_validation_error(async_client: TestCli
     account_id_for_adjustment = str(uuid.uuid4()) # A dummy ID is fine here
 
     invalid_payload_input = {
-        "target_balance": "not a float", # Invalid type
+        "target_balance": "not a decimal", # Invalid type, changed from "not a float"
         "adjustment_date": "26-02-2026", # Invalid format
         "description": "Invalid adjustment data",
         "action_type": "TEST_ADJ"

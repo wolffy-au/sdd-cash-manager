@@ -64,6 +64,21 @@ class AppSettings:
     security_enabled: bool = field(
         default_factory=lambda: _coerce_bool("SDD_CASH_MANAGER_SECURITY_ENABLED", False)
     )
+    log_format: str = field(
+        default_factory=lambda: os.environ.get("SDD_CASH_MANAGER_LOG_FORMAT", "%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    )
+    security_log_level: str = field(
+        default_factory=lambda: os.environ.get("SDD_CASH_MANAGER_SECURITY_LOG_LEVEL", "INFO")
+    )
+    security_log_file: str = field(
+        default_factory=lambda: os.environ.get("SDD_CASH_MANAGER_SECURITY_LOG_FILE", "security.log")
+    )
+    security_console_log_enabled: bool = field(
+        default_factory=lambda: _coerce_bool("SDD_CASH_MANAGER_SECURITY_CONSOLE_LOG_ENABLED", False)
+    )
+    security_alerts_enabled: bool = field(
+        default_factory=lambda: _coerce_bool("SDD_CASH_MANAGER_SECURITY_ALERTS_ENABLED", False)
+    )
 
 
 settings: Final[AppSettings] = AppSettings()

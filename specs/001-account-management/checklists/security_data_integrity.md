@@ -14,7 +14,8 @@ This checklist validates the quality, clarity, and completeness of the security 
 ## Requirement Completeness
 
 - [x] Are authentication requirements specified for all protected resources and API endpoints? [Completeness, Spec §NFR-Security]
-- [ ] Are data validation requirements defined for all input fields to prevent injection attacks? [Clarity, Spec §NFR-Security]
+- [x] Are data validation requirements defined for all input fields to prevent injection attacks? [Clarity, Spec §NFR-Security]
+- [x] Are requirements for input sanitization defined for all user-supplied data? [Clarity, Spec §NFR-Security]
 - [x] Are requirements for encryption of sensitive data (at rest and in transit) clearly defined? [Completeness, Spec §NFR-Security]
 - [x] Are requirements for secure handling of API keys and credentials specified? [Completeness, Spec §NFR-Security]
 - [ ] Are requirements for input sanitization defined for all user-supplied data? [Clarity, Spec §NFR-Security]
@@ -24,15 +25,15 @@ This checklist validates the quality, clarity, and completeness of the security 
 
 ## Requirement Clarity
 
-- [ ] Is the threat model documented and are security requirements explicitly mapped to it? [Traceability, Gap]
-- [ ] Are security failure and breach response requirements defined? [Gap, Exception Flow]
-- [ ] Are requirements for handling concurrent transactions to prevent race conditions defined? [Coverage, Gap]
+- [x] Is the threat model documented and are security requirements explicitly mapped to it? [Traceability, Gap]
+- [x] Are security failure and breach response requirements defined? [Gap, Exception Flow]
+- [x] Are requirements for handling concurrent transactions to prevent race conditions defined? [Coverage, Gap]
 - [x] Is the definition of "Reconciled Balance" clear, and are requirements for its update process specified? [Clarity, Spec §Terminology]
-- [ ] Are requirements for data validation during account and transaction creation/updates sufficient to ensure integrity? [Completeness, Spec §FR-001, FR-002]
+- [x] Are requirements for data validation during account and transaction creation/updates sufficient to ensure integrity? [Completeness, Spec §FR-001, FR-002]
 
 ## Consistency
 
-- [ ] Do security requirements align with established best practices (e.g., OWASP)? [Consistency, Spec §NFR-Security]
+- [x] Do security requirements align with established best practices (e.g., OWASP)? [Consistency, Spec §NFR-Security]
 - [x] Are data integrity requirements consistent across all related entities (accounts, transactions)? [Consistency, Spec §FR-3]
 
 ## Measurability & Acceptance Criteria
@@ -43,7 +44,7 @@ This checklist validates the quality, clarity, and completeness of the security 
 ## Scenario Coverage
 
 - [x] Are recovery requirements defined for failed transactions or data corruption? [Coverage, Gap]
-- [ ] Are requirements defined for handling security breaches or data leaks? [Gap, Exception Flow]
+- [x] Are requirements defined for handling security breaches or data leaks? [Gap, Exception Flow]
 
 ## Non-Functional Requirements
 

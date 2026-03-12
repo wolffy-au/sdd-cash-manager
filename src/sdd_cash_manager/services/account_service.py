@@ -10,17 +10,18 @@ from sqlalchemy.orm import Session
 from sqlalchemy.sql import ColumnElement
 
 from sdd_cash_manager.lib.encryption import SensitiveDataCipher
+from sdd_cash_manager.lib.security_events import log_critical_application_error  # New import
 from sdd_cash_manager.lib.utils import quantize_currency
 from sdd_cash_manager.models.account import Account
 from sdd_cash_manager.models.enums import AccountingCategory, BankingProductType
 
-AccountFieldValue: TypeAlias = str | float | Decimal | bool | None
+AccountFieldValue: TypeAlias = str | Decimal | float | bool | None
 
 
 @dataclass
 class AccountBalanceSnapshot:
     timestamp: datetime
-    balance: float
+    balance: Decimal
     reason: str | None = None
 
 
@@ -63,11 +64,15 @@ class AccountService:
 
     def _acquire_session(self) -> tuple[Session, bool]:
         """Return a session plus a flag indicating whether the caller must close it."""
-        if self.session_factory:
-            return self.session_factory(), True
-        if self.db_session is None:
-            raise ValueError("Database session is required for account operations.")
-        return self.db_session, False
+        try:
+            if self.session_factory:
+                return self.session_factory(), True
+            if self.db_session is None:
+                raise ValueError("Database session is required for account operations.")
+            return self.db_session, False
+        except Exception as e:
+            log_critical_application_error(f"Failed to acquire database session: {e}", metadata={"service": "AccountService"})
+            raise RuntimeError("Failed to acquire database session due to unexpected error.") from e
 
     def _record_balance_snapshot(
         self,
@@ -146,10 +151,36 @@ class AccountService:
         raise ValueError(f"Invalid {field_name} '{value}'.")
 
     @staticmethod
-    def _quantize_value(value: AccountFieldValue) -> float | None:
+    def _validate_string_field(
+        value: str,
+        field_name: str,
+        min_length: int = 1,
+        max_length: int | None = None,
+        allowed_chars_regex: str | None = None,
+        forbidden_chars_regex: str | None = r"[<>;]" # Default forbidden chars from spec
+    ) -> str:
+        import re  # Import regex
+
+        stripped_value = value.strip()
+        if len(stripped_value) < min_length:
+            raise ValueError(f"{field_name} must be at least {min_length} characters long.")
+        if max_length is not None and len(stripped_value) > max_length:
+            raise ValueError(f"{field_name} cannot exceed {max_length} characters.")
+
+        if forbidden_chars_regex and re.search(forbidden_chars_regex, stripped_value):
+            raise ValueError(f"{field_name} contains forbidden characters: {forbidden_chars_regex}")
+
+        if allowed_chars_regex and not re.fullmatch(allowed_chars_regex, stripped_value):
+            raise ValueError(f"{field_name} contains invalid characters. Allowed pattern: {allowed_chars_regex}")
+
+        return stripped_value
+
+    @staticmethod
+    def _quantize_value(value: AccountFieldValue) -> Decimal | None: # Changed return type
         if value is None:
             return None
-        return float(quantize_currency(str(value)))
+        # Ensure Decimal is used for quantization
+        return quantize_currency(Decimal(str(value))) # Cast to Decimal before quantizing
 
     def _get_update_handlers(self, account: Account) -> dict[str, Callable[[AccountFieldValue], None]]:
         return {
@@ -212,16 +243,16 @@ class AccountService:
     def _update_name(self, account: Account, value: AccountFieldValue) -> None:
         if value is None:
             raise ValueError("name cannot be null.")
-        account.name = str(value)
+        account.name = self._validate_string_field(str(value), "name", max_length=100, allowed_chars_regex=r"^[a-zA-Z0-9\s.,\-_()&']+$")
 
     def _update_account_number(self, account: Account, value: AccountFieldValue) -> None:
-        account.account_number = str(value) if value is not None else None
+        account.account_number = self._validate_string_field(str(value), "account_number", max_length=50, allowed_chars_regex=r"^[a-zA-Z0-9\-]+$") if value is not None else None
 
     def _update_parent_account_id(self, account: Account, value: AccountFieldValue) -> None:
         account.parent_account_id = str(value) if value is not None else None
 
     def _update_notes(self, account: Account, value: AccountFieldValue) -> None:
-        account.notes = self._encrypt_notes(str(value)) if value is not None else None
+        account.notes = self._encrypt_notes(self._validate_string_field(str(value), "notes", max_length=500, forbidden_chars_regex=r"[<>;]")) if value is not None else None
 
     def _update_hidden(self, account: Account, value: AccountFieldValue) -> None:
         if not isinstance(value, bool):
@@ -240,12 +271,13 @@ class AccountService:
         accounting_category: str,
         account_number: str | None = None,
         banking_product_type: str | None = None,
-        available_balance: AccountFieldValue = 0.0,
+        available_balance: AccountFieldValue = Decimal("0.0"),
         credit_limit: AccountFieldValue = None,
         notes: str | None = None,
         parent_account_id: str | None = None,
         hidden: bool = False,
-        placeholder: bool = False
+        placeholder: bool = False,
+        id: str | None = None # NEW OPTIONAL PARAMETER
     ) -> Account:
         """Create and persist a new account with validated metadata and quantized balances."""
         if not name or not currency or not accounting_category:
@@ -263,15 +295,16 @@ class AccountService:
 
         quantized_available_balance = self._quantize_value(available_balance)
         if quantized_available_balance is None:
-            quantized_available_balance = 0.0
+            quantized_available_balance = Decimal("0.0")
 
-        account_id = str(uuid.uuid4())
+        # Use provided ID or generate a new one
+        account_id_to_use = id if id is not None else str(uuid.uuid4()) # Use new parameter
 
         account = Account(
             name=name,
             currency=validated_currency,
             accounting_category=validated_category,
-            id=account_id,
+            id=account_id_to_use, # Pass the chosen ID
             account_number=account_number,
             banking_product_type=validated_banking_type,
             available_balance=quantized_available_balance,
@@ -294,6 +327,9 @@ class AccountService:
             session.flush()
             session.refresh(account)
             return account
+        except Exception as e:
+            log_critical_application_error(f"Failed to create account {account_id_to_use}: {e}", account_id=account_id_to_use, metadata={"service": "AccountService"})
+            raise RuntimeError(f"Failed to create account {account_id_to_use} due to unexpected error.") from e
         finally:
             if should_close and session is not None:
                 session.close()
@@ -303,10 +339,22 @@ class AccountService:
         if not self._use_db:
             return self.accounts.get(account_id)
 
-        active_session = session or self.db_session
-        if active_session is None:
-            raise ValueError("Database session is required to retrieve accounts.")
-        return active_session.get(Account, account_id)
+        if session is not None:
+            try:
+                return session.get(Account, account_id)
+            except Exception as e:
+                log_critical_application_error(f"Failed to retrieve account {account_id}: {e}", account_id=account_id, metadata={"service": "AccountService"})
+                raise RuntimeError(f"Failed to retrieve account {account_id} due to unexpected error.") from e
+
+        active_session, should_close = self._acquire_session()
+        try:
+            return active_session.get(Account, account_id)
+        except Exception as e:
+            log_critical_application_error(f"Failed to retrieve account {account_id}: {e}", account_id=account_id, metadata={"service": "AccountService"})
+            raise RuntimeError(f"Failed to retrieve account {account_id} due to unexpected error.") from e
+        finally:
+            if should_close:
+                active_session.close()
 
     def get_all_accounts(
         self,
@@ -335,6 +383,9 @@ class AccountService:
         try:
             query = self._build_account_query(session, criteria)
             return list(session.scalars(query).all())
+        except Exception as e:
+            log_critical_application_error(f"Failed to retrieve all accounts: {e}", metadata={"service": "AccountService"})
+            raise RuntimeError("Failed to retrieve all accounts due to unexpected error.") from e
         finally:
             if should_close and session is not None:
                 session.close()
@@ -354,17 +405,32 @@ class AccountService:
         if self._use_db:
             session, should_close = self._acquire_session()
         try:
-            account = self.get_account(account_id, session=session)
+            # Use with_for_update() to acquire a pessimistic lock on the account row
+            if self._use_db and session is not None:
+                account = session.execute(
+                    select(Account)
+                    .filter_by(id=account_id)
+                    .with_for_update()  # Acquire pessimistic lock
+                ).scalar_one_or_none()
+            else:
+                account = self.get_account(account_id, session=session) # Fallback for non-db mode
+
             if account is None:
                 return None
 
             self._apply_updates(account, kwargs)
 
             if self._use_db and session is not None:
-                session.add(account)
-                session.flush()
-                session.refresh(account)
+                # Changes to the 'account' object are already tracked by the session
+                # No need for session.add(account) if it was already retrieved from the session
+                session.flush() # Persist changes within the transaction
+                session.refresh(account) # Reload fresh state after flush
             return account
+        except ValueError:
+            raise
+        except Exception as e:
+            log_critical_application_error(f"Failed to update account {account_id}: {e}", account_id=account_id, metadata={"service": "AccountService"})
+            raise RuntimeError(f"Failed to update account {account_id} due to unexpected error.") from e
         finally:
             if should_close and session is not None:
                 session.close()
@@ -410,6 +476,9 @@ class AccountService:
             session.delete(account)
             session.flush()
             return True
+        except Exception as e:
+            log_critical_application_error(f"Failed to delete account {account_id}: {e}", account_id=account_id, metadata={"service": "AccountService"})
+            raise RuntimeError(f"Failed to delete account {account_id} due to unexpected error.") from e
         finally:
             if should_close:
                 session.close()
@@ -448,39 +517,42 @@ class AccountService:
         try:
             query = select(Account).where(and_(*filters)).order_by(Account.name)
             return list(session.scalars(query).all())
+        except Exception as e:
+            log_critical_application_error(f"Failed to search accounts by name '{term}': {e}", metadata={"service": "AccountService", "search_term": term})
+            raise RuntimeError("Failed to search accounts due to unexpected error.") from e
         finally:
             if should_close:
                 session.close()
 
-    def calculate_running_balance(self, account_id: str) -> float:
+    def calculate_running_balance(self, account_id: str) -> Decimal:
         """Return the quantized running balance for the account."""
         account = self.get_account(account_id)
         if account is None:
-            return 0.0
-        return float(quantize_currency(str(account.available_balance)))
+            return Decimal("0.0")
+        return quantize_currency(account.available_balance)
 
-    def calculate_reconciled_balance(self, account_id: str) -> float:
+    def calculate_reconciled_balance(self, account_id: str) -> Decimal:
         """Return the quantized reconciled balance for the account."""
         account = self.get_account(account_id)
         if account is None:
-            return 0.0
-        return float(quantize_currency(str(account.available_balance)))
+            return Decimal("0.0")
+        return quantize_currency(account.available_balance)
 
-    def get_account_hierarchy_balance(self, account_id: str) -> float:
+    def get_account_hierarchy_balance(self, account_id: str) -> Decimal: # Changed return type
         """Return the aggregated balance for an account and its descendants."""
         if not account_id:
-            return 0.0
+            return Decimal("0.0") # Changed default to Decimal
 
         if not self._use_db:
             visited: set[str] = set()
 
-            def _sum_hierarchy(acc_id: str) -> float:
+            def _sum_hierarchy(acc_id: str) -> Decimal: # Changed return type
                 if acc_id in visited:
-                    return 0.0
+                    return Decimal("0.0") # Changed default to Decimal
                 visited.add(acc_id)
                 account = self.accounts.get(acc_id)
                 if account is None:
-                    return 0.0
+                    return Decimal("0.0") # Changed default to Decimal
 
                 subtotal = account.available_balance
                 for child in self.accounts.values():
@@ -488,7 +560,7 @@ class AccountService:
                         subtotal += _sum_hierarchy(child.id)
                 return subtotal
 
-            return float(_sum_hierarchy(account_id))
+            return _sum_hierarchy(account_id) # Removed float() cast
 
         session, should_close = self._acquire_session()
         try:
@@ -501,9 +573,12 @@ class AccountService:
                 select(Account.id, Account.available_balance)
                 .where(Account.parent_account_id == hierarchy_cte.c.id)
             )
-            total_query = select(func.coalesce(func.sum(hierarchy_cte.c.available_balance), 0.0))
+            total_query = select(func.coalesce(func.sum(hierarchy_cte.c.available_balance), Decimal("0.0"))) # Changed to Decimal
             total = session.scalar(total_query)
-            return float(total or 0.0)
+            return total or Decimal("0.0") # Changed to Decimal
+        except Exception as e:
+            log_critical_application_error(f"Failed to calculate hierarchy balance for account {account_id}: {e}", account_id=account_id, metadata={"service": "AccountService"})
+            raise RuntimeError(f"Failed to calculate hierarchy balance for account {account_id} due to unexpected error.") from e
         finally:
             if should_close and session is not None:
                 session.close()

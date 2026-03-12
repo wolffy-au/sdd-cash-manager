@@ -1,81 +1,182 @@
+from __future__ import annotations
+
 import uuid
-from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from decimal import Decimal
+from typing import Any, List
 
-from sdd_cash_manager.models.enums import ProcessingStatus, ReconciliationStatus
+from sqlalchemy import DateTime, ForeignKey, String, Text
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-
-@dataclass
-class Entry:
-    """Double-entry ledger row used by transactions."""
-    transaction_id: str
-    account_id: str
-    debit_amount: float
-    credit_amount: float
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    notes: str | None = None
-
-    def __post_init__(self) -> None:
-        if self.debit_amount < 0 or self.credit_amount < 0:
-            raise ValueError("Entry amounts must be non-negative.")
-        if self.debit_amount and self.credit_amount:
-            raise ValueError("An entry cannot have both debit and credit amounts.")
-        if not (self.debit_amount or self.credit_amount):
-            raise ValueError("An entry must debit or credit a non-zero amount.")
+from sdd_cash_manager.models.account import Account
+from sdd_cash_manager.models.base import Base
+from sdd_cash_manager.models.enums import (
+    ProcessingStatus,
+    ReconciliationStatus,
+)
 
 
-@dataclass
-class Transaction:
-    """In-memory representation of an account transaction."""
-    effective_date: datetime  # Date when the transaction's effect is recognized
-    booking_date: datetime  # Date when the transaction is entered into the system
-    description: str  # Description of the transaction
-    amount: float  # The amount of the transaction. Positive for income/credits, negative for expenses/debits.
-    debit_account_id: str  # The ID of the account from which funds are debited
-    credit_account_id: str  # The ID of the account to which funds are credited
-    action_type: str  # Type of action (e.g., "Manual Adjustment", "Payment", "Transfer")
-    entries: list[Entry] = field(default_factory=list)  # Ledger rows representing this transaction
-    id: str = field(default_factory=lambda: str(uuid.uuid4()))
-    processing_status: ProcessingStatus = ProcessingStatus.PENDING  # Current status of the transaction processing
-    reconciliation_status: ReconciliationStatus = ReconciliationStatus.PENDING_RECONCILIATION  # Status regarding account reconciliation
-    notes: str | None = None  # Additional notes for the transaction
+def _coerce_decimal_value(value: Any, *, allow_none: bool = False) -> Decimal:
+    if value is None:
+        if allow_none:
+            return Decimal(0)
+        raise ValueError("Amount is required.")
+    if isinstance(value, Decimal):
+        return value
+    if isinstance(value, float):
+        return Decimal(str(value))
+    return Decimal(value)
 
-    def _build_default_entries(self) -> list[Entry]:
-        """Construct default debit and credit ledger rows when none are supplied."""
-        amount_value = abs(self.amount)
-        if amount_value == 0:
-            raise ValueError("Transaction amount must be non-zero when building ledger entries.")
-        return [
-            Entry(
-                transaction_id=self.id,
-                account_id=self.debit_account_id,
-                debit_amount=amount_value,
-                credit_amount=0.0,
-                notes=self.notes
-            ),
-            Entry(
-                transaction_id=self.id,
-                account_id=self.credit_account_id,
-                debit_amount=0.0,
-                credit_amount=amount_value,
-                notes=self.notes
-            ),
-        ]
 
-    def __post_init__(self) -> None:
-        """Validate required transaction fields and ensure ledger integrity."""
-        if not self.description:
-            raise ValueError("Description cannot be empty.")
-        if not self.debit_account_id:
-            raise ValueError("Debit account ID cannot be empty.")
-        if not self.credit_account_id:
-            raise ValueError("Credit account ID cannot be empty.")
-        if not self.action_type:
-            raise ValueError("Action type cannot be empty.")
-        if not self.entries:
-            self.entries = self._build_default_entries()
-        total_debits = sum(entry.debit_amount for entry in self.entries)
-        total_credits = sum(entry.credit_amount for entry in self.entries)
-        if abs(total_debits - total_credits) > 0.00001:
-            raise ValueError("Transaction entries must balance.")
 
+class Entry(Base):
+    """SQLAlchemy model for a double-entry ledger row used by transactions."""
+    __tablename__ = "entries"
+
+    id: Mapped[str] = mapped_column(
+        String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    transaction_id: Mapped[str] = mapped_column(ForeignKey("transactions.id"))
+    account_id: Mapped[str] = mapped_column(ForeignKey("accounts.id"))
+    debit_amount: Mapped[Decimal] = mapped_column(
+        nullable=False, default=Decimal(0.0))
+    credit_amount: Mapped[Decimal] = mapped_column(
+        nullable=False, default=Decimal(0.0))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    def __init__(self, **kwargs: Any):
+        debit_amount = _coerce_decimal_value(kwargs.get("debit_amount"), allow_none=True)
+        credit_amount = _coerce_decimal_value(kwargs.get("credit_amount"), allow_none=True)
+
+        if debit_amount < Decimal(0) or credit_amount < Decimal(0):
+            raise ValueError("Entry amounts must not be negative.")
+        if debit_amount > 0 and credit_amount > 0:
+            raise ValueError("Entry cannot have both debit and credit amounts.")
+        if debit_amount == 0 and credit_amount == 0:
+            raise ValueError("Entry must have a non-zero debit or credit amount.")
+
+        kwargs["debit_amount"] = debit_amount
+        kwargs["credit_amount"] = credit_amount
+        super().__init__(**kwargs)
+
+    # Relationships
+    transaction: Mapped["Transaction"] = relationship(back_populates="entries")
+    # Use string literal for forward reference
+    account: Mapped["Account"] = relationship(
+        "Account", back_populates="entries")
+
+
+class Transaction(Base):
+    """SQLAlchemy model for an account transaction."""
+    __tablename__ = "transactions"
+
+    id: Mapped[str] = mapped_column(
+        String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    effective_date: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False)
+    booking_date: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False)
+    description: Mapped[str] = mapped_column(String(255), nullable=False)
+    # The amount of the transaction.
+    amount: Mapped[Decimal] = mapped_column(nullable=False)
+    debit_account_id: Mapped[str] = mapped_column(ForeignKey("accounts.id"))
+    credit_account_id: Mapped[str] = mapped_column(ForeignKey("accounts.id"))
+    # e.g., "Manual Adjustment", "Payment"
+    action_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    processing_status: Mapped[ProcessingStatus] = mapped_column(
+        String(50), default=ProcessingStatus.PENDING)
+    reconciliation_status: Mapped[ReconciliationStatus] = mapped_column(
+        String(50), default=ReconciliationStatus.PENDING_RECONCILIATION)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(
+        timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
+
+    # Relationships
+    entries: Mapped[List["Entry"]] = relationship(
+        back_populates="transaction", cascade="all, delete-orphan")
+    debit_account: Mapped["Account"] = relationship("Account", foreign_keys=[
+                                                    debit_account_id], post_update=True)  # Explicit foreign_keys, string literal
+    credit_account: Mapped["Account"] = relationship("Account", foreign_keys=[
+                                                     credit_account_id], post_update=True)  # Explicit foreign_keys, string literal
+
+    def __init__(self, **kw: Any):
+        entries = kw.pop("entries", None)
+        kw.setdefault("id", str(uuid.uuid4()))
+        kw["amount"] = self._coerce_transaction_amount(kw.get("amount"))
+        self._ensure_required_fields(kw)
+        kw.setdefault("processing_status", ProcessingStatus.PENDING)
+        kw.setdefault("reconciliation_status", ReconciliationStatus.PENDING_RECONCILIATION)
+
+        super().__init__(**kw)
+
+        if entries is None:
+            self._populate_default_entries()
+        else:
+            self._assign_entries(entries)
+
+    def __repr__(self):
+        return (
+            f"<Transaction(id='{self.id}', description='{self.description}', "
+            f"amount={self.amount}, effective_date='{self.effective_date}')>"
+        )
+
+    def _ensure_required_fields(self, kw: dict[str, Any]) -> None:
+        kw["description"] = self._validate_required_text(
+            kw.get("description"), "Description cannot be empty."
+        )
+        kw["debit_account_id"] = self._validate_required_text(
+            kw.get("debit_account_id"), "Debit account ID cannot be empty."
+        )
+        kw["credit_account_id"] = self._validate_required_text(
+            kw.get("credit_account_id"), "Credit account ID cannot be empty."
+        )
+
+    @staticmethod
+    def _validate_required_text(value: str | None, message: str) -> str:
+        if value is None or not value.strip():
+            raise ValueError(message)
+        return value
+
+    @staticmethod
+    def _coerce_transaction_amount(value: Any) -> Decimal:
+        amount = _coerce_decimal_value(value)
+        if amount == 0:
+            raise ValueError("Amount must be non-zero.")
+        return amount
+
+    def _populate_default_entries(self) -> None:
+        amount = abs(self.amount)
+        if amount == 0:
+            raise ValueError("Amount must be non-zero.")
+        debit_entry = Entry(
+            transaction_id=self.id,
+            account_id=self.debit_account_id,
+            debit_amount=amount,
+            credit_amount=Decimal(0),
+        )
+        credit_entry = Entry(
+            transaction_id=self.id,
+            account_id=self.credit_account_id,
+            debit_amount=Decimal(0),
+            credit_amount=amount,
+        )
+        self.entries = [debit_entry, credit_entry]
+        self._validate_entries_balance(self.entries)
+
+    def _assign_entries(self, entries: list[Entry] | tuple[Entry, ...]) -> None:
+        normalized_entries = list(entries)
+        if not normalized_entries:
+            raise ValueError("Entries collection cannot be empty.")
+        for entry in normalized_entries:
+            entry.transaction_id = self.id
+        self.entries = normalized_entries
+        self._validate_entries_balance(self.entries)
+
+    def _validate_entries_balance(self, entries: list[Entry]) -> None:
+        total_debits = sum((entry.debit_amount for entry in entries), Decimal(0))
+        total_credits = sum((entry.credit_amount for entry in entries), Decimal(0))
+        if total_debits != total_credits:
+            raise ValueError("Entries must balance.")

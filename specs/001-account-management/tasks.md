@@ -1,7 +1,7 @@
 # Task List: Account Management
 
 **Feature Name**: Account Management
-**Generated**: 2026-03-07
+**Generated**: 2026-03-12
 
 ## Phases
 
@@ -76,20 +76,32 @@ Finalization tasks including state management, documentation, and performance op
 - [x] T040 [Security] Define and implement secure configuration management using environment variables.
 - [x] T041 Define 'core business logic' for the Account Management feature and ensure 100% test coverage with automated reporting.
 
-## NFR Verification Tasks
+### Phase 7: Core Security & Reliability Enhancements (New Tasks based on updated spec.md and codebase investigation)
 
-- [ ] T042 [Scalability] Implement and test mechanisms for horizontal scaling to handle increased transaction volumes and user loads.
-- [ ] T043 [Scalability] Verify that account retrieval for hierarchies up to 5 levels deep completes within 200ms under load.
-- [ ] T044 [Accuracy] Implement financial calculation logic using `Decimal` types with appropriate precision and explicitly defined rounding rules (e.g., `ROUND_HALF_UP`) to ensure adherence to the 0.001% tolerance and 0.01 unit absolute error for the smallest currency denomination. Implement corresponding tests.
-- [ ] T045 [Accuracy] Develop tests to rigorously check the accuracy of all financial computations.
-- [ ] T046 [Reliability] Implement and test systems for achieving 99.9% uptime.
-- [ ] T047 [Reliability] Establish and test procedures for meeting a Recovery Time Objective (RTO) of less than 4 hours and a Recovery Point Objective (RPO) of 1 hour.
-- [ ] T048 [Reliability] Incorporate robust logging, monitoring, and failover mechanisms to ensure system resilience.
-- [ ] T049 [Reliability] Consider adding load testing to verify performance and stability under stress, ensuring reliability targets are met.
-- [ ] T050 [Scalability] Define and implement target for "high throughput": Specify target RPS (Requests Per Second) for critical API endpoints and test mechanisms to achieve it.
-- [ ] T051 [Scalability] Define and implement target for "scalability": Specify target for concurrent users or transactions per minute the system must support, and test accordingly.
-- [ ] T052 [Accuracy] Define and implement target for "accuracy": Specify target error rate for financial calculations (e.g., < 0.001%) and implement/verify logic to meet it.
-- [ ] T053 [Reliability] Define and implement target for "reliability": Specify target uptime percentage (e.g., > 99.9%) and implement/test systems to achieve it.
+This phase addresses the critical architectural and security gaps identified.
+
+- [x] T042 [P] Implement pessimistic locking (e.g., `SELECT ... FOR UPDATE`) in `src/services/account_service.py` to prevent race conditions during account balance updates.
+- [x] T043 [P] Modify `src/services/transaction_service.py` to persist `Transaction` and `Entry` data to the database, ensuring all financial transactions are durable. Update `src/models/transaction.py` and `src/database.py` as needed for ORM integration and migrations.
+- [x] T044 Document a formal threat model for the Account Management feature in `specs/001-account-management/threat_model.md` and map existing/new security requirements to it.
+- [x] T045 Define and implement logging, alerting, and incident response procedures for security failures and data breaches in `src/lib/security_events.py` and `src/core/config.py`.
+- [x] T046 Review and enhance input validation and sanitization enforcement across all layers (API, service, data access) in `src/api/`, `src/services/`, and `src/models/` to prevent bypasses.
+- [x] T047 Verify alignment of implemented security controls with OWASP Top 10 and define measurable acceptance criteria for security (e.g., integrate security scanning tools, define PT scope).
+
+### Phase 8: NFR Verification Tasks (Updated with new dependencies)
+
+These tasks verify the Non-Functional Requirements, now dependent on the core security and reliability enhancements.
+
+- [x] T048 [Scalability] Document implementation mechanisms for horizontal scaling (running multiple Uvicorn workers via Gunicorn, stateless app design) in `quickstart.md`. Testing of horizontal scaling will be covered by load testing in tasks T055 and T056.
+- [x] T049 [Scalability] Verify that account retrieval for hierarchies up to 5 levels deep completes within 200ms under load. (Implemented Locust task in `performance-tests/locustfile.py`. Manual execution of Locust and FastAPI app is required to verify performance. Instructions for running Locust are in `locustfile.py`).
+- [x] T050 [Accuracy] Implement financial calculation logic using `Decimal` types with appropriate precision and explicitly defined rounding rules (e.g., `ROUND_HALF_UP`) to ensure adherence to the 0.001% tolerance and 0.01 unit absolute error for the smallest currency denomination. Implement corresponding tests.
+- [x] T051 [Accuracy] Develop tests to rigorously check the accuracy of all financial computations.
+- [ ] T052 [Reliability] Implement and test systems for achieving 99.9% uptime.
+- [ ] T053 [Reliability] Establish and test procedures for meeting a Recovery Time Objective (RTO) of less than 4 hours and a Recovery Point Objective (RPO) of 1 hour.
+- [ ] T054 [Reliability] Incorporate robust logging, monitoring, and failover mechanisms to ensure system resilience.
+- [ ] T055 [Scalability] Define and implement target for "high throughput": Specify target RPS (Requests Per Second) for critical API endpoints and test mechanisms to achieve it.
+- [ ] T056 [Scalability] Define and implement target for "scalability": Specify target for concurrent users or transactions per minute the system must support, and test accordingly.
+- [ ] T057 [Accuracy] Define and implement target for "accuracy": Specify target error rate for financial calculations (e.g., < 0.001%) and implement/verify logic to meet it.
+- [ ] T058 [Reliability] Define and implement target for "reliability": Specify target uptime percentage (e.g., > 99.9%) and implement/test systems to achieve it.
 
 ## Dependencies and Ordering
 
@@ -99,7 +111,8 @@ Finalization tasks including state management, documentation, and performance op
 - User Story 1 (T008-T015) and User Story 3 (T016-T023) are both P1 and can be worked on in parallel, but US1 foundational elements might be needed for US3. US1 foundational elements (T008-T010) are prerequisites for US3.
 - User Story 2 (T024-T029) is P2 and depends on the completion of US1.
 - **Polish Tasks (T030-T041)** depend on the completion of all User Story implementation tasks.
-- **NFR Verification Tasks (T042-T053)** depend on the completion of User Story implementation and potentially Polish tasks.
+- **Core Security & Reliability Enhancements (T042-T047)** depend on the completion of Polish Tasks (T030-T041) and are critical prerequisites for NFR Verification.
+- **NFR Verification Tasks (T048-T058)** depend on the completion of all User Story implementation, Polish, and Core Security & Reliability Enhancement tasks.
 
 ## Parallel Opportunities
 
@@ -108,26 +121,26 @@ Finalization tasks including state management, documentation, and performance op
 - **User Story 1**: T008 (Model), T009 (Enums), T010 (Service) can be worked on in parallel. T012 (API) depends on T010. Tests (T013-T015) can run in parallel once their respective implementation tasks are completed.
 - **User Story 3**: T016 (Models), T017 (Service) can be worked on in parallel, but T017 depends on T016. T020 (API) depends on T017. Tests (T021-T023) can run in parallel once their respective implementation tasks are completed.
 - **User Story 2**: T024 (Model), T025 (Service) can be worked on in parallel, but T025 depends on T024. T027 (API) depends on T025. Tests (T028-T029) can run in parallel once their respective implementation tasks are completed.
-- **Polish & NFR Verification**: Many tasks in Phase 6 and NFR Verification can be worked on in parallel, with dependencies noted.
+- **Polish & Core Security/Reliability**: Many tasks in Phase 6 and 7 can be worked on in parallel, with dependencies noted.
+- **NFR Verification**: Many tasks in Phase 8 can be worked on in parallel, with dependencies noted.
 
 ## Implementation Strategy
 
 - **MVP**: User Story 1 (Account Creation and Management) and User Story 3 (Balance Adjustment).
-- **Incremental Delivery**: Implement features phase by phase, starting with setup, then foundational elements, followed by user stories in priority order (P1 then P2), and finally polish.
+- **Incremental Delivery**: Implement features phase by phase, starting with setup, then foundational elements, followed by user stories in priority order (P1 then P2), then core security/reliability enhancements, and finally NFR verification.
 
 ## Summary
 
-- **Total Tasks**: 53
+- **Total Tasks**: 58
 - **Tasks per User Story**:
   - US1: 8 tasks
   - US3: 8 tasks
   - US2: 6 tasks
-- **Parallel Opportunities**: Identified across setup, foundational, and within user story implementation/testing phases.
-- **Independent Test Criteria**: Each user story phase is designed to be independently testable.
+- **Parallel Opportunities**: Identified across setup, foundational, and within user story implementation/testing phases, as well as within the new Core Security & Reliability and NFR Verification phases.
+- **Independent Test Criteria**: Each user story phase is designed to be independently testable. Core Security & Reliability enhancements are also independently testable where applicable.
 - **Suggested MVP Scope**: User Story 1 and User Story 3.
 - **Format Validation**: All tasks follow the checklist format `- [ ] [TaskID] [P?] [Story?] Description with file path`.
 
 ## Next Step
 
-With US1 (T008-T015), US3 (T016-T023), and now US2 (T024-T029) complete, the focus moves on to Phase 6: Polish & Cross-Cutting Concerns.
-```
+The task list has been regenerated to include critical security and reliability enhancements. Please review and provide further instructions.

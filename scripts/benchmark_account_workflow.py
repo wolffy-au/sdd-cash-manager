@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from decimal import Decimal
 from statistics import mean
 from time import perf_counter
 from uuid import uuid4
@@ -44,12 +45,11 @@ def run_benchmarks(account_count: int = 100) -> None:
         creation_times.append(perf_counter() - start)
         created_ids.append(account.id)
 
-    adjustment_target = 1500.0
     for account_id in created_ids[-5:]:
         start = perf_counter()
         transaction_service.perform_balance_adjustment(
             account_id=account_id,
-            target_balance=adjustment_target,
+            target_balance=Decimal("1500.00"),
             adjustment_date=datetime.utcnow(),
             description="Benchmark adjustment",
             action_type="ADJUSTMENT",

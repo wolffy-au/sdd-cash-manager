@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from sdd_cash_manager.models.account import Account
 from sdd_cash_manager.models.enums import AccountingCategory, BankingProductType
 
@@ -9,7 +11,7 @@ def test_account_model_creation():
         currency="USD",
         accounting_category=AccountingCategory.ASSET,
         banking_product_type=BankingProductType.CHECKING,
-        available_balance=1000.50,
+        available_balance=Decimal("1000.50"),
         credit_limit=None,
         notes="Primary checking account"
     )
@@ -17,14 +19,14 @@ def test_account_model_creation():
     assert account.currency == "USD"
     assert account.accounting_category == AccountingCategory.ASSET
     assert account.banking_product_type == BankingProductType.CHECKING
-    assert account.available_balance == 1000.50
+    assert account.available_balance == Decimal("1000.50")
     assert account.notes == "Primary checking account"
     assert account.id is not None
     assert isinstance(account.id, str)
 
 def test_account_model_defaults():
     account = Account(name="Default Account", currency="XYZ", accounting_category=AccountingCategory.ASSET)
-    assert account.available_balance == 0.0
+    assert account.available_balance == Decimal("0.0")
     assert account.hidden is False
     assert account.placeholder is False
     assert account.parent_account_id is None

@@ -168,6 +168,7 @@ This section details the comprehensive validation rules applied to all input poi
 **General Protections**:
 
 - All API inputs are validated using Pydantic schemas, FastAPI's type coercion, and custom validators to enforce data integrity.
+- **Validation and sanitization must be consistently applied and enforced across all layers (API, service, and data access) to prevent bypasses and ensure robustness against injection attacks.**
 - Schema validation rejects malformed input with a `400 Bad Request` status code.
 - SQLAlchemy ORM parameter binding is used for all database operations, preventing SQL injection.
 - Logging scrubs control characters.
@@ -222,6 +223,31 @@ This section details the comprehensive validation rules applied to all input poi
        - **`action_type`**: Enum value from `ActionType`.
        - **`notes`**: Optional string (max_length=500). Forbids control characters and characters `<>;`.
 
+## Threat Model
+
+A formal threat model (e.g., using STRIDE, DREAD, or similar methodology) for the Account Management feature **MUST** be documented. This model will identify potential threats, vulnerabilities, and attack vectors specific to the system's architecture, data flows, and asset types. All security requirements defined in this specification, and any subsequent derived security controls, **MUST** be explicitly mapped back to specific threats identified in this threat model. This ensures comprehensive coverage and justification for security measures. The threat model **MUST** be regularly reviewed and updated.
+
+## Security Incident Response
+
+Requirements for handling security failures, data breaches, and other security incidents **MUST** be clearly defined. This includes:
+
+- **Detection**: Mechanisms and tools for prompt detection of security incidents.
+- **Containment**: Procedures to limit the scope and impact of an incident.
+- **Eradication**: Steps to remove the cause of the incident.
+- **Recovery**: Processes to restore affected systems and data to normal operation, including post-incident validation.
+- **Post-Incident Analysis**: Requirements for conducting root cause analysis and implementing lessons learned to prevent recurrence.
+- **Breach Notification**: Procedures and timelines for notifying affected parties and regulatory bodies in case of a data breach, adhering to all applicable legal and regulatory requirements.
+
+## Concurrency Control
+
+The system **MUST** implement robust concurrency control mechanisms to prevent race conditions and ensure data integrity, especially during simultaneous updates to account balances or hierarchical structures. This includes:
+
+- **Atomicity**: All operations modifying financial data **MUST** be atomic.
+- **Isolation**: Concurrent transactions **MUST** execute in isolation, preventing interim states from being visible to other transactions.
+- **Durability**: Committed transactions **MUST** persist even in the event of system failures.
+- **Locking Strategies**: Explicit locking mechanisms (e.g., pessimistic locking via `SELECT ... FOR UPDATE` at the database level, or optimistic locking with versioning) **MUST** be employed for critical sections involving read-modify-write operations on account balances.
+- **Deadlock Prevention/Detection**: Strategies for preventing or detecting and resolving deadlocks **MUST** be implemented.
+
 ## Feature Success Criteria
 
 The successful implementation of the Account Management feature will be measured by the following key outcomes:
@@ -241,6 +267,7 @@ The successful implementation of the Account Management feature will be measured
   - Authentication uses RS256 JWT with OAuth 2.0 adherence.
   - Authorization is managed via Role-Based Access Control (RBAC).
   - Data in transit is protected by TLS 1.3, and data at rest by AES-256.
+  - **Security requirements must align with established industry best practices (e.g., OWASP Top 10) and be defined with measurable acceptance criteria (e.g., passing specific security scans, penetration testing results, or compliance audit outcomes).**
 
 ## Next Steps
 

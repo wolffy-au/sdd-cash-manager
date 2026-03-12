@@ -1,3 +1,4 @@
+import logging
 from datetime import date
 from decimal import Decimal
 from uuid import uuid4
@@ -5,6 +6,15 @@ from uuid import uuid4
 from locust import HttpUser, between, task
 
 # --- Locustfile for API Performance Testing ---
+
+# Global variable to store the root ID of the pre-created hierarchy
+# This needs to be managed carefully in a distributed Locust setup.
+# For a single-process local run, this is sufficient.
+HIERARCHY_ROOT_ID = None
+HIERARCHY_DEPTH = 5 # Number of levels in the hierarchy (including root)
+HIERARCHY_CHILDREN_PER_LEVEL = 1 # Simple 1:1 hierarchy for initial test
+
+logger = logging.getLogger(__name__)
 
 class AccountAPIUser(HttpUser):
     """
@@ -15,57 +25,103 @@ class AccountAPIUser(HttpUser):
 
     def on_start(self):
         """on_start is called when a Locust user starts"""
-        # Optionally, create a user or do initial setup if needed.
-        # For simplicity, we'll assume accounts can be created on the fly or pre-created.
-        # We'll create an account here to use for GET/PUT/DELETE tests.
-        # This might require careful handling if tests run in parallel or need specific states.
+        logger.info("Locust user starting...")
+        self.account_id = None # Account for single-account operations
 
-        # Let's pre-create an account for GET/PUT/DELETE tests to ensure it exists.
-        # This might not be ideal for pure performance testing of creation,
-        # but useful for testing GET/PUT/DELETE endpoints.
-        print("Locust user starting...")
-        # Create an account to be used in GET/PUT/DELETE tests
-        self.account_id = None
+        # Ensure a hierarchy exists for performance testing
+        self._create_hierarchy_if_not_exists()
+
+        # Create an account to be used in GET/PUT/DELETE tests if it doesn't already exist
         try:
-            # We need to ensure the API is running and accessible at self.host
-            # For local testing, self.host would be http://localhost:8000 or similar.
-            # In this environment, we can't directly run the API.
-            # Thus, these tests are illustrative and would require a running API.
-
-            # Illustrative account creation for GET/PUT/DELETE tests
-            # POST /accounts/
-            create_payload = {
-                "name": "Locust Test Account",
-                "account_number": f"LOCUST_{uuid4()}",
-                "currency": "USD",
-                "accounting_category": "ASSET",
-                "banking_product_type": "BANK",
-                "available_balance": "1000.00",
-                "credit_limit": None,
-                "notes": "Locust test account",
-                "hidden": False,
-                "placeholder": False
-            }
-            create_response = self.client.post("/accounts/", json=create_payload)
-            if create_response.status_code == 201:
-                self.account_id = create_response.json()["id"]
-                print(f"Locust user created account for testing: {self.account_id}")
+            # Check if a test account already exists using a predictable name
+            test_account_name = "Locust Single Test Account"
+            response = self.client.get(f"/accounts?search_term={test_account_name}")
+            if response.status_code == 200 and response.json():
+                self.account_id = response.json()[0]["id"]
+                logger.info(f"Using existing single account for testing: {self.account_id}")
             else:
-                print(f"Failed to create account for testing: {create_response.status_code} - {create_response.text}")
-                # Depending on scenario, might want to fail the test or skip dependent tasks.
+                create_payload = {
+                    "name": test_account_name,
+                    "account_number": f"LOCUST_SINGLE_{uuid4()}",
+                    "currency": "USD",
+                    "accounting_category": "ASSET",
+                    "banking_product_type": "BANK",
+                    "available_balance": str(Decimal("1000.00")),
+                    "credit_limit": None,
+                    "notes": "Locust test account for single operations",
+                    "hidden": False,
+                    "placeholder": False
+                }
+                create_response = self.client.post("/accounts/", json=create_payload)
+                if create_response.status_code == 201:
+                    self.account_id = create_response.json()["id"]
+                    logger.info(f"Locust user created single account for testing: {self.account_id}")
+                else:
+                    logger.error(f"Failed to create single account for testing: {create_response.status_code} - {create_response.text}")
 
         except Exception as e:
-            print(f"Error during Locust on_start: {e}")
-            # Handle exceptions if API is not reachable or errors occur
+            logger.error(f"Error during Locust on_start: {e}")
+
+    def _create_hierarchy_if_not_exists(self):
+        """Creates a deep account hierarchy if it doesn't exist."""
+        global HIERARCHY_ROOT_ID
+        if HIERARCHY_ROOT_ID:
+            # Verify it actually exists
+            response = self.client.get(f"/accounts/{HIERARCHY_ROOT_ID}")
+            if response.status_code == 200:
+                logger.info(f"Using existing hierarchy with root: {HIERARCHY_ROOT_ID}")
+                return
+
+        logger.info("Creating a new account hierarchy for performance testing...")
+
+        current_parent_id = None
+        for i in range(HIERARCHY_DEPTH):
+            account_name = f"Hierarchy Level {i+1} - {uuid4()}"
+            create_payload = {
+                "name": account_name,
+                "currency": "USD",
+                "accounting_category": "ASSET",
+                "available_balance": str(Decimal("100.00")),
+                "parent_account_id": current_parent_id,
+                "placeholder": False
+            }
+            response = self.client.post("/accounts/", json=create_payload)
+            if response.status_code == 201:
+                new_account_id = response.json()["id"]
+                if i == 0:
+                    HIERARCHY_ROOT_ID = new_account_id
+                current_parent_id = new_account_id
+            else:
+                logger.error(f"Failed to create hierarchy account at level {i+1}: {response.status_code} - {response.text}")
+                # Abort hierarchy creation if any level fails
+                HIERARCHY_ROOT_ID = None
+                return
+        logger.info(f"Hierarchy created with root: {HIERARCHY_ROOT_ID}")
 
     @task(10) # Higher weight means this task is executed more frequently
     def get_account(self):
-        """Task for fetching an account by ID."""
+        """Task for fetching a single account by ID."""
         if self.account_id:
-            try:
-                self.client.get(f"/accounts/{self.account_id}")
-            except Exception as e:
-                print(f"Error during GET account: {e}")
+            with self.client.get(f"/accounts/{self.account_id}", catch_response=True) as response:
+                if response.status_code != 200:
+                    response.failure(f"Get single account failed with status {response.status_code}")
+
+    @task(5)
+    def get_account_hierarchy(self):
+        """Task for fetching the root of a deep account hierarchy."""
+        if HIERARCHY_ROOT_ID:
+            with self.client.get(f"/accounts/{HIERARCHY_ROOT_ID}", catch_response=True) as response:
+                if response.status_code == 200:
+                    # Optional: Verify hierarchy_balance is present and reasonable
+                    response_data = response.json()
+                    if "hierarchy_balance" not in response_data:
+                        response.failure("Hierarchy balance not found in response")
+                    # No explicit timing assertion here, Locust handles that.
+                else:
+                    response.failure(f"Get hierarchy failed with status {response.status_code}")
+        else:
+            logger.warning("HIERARCHY_ROOT_ID not set, skipping get_account_hierarchy task.")
+
 
     @task(5) # Lower weight for creation, as it might be tested less frequently or separately
     def create_account(self):
@@ -82,48 +138,26 @@ class AccountAPIUser(HttpUser):
             "hidden": False,
             "placeholder": False
         }
-        try:
-            self.client.post("/accounts/", json=account_data)
-        except Exception as e:
-            print(f"Error during POST account: {e}")
+        with self.client.post("/accounts/", json=account_data, catch_response=True) as response:
+            if response.status_code != 201:
+                response.failure(f"Create account failed with status {response.status_code}")
 
     @task(3) # Moderate weight for adjustment
     def adjust_account_balance(self):
         """Task for adjusting an account balance."""
         if self.account_id:
+            target_balance = str(Decimal("1200.75")) # Example new balance
             adjustment_payload = {
-                "new_balance": str(Decimal("1200.75")), # Example new balance
+                "target_balance": target_balance, # Use target_balance
                 "adjustment_date": date.today().isoformat(),
-                "description": "Locust balance adjustment"
+                "description": "Locust balance adjustment",
+                "action_type": "ADJUSTMENT"
             }
-            try:
-                self.client.post(f"/accounts/{self.account_id}/adjust_balance", json=adjustment_payload)
-            except Exception as e:
-                print(f"Error during POST adjust_balance: {e}")
-
-    # Example of updating - might be less frequent or separated
-    # @task(1)
-    # def update_account(self):
-    #     """Task for updating an account."""
-    #     if self.account_id:
-    #         update_payload = {
-    #             "notes": "Locust updated notes"
-    #         }
-    #         try:
-    #             self.client.put(f"/accounts/{self.account_id}", json=update_payload)
-    #         except Exception as e:
-    #             print(f"Error during PUT account: {e}")
-
-    # DELETE tasks are usually not run in performance tests unless specifically testing deletion load.
-    # def on_stop(self):
-    #     """on_stop is called when the TaskSet is stopped"""
-    #     # Clean up the created account if needed
-    #     if self.account_id:
-    #         try:
-    #             self.client.delete(f"/accounts/{self.account_id}")
-    #             print(f"Locust user cleaned up account: {self.account_id}")
-    #         except Exception as e:
-    #             print(f"Error during DELETE account cleanup: {e}")
+            with self.client.post(f"/accounts/{self.account_id}/adjust_balance", json=adjustment_payload, catch_response=True) as response:
+                if response.status_code != 200:
+                    response.failure(f"Adjust balance failed with status {response.status_code}")
+        else:
+            logger.warning("self.account_id not set, skipping adjust_account_balance task.")
 
 # --- Example of how to run Locust ---
 # 1. Save this file as locustfile.py in the project root.
