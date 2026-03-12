@@ -53,6 +53,10 @@
 - Q: Regarding double-entry accounting, should the system enforce double-entry for all new transactions from the outset, or should single-entry be permitted as per the current note? → A: Enforce double-entry for all new transactions immediately.
 - Q: How do 'Banking Product Types' and 'Accounting Category Types' interact, specifically in balance calculation and system behavior? → A: Banking Product Type is primary; Accounting Category Type defines its role (e.g., CREDIT_CARD is always a Liability.
 
+### 2026-03-11
+
+- Q: How should user roles be differentiated for account management operations (e.g., view, edit, create)? → A: Role-agnostic
+
 ## Introduction
 
 This specification details the requirements for the Account Management feature of the sdd-cash-manager system. It outlines the functionalities for creating, managing, and reporting on financial accounts, including hierarchical structures and balance adjustments.

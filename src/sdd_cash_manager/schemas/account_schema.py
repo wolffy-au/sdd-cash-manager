@@ -40,9 +40,9 @@ class AccountResponse(BaseModel):
     account_number: str | None = None
     banking_product_type: str | None = None
     available_balance: float
+    hierarchy_balance: float
     credit_limit: float | None = None
     notes: str | None = None
     parent_account_id: str | None = None
     hidden: bool
     placeholder: bool
-

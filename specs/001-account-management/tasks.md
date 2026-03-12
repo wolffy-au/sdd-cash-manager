@@ -64,17 +64,17 @@ Enabling accounts to be organized in a tree-like structure and aggregating group
 Finalization tasks including state management, documentation, and performance optimization.
 
 - [x] T030 Implement application state management for unsaved changes ("Save/New"), and define/implement clear lifecycles and state transitions for `Account`, `Transaction`, and `Entry` entities in `src/lib/state_management.py` and integrate with relevant services/APIs.
-- [ ] T031 Add comprehensive docstrings and type hints across the codebase.
-- [ ] T032 Refactor and optimize database queries for performance, focusing on those identified as bottlenecks by performance testing.
-- [ ] T033 Benchmark account creation latency, transaction processing throughput, and scalability of account balance aggregation. Ensure these meet performance goals.
-- [ ] T034 Implement logging and monitoring.
-- [ ] T035 Add `README.md` with installation and usage instructions.
-- [ ] T036 Implement comprehensive input validation and security best practices for all API endpoints and services (`src/api/`, `src/services/`).
-- [ ] T037 [Security] Implement JWT authentication for API endpoints.
-- [ ] T038 [Security] Implement Role-Based Access Control (RBAC) for API endpoints.
-- [ ] T039 [Security] Implement encryption for sensitive data at rest (e.g., sensitive account notes).
-- [ ] T040 [Security] Define and implement secure configuration management using environment variables.
-- [ ] T041 Define 'core business logic' for the Account Management feature and ensure 100% test coverage with automated reporting.
+- [x] T031 Add comprehensive docstrings and type hints across the codebase.
+- [x] T032 Refactor and optimize database queries for performance, focusing on those identified as bottlenecks by performance testing.
+- [x] T033 Benchmark account creation latency, transaction processing throughput, and scalability of account balance aggregation. Ensure these meet performance goals.
+- [x] T034 Implement logging and monitoring.
+- [x] T035 Add `README.md` with installation and usage instructions.
+- [x] T036 Implement comprehensive input validation and security best practices for all API endpoints and services (`src/api/`, `src/services/`).
+- [x] T037 [Security] Implement JWT authentication for API endpoints.
+- [x] T038 [Security] Implement Role-Based Access Control (RBAC) for API endpoints.
+- [x] T039 [Security] Implement encryption for sensitive data at rest (e.g., sensitive account notes).
+- [x] T040 [Security] Define and implement secure configuration management using environment variables.
+- [x] T041 Define 'core business logic' for the Account Management feature and ensure 100% test coverage with automated reporting.
 
 ## NFR Verification Tasks
 

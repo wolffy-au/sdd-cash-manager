@@ -3,11 +3,13 @@ from dataclasses import dataclass
 from datetime import datetime, timezone  # using timezone.utc for timezone-aware snapshots
 from decimal import Decimal
 from enum import Enum
-from typing import Callable, TypeAlias
+from typing import Any, Callable, TypeAlias
 
-from sqlalchemy import and_, func, select
+from sqlalchemy import Select, and_, func, select
 from sqlalchemy.orm import Session
+from sqlalchemy.sql import ColumnElement
 
+from sdd_cash_manager.lib.encryption import SensitiveDataCipher
 from sdd_cash_manager.lib.utils import quantize_currency
 from sdd_cash_manager.models.account import Account
 from sdd_cash_manager.models.enums import AccountingCategory, BankingProductType
@@ -20,6 +22,26 @@ class AccountBalanceSnapshot:
     timestamp: datetime
     balance: float
     reason: str | None = None
+
+
+@dataclass(frozen=True)
+class AccountQueryCriteria:
+    """Structured filters used to build database lookup queries."""
+
+    hidden: bool | None = None
+    placeholder: bool | None = None
+    search_term: str | None = None
+
+    def build_filters(self) -> list[ColumnElement[Any]]:
+        """Translate the criteria into SQLAlchemy expressions."""
+        filters = []
+        if self.hidden is not None:
+            filters.append(Account.hidden == self.hidden)
+        if self.placeholder is not None:
+            filters.append(Account.placeholder == self.placeholder)
+        if self.search_term:
+            filters.append(func.lower(Account.name).contains(self.search_term.lower()))
+        return filters
 
 
 class AccountService:
@@ -37,6 +59,7 @@ class AccountService:
         self.accounts: dict[str, Account] = {}
         self._use_db = bool(db_session or session_factory)
         self.balance_history: dict[str, list[AccountBalanceSnapshot]] = {}
+        self._cipher = SensitiveDataCipher()
 
     def _acquire_session(self) -> tuple[Session, bool]:
         """Return a session plus a flag indicating whether the caller must close it."""
@@ -72,6 +95,27 @@ class AccountService:
         account = self.get_account(account_id)
         if account is not None:
             self._record_balance_snapshot(account, reason=reason, timestamp=timestamp)
+
+    def _should_encrypt_notes(self) -> bool:
+        """Return True when notes should be encrypted before persistence."""
+        return self._use_db
+
+    def _encrypt_notes(self, value: str | None) -> str | None:
+        """Encrypt the provided notes when storage encryption is enabled."""
+        if value is None or not self._should_encrypt_notes():
+            return value
+        return self._cipher.encrypt(value)
+
+    def decrypt_notes(self, encrypted_value: str | None) -> str | None:
+        """Decrypt persisted notes, returning the plaintext fallback when decryption fails."""
+        if encrypted_value is None:
+            return None
+        if not self._should_encrypt_notes():
+            return encrypted_value
+        try:
+            return self._cipher.decrypt(encrypted_value)
+        except ValueError:
+            return encrypted_value
 
 
     @staticmethod
@@ -177,7 +221,7 @@ class AccountService:
         account.parent_account_id = str(value) if value is not None else None
 
     def _update_notes(self, account: Account, value: AccountFieldValue) -> None:
-        account.notes = str(value) if value is not None else None
+        account.notes = self._encrypt_notes(str(value)) if value is not None else None
 
     def _update_hidden(self, account: Account, value: AccountFieldValue) -> None:
         if not isinstance(value, bool):
@@ -232,7 +276,7 @@ class AccountService:
             banking_product_type=validated_banking_type,
             available_balance=quantized_available_balance,
             credit_limit=self._quantize_value(credit_limit),
-            notes=notes,
+            notes=self._encrypt_notes(notes),
             parent_account_id=parent_account_id,
             hidden=hidden,
             placeholder=placeholder
@@ -285,23 +329,23 @@ class AccountService:
                 ]
             return sorted(accounts, key=lambda acc: acc.name)
 
-        filters = []
-        if hidden is not None:
-            filters.append(Account.hidden == hidden)
-        if placeholder is not None:
-            filters.append(Account.placeholder == placeholder)
-        if search_term:
-            filters.append(func.lower(Account.name).contains(search_term.lower()))
+        criteria = AccountQueryCriteria(hidden=hidden, placeholder=placeholder, search_term=search_term)
 
         session, should_close = self._acquire_session()
         try:
-            query = select(Account)
-            if filters:
-                query = query.where(and_(*filters))
-            return list(session.scalars(query.order_by(Account.name)).all())
+            query = self._build_account_query(session, criteria)
+            return list(session.scalars(query).all())
         finally:
             if should_close and session is not None:
                 session.close()
+
+    def _build_account_query(self, session: Session, criteria: AccountQueryCriteria) -> Select[Any]:
+        """Compose an optimized query based on the supplied criteria."""
+        query = select(Account).order_by(Account.name)
+        filters = criteria.build_filters()
+        if filters:
+            query = query.where(and_(*filters))
+        return query
 
     def update_account(self, account_id: str, **kwargs: AccountFieldValue) -> Account | None:
         """Apply partial updates to persisted account attributes with validation."""
@@ -421,3 +465,45 @@ class AccountService:
         if account is None:
             return 0.0
         return float(quantize_currency(str(account.available_balance)))
+
+    def get_account_hierarchy_balance(self, account_id: str) -> float:
+        """Return the aggregated balance for an account and its descendants."""
+        if not account_id:
+            return 0.0
+
+        if not self._use_db:
+            visited: set[str] = set()
+
+            def _sum_hierarchy(acc_id: str) -> float:
+                if acc_id in visited:
+                    return 0.0
+                visited.add(acc_id)
+                account = self.accounts.get(acc_id)
+                if account is None:
+                    return 0.0
+
+                subtotal = account.available_balance
+                for child in self.accounts.values():
+                    if child.parent_account_id == acc_id:
+                        subtotal += _sum_hierarchy(child.id)
+                return subtotal
+
+            return float(_sum_hierarchy(account_id))
+
+        session, should_close = self._acquire_session()
+        try:
+            hierarchy_cte = (
+                select(Account.id, Account.available_balance)
+                .where(Account.id == account_id)
+                .cte(name="account_hierarchy", recursive=True)
+            )
+            hierarchy_cte = hierarchy_cte.union_all(
+                select(Account.id, Account.available_balance)
+                .where(Account.parent_account_id == hierarchy_cte.c.id)
+            )
+            total_query = select(func.coalesce(func.sum(hierarchy_cte.c.available_balance), 0.0))
+            total = session.scalar(total_query)
+            return float(total or 0.0)
+        finally:
+            if should_close and session is not None:
+                session.close()

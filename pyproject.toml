@@ -22,6 +22,9 @@ dependencies = [
     "pydantic>=2.0.0",
     "python-accounting>=1.0.1",
     "sqlalchemy>=2.0.23,<2.2",
+    "cryptography>=41.0.0,<42.0.0",
+    "python-jose>=3.3.0,<4.0.0",
+    "types-python-jose>=3.3.0,<4.0.0",
 ]
 
 [dependency-groups]

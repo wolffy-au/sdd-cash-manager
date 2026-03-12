@@ -69,6 +69,9 @@ class _StubAccountService:
     def get_account(self, account_id):
         return self._result
 
+    def get_account_hierarchy_balance(self, account_id):
+        return 0.0
+
 def test_ensure_parent_account_exists_branch(monkeypatch):
     assert _ensure_parent_account_exists(
         cast(AccountService, _StubAccountService(None)), None
@@ -97,6 +100,9 @@ class _ErrorAccountService:
 
     def update_account(self, *args, **kwargs):
         raise self.exc
+
+    def get_account_hierarchy_balance(self, account_id):
+        return 0.0
 
 def test_create_account_value_error():
     payload = _build_account_payload()
@@ -127,9 +133,12 @@ def test_get_accounts_filters_by_search_term(monkeypatch):
     class StubAccountService:
         def get_all_accounts(self):
             return [
-                SimpleNamespace(name="Matching Account", hidden=False, placeholder=False),
-                SimpleNamespace(name="Other", hidden=False, placeholder=False),
+                SimpleNamespace(id=str(uuid4()), name="Matching Account", hidden=False, placeholder=False),
+                SimpleNamespace(id=str(uuid4()), name="Other", hidden=False, placeholder=False),
             ]
+
+        def get_account_hierarchy_balance(self, account_id):
+            return 0.0
 
     results = cast(
         list[dict[str, Any]],
@@ -147,9 +156,12 @@ def test_get_accounts_filters_hidden_placeholder(monkeypatch):
     class StubAccountService:
         def get_all_accounts(self):
             return [
-                SimpleNamespace(name="Match 1", hidden=True, placeholder=False),
-                SimpleNamespace(name="Match 2", hidden=True, placeholder=True),
+                SimpleNamespace(id=str(uuid4()), name="Match 1", hidden=True, placeholder=False),
+                SimpleNamespace(id=str(uuid4()), name="Match 2", hidden=True, placeholder=True),
             ]
+
+        def get_account_hierarchy_balance(self, account_id):
+            return 0.0
 
     results = cast(
         list[dict[str, Any]],
@@ -175,6 +187,9 @@ def test_update_account_quantization(monkeypatch):
             captured["account_id"] = account_id
             captured["kwargs"] = kwargs
             return SimpleNamespace(id=account_id, **kwargs)
+
+        def get_account_hierarchy_balance(self, account_id):
+            return 0.0
 
     payload = AccountUpdatePayload(
         parent_account_id=uuid4(),

@@ -3,8 +3,11 @@ from decimal import Decimal
 from unittest.mock import MagicMock
 
 import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
 from sdd_cash_manager.models.account import Account
+from sdd_cash_manager.models.base import Base
 from sdd_cash_manager.models.enums import AccountingCategory, BankingProductType
 from sdd_cash_manager.services.account_service import AccountService
 
@@ -28,6 +31,19 @@ def mock_uuid_for_service_tests(monkeypatch):
     ]
     monkeypatch.setattr('sdd_cash_manager.services.account_service.uuid.uuid4',
                         MagicMock(side_effect=uuids))
+
+
+@pytest.fixture(scope="function")
+def db_session():
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(bind=engine)
+    TestingSession = sessionmaker(bind=engine)
+    session = TestingSession()
+    try:
+        yield session
+    finally:
+        session.close()
+        Base.metadata.drop_all(bind=engine)
 
 def test_account_service_create_account():
     service = AccountService()
@@ -311,6 +327,50 @@ def test_account_service_delete_account_with_placeholder_child():
 
     with pytest.raises(ValueError, match="Cannot delete an account that still has placeholder child accounts."):
         service.delete_account(parent.id)
+
+def test_get_account_hierarchy_balance_in_memory():
+    service = AccountService()
+    parent = service.create_account("Parent", "USD", AccountingCategory.ASSET, available_balance=100.0)
+    child = service.create_account(
+        "Child",
+        "USD",
+        AccountingCategory.ASSET,
+        parent_account_id=parent.id,
+        available_balance=50.0
+    )
+    service.create_account(
+        "Grandchild",
+        "USD",
+        AccountingCategory.ASSET,
+        parent_account_id=child.id,
+        available_balance=25.0
+    )
+
+    assert service.get_account_hierarchy_balance(parent.id) == pytest.approx(175.0)
+    assert service.get_account_hierarchy_balance(child.id) == pytest.approx(75.0)
+    assert service.get_account_hierarchy_balance("non-existent") == 0.0
+
+def test_get_account_hierarchy_balance_db(db_session):
+    service = AccountService(db_session=db_session)
+    parent = service.create_account("DB Parent", "USD", AccountingCategory.ASSET, available_balance=80.0)
+    child = service.create_account(
+        "DB Child",
+        "USD",
+        AccountingCategory.ASSET,
+        parent_account_id=parent.id,
+        available_balance=40.0
+    )
+    grandchild = service.create_account(
+        "DB Grandchild",
+        "USD",
+        AccountingCategory.ASSET,
+        parent_account_id=child.id,
+        available_balance=20.0
+    )
+
+    assert service.get_account_hierarchy_balance(parent.id) == pytest.approx(140.0)
+    assert service.get_account_hierarchy_balance(child.id) == pytest.approx(60.0)
+    assert service.get_account_hierarchy_balance(grandchild.id) == pytest.approx(20.0)
 
 def test_account_service_search_accounts_visibility_filters():
     service = AccountService()

@@ -44,7 +44,8 @@
                 "DavidAnson.vscode-markdownlint",
                 "jebbs.plantuml",
                 "snyk-security.snyk-vulnerability-scanner",
-                "redhat.vscode-yaml"
+                "redhat.vscode-yaml",
+                "SonarSource.sonarlint-vscode"
             ],
             "settings": {
                 "debug.javascript.autoAttachFilter": "disabled",

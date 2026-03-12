@@ -12,6 +12,9 @@ from pydantic import BaseModel, ConfigDict, condecimal, constr, field_validator
 from sqlalchemy.orm import Session
 
 from sdd_cash_manager.database import get_db
+from sdd_cash_manager.lib.auth import Role, TokenPayload, require_role
+from sdd_cash_manager.lib.logging_config import get_logger
+from sdd_cash_manager.models.account import Account
 from sdd_cash_manager.schemas.account_schema import AccountResponse
 from sdd_cash_manager.schemas.transaction_schema import BalanceAdjustmentResponse
 from sdd_cash_manager.services.account_service import AccountService
@@ -240,6 +243,22 @@ def _quantize_amount(value: Decimal) -> Decimal:
     """
     return value.quantize(Decimal("0.01"))
 
+
+def _account_response_from_model(account: Account, account_service: AccountService) -> AccountResponse:
+    """Return an AccountResponse while decrypting sensitive fields."""
+    payload = account.__dict__.copy()
+    decrypt_notes = getattr(account_service, "decrypt_notes", lambda value: value)
+    payload["notes"] = decrypt_notes(getattr(account, "notes", None))
+    payload["hierarchy_balance"] = account_service.get_account_hierarchy_balance(account.id)
+    return AccountResponse(**payload)
+
+
+def _resolve_current_user(user: TokenPayload | object) -> TokenPayload:
+    """Return the provided TokenPayload or fall back to a system user for direct calls."""
+    if isinstance(user, TokenPayload):
+        return user
+    return TokenPayload(subject="system", roles=[Role.ADMIN])
+
 # Helper functions for dependency implementation
 # These are NOT the FastAPI providers themselves, but the logic they use.
 def _get_account_service_impl(db: Session) -> AccountService:
@@ -270,6 +289,9 @@ def _get_transaction_service_impl(account_service: AccountService) -> Transactio
 db_dependency = Depends(get_db)
 account_service_dependency = Depends(lambda db=db_dependency: _get_account_service_impl(db=db))
 transaction_service_dependency = Depends(lambda acc_svc=account_service_dependency: _get_transaction_service_impl(account_service=acc_svc))
+_operator_dependency = Depends(require_role(Role.OPERATOR))
+_viewer_dependency = Depends(require_role(Role.VIEWER))
+logger = get_logger(__name__)
 
 # --- API Router ---
 router = APIRouter(prefix="/accounts", tags=["Accounts"])
@@ -289,7 +311,8 @@ if _exception_handler is not None:  # pragma: no branch - runtime routers have t
 @router.post("/", response_model=AccountResponse, status_code=201)
 def create_account(
     account_data: AccountCreatePayload,
-    account_service: AccountService = account_service_dependency
+    account_service: AccountService = account_service_dependency,
+    _current_user: TokenPayload = _operator_dependency
 ) -> AccountResponse:
     """Create a new financial account.
 
@@ -303,6 +326,13 @@ def create_account(
     Raises:
         HTTPException: On validation errors (400), missing parent account, or unexpected failures (500).
     """
+    current_user = _resolve_current_user(_current_user)
+    logger.info(
+        "Create account request: name=%s parent=%s user=%s",
+        account_data.name,
+        account_data.parent_account_id,
+        current_user.subject,
+    )
     parent_account_id = _ensure_parent_account_exists(account_service, account_data.parent_account_id)
     available_balance_decimal = _quantize_amount(account_data.available_balance)
     available_balance_float = float(available_balance_decimal)
@@ -327,11 +357,18 @@ def create_account(
             hidden=account_data.hidden,
             placeholder=account_data.placeholder
         )
-        return AccountResponse(**new_account.__dict__)
+        logger.info(
+            "Account created: id=%s name=%s user=%s",
+            new_account.id,
+            new_account.name,
+            current_user.subject,
+        )
+        return _account_response_from_model(new_account, account_service)
     except ValueError as e:
+        logger.warning("Account creation failed due to validation: %s", e)
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception:
-        # Log the exception here in a real app
+        logger.exception("Unexpected failure while creating account")
         raise HTTPException(status_code=500, detail="An unexpected error occurred while creating the account.") from None
 
 @router.get("/", response_model=list[AccountResponse])
@@ -339,7 +376,8 @@ def get_accounts(
     search_term: str | None = None,
     hidden: bool | None = None,
     placeholder: bool | None = None,
-    account_service: AccountService = account_service_dependency
+    account_service: AccountService = account_service_dependency,
+    _current_user: TokenPayload = _viewer_dependency
 ) -> list[AccountResponse]:
     """Retrieve a filtered list of accounts.
 
@@ -357,9 +395,18 @@ def get_accounts(
     """
     all_accounts = account_service.get_all_accounts()
 
+    sanitized_search = _sanitize_search_term(search_term)
+    current_user = _resolve_current_user(_current_user)
+    logger.debug(
+        "Listing accounts hidden=%s placeholder=%s search=%s user=%s",
+        hidden,
+        placeholder,
+        sanitized_search,
+        current_user.subject,
+    )
+
     # Apply filters
     filtered_accounts = all_accounts
-    sanitized_search = _sanitize_search_term(search_term)
     if sanitized_search:
         filtered_accounts = [
             acc for acc in filtered_accounts
@@ -370,12 +417,13 @@ def get_accounts(
     if placeholder is not None:
         filtered_accounts = [acc for acc in filtered_accounts if acc.placeholder == placeholder]
 
-    return [AccountResponse(**acc.__dict__) for acc in filtered_accounts]
+    return [_account_response_from_model(acc, account_service) for acc in filtered_accounts]
 
 @router.get("/{account_id}", response_model=AccountResponse)
 def get_account_by_id(
     account_id: UUID,
-    account_service: AccountService = account_service_dependency
+    account_service: AccountService = account_service_dependency,
+    _current_user: TokenPayload = _viewer_dependency
 ) -> AccountResponse:
     """Retrieve a specific account by its identifier.
 
@@ -389,16 +437,20 @@ def get_account_by_id(
     Raises:
         HTTPException: When the account does not exist (404).
     """
+    current_user = _resolve_current_user(_current_user)
+    logger.debug("Retrieving account id=%s user=%s", account_id, current_user.subject)
     account = account_service.get_account(str(account_id))
     if account is None:
+        logger.warning("Account id=%s not found", account_id)
         raise HTTPException(status_code=404, detail="Account not found")
-    return AccountResponse(**account.__dict__)
+    return _account_response_from_model(account, account_service)
 
 @router.put("/{account_id}", response_model=AccountResponse)
 def update_account(
     account_id: UUID,
     account_data: AccountUpdatePayload,
-    account_service: AccountService = account_service_dependency
+    account_service: AccountService = account_service_dependency,
+    _current_user: TokenPayload = _operator_dependency
 ) -> AccountResponse:
     """Update an existing account.
 
@@ -414,7 +466,14 @@ def update_account(
         HTTPException: When the account cannot be found (404) or when validation fails (400).
     """
     # Prepare data for update, excluding fields that should not be updated or have defaults
+    current_user = _resolve_current_user(_current_user)
     update_kwargs = account_data.model_dump(exclude_unset=True)
+    logger.info(
+        "Updating account id=%s with %s user=%s",
+        account_id,
+        update_kwargs,
+        current_user.subject,
+    )
 
     parent_account_id = update_kwargs.get("parent_account_id")
     if parent_account_id is not None:
@@ -428,21 +487,25 @@ def update_account(
     try:
         updated_account = account_service.update_account(str(account_id), **update_kwargs)
     except ValueError as e:
+        logger.warning("Account update rejected for id=%s: %s", account_id, e)
         raise HTTPException(status_code=400, detail=str(e)) from e
     except RuntimeError as e:
+        logger.exception("Runtime failure updating account id=%s", account_id)
         raise HTTPException(status_code=500, detail=str(e)) from e
     except Exception:
+        logger.exception("Unexpected failure updating account id=%s", account_id)
         raise HTTPException(status_code=500, detail="An unexpected error occurred while updating the account.") from None
 
     if updated_account is None:
         raise HTTPException(status_code=404, detail="Account not found")
 
-    return AccountResponse(**updated_account.__dict__)
+    return _account_response_from_model(updated_account, account_service)
 
 @router.delete("/{account_id}", status_code=204)
 def delete_account(
     account_id: UUID,
-    account_service: AccountService = account_service_dependency
+    account_service: AccountService = account_service_dependency,
+    _current_user: TokenPayload = _operator_dependency
 ) -> None:
     """Delete an account by its ID.
 
@@ -456,8 +519,15 @@ def delete_account(
     Raises:
         HTTPException: When the account cannot be found (404).
     """
+    current_user = _resolve_current_user(_current_user)
+    logger.info("Deleting account id=%s user=%s", account_id, current_user.subject)
     success = account_service.delete_account(str(account_id))
     if not success:
+        logger.warning(
+            "Attempted to delete missing account id=%s user=%s",
+            account_id,
+            current_user.subject,
+        )
         raise HTTPException(status_code=404, detail="Account not found")
     # No content to return on successful deletion
     return
@@ -468,7 +538,8 @@ def delete_account(
 def adjust_account_balance(
     account_id: UUID,
     request_data: BalanceAdjustmentPayload,
-    transaction_service: TransactionService = transaction_service_dependency
+    transaction_service: TransactionService = transaction_service_dependency,
+    _current_user: TokenPayload = _operator_dependency
 ) -> BalanceAdjustmentResponse:
     """Manually adjust an account's balance via a transaction.
 
@@ -484,6 +555,13 @@ def adjust_account_balance(
         HTTPException: When no adjustment is needed because the target matches the current balance (400)
             or when validation/runtime errors occur (400/500).
     """
+    current_user = _resolve_current_user(_current_user)
+    logger.info(
+        "Balance adjustment request for account=%s target=%s user=%s",
+        account_id,
+        request_data.target_balance,
+        current_user.subject,
+    )
     try:
         target_balance_decimal = _quantize_amount(request_data.target_balance)
         adjustment_datetime = datetime.combine(request_data.adjustment_date, datetime.min.time())
@@ -501,9 +579,16 @@ def adjust_account_balance(
             # Depending on requirements, this could be a 200 OK with a message, or a 400 Bad Request.
             # For now, let's raise a 400 if no adjustment was made.
             # In a real app, consider if this should return a specific response.
+            logger.debug("No adjustment needed for account=%s (target equals current)", account_id)
             raise HTTPException(status_code=400, detail="No adjustment needed as target balance matches current balance.")
 
         transaction_data = transaction.__dict__.copy()
+        logger.info(
+            "Created balance adjustment transaction %s for account=%s user=%s",
+            transaction.id,
+            account_id,
+            current_user.subject,
+        )
 
         return BalanceAdjustmentResponse(
             transaction_id=transaction.id,
@@ -515,9 +600,11 @@ def adjust_account_balance(
     except HTTPException as http_exc:
         raise http_exc
     except ValueError as e:
+        logger.warning("Invalid balance adjustment payload for account=%s: %s", account_id, e)
         raise HTTPException(status_code=400, detail=str(e)) from e
     except RuntimeError as e:
+        logger.exception("Runtime error during balance adjustment for account=%s", account_id)
         raise HTTPException(status_code=500, detail=str(e)) from e # e.g., AccountService not set
     except Exception:
-        # Log the exception here in a real app
+        logger.exception("Unhandled error while adjusting balance for account=%s", account_id)
         raise HTTPException(status_code=500, detail="An unexpected error occurred during balance adjustment.") from None

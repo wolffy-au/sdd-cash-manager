@@ -46,6 +46,7 @@ def mock_dependencies():
         "currency": "USD",
         "accounting_category": "ASSET",
         "available_balance": 1000.0,
+        "hierarchy_balance": 1000.0,
         "account_number": "ACC-123",
         "banking_product_type": "BANK",
         "credit_limit": None,

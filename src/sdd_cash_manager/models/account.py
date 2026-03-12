@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import Boolean, Float, String
+from sqlalchemy import Boolean, Float, Index, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from sdd_cash_manager.models.base import Base
@@ -9,6 +9,10 @@ from sdd_cash_manager.models.base import Base
 class Account(Base):
     """Persistent model representing a financial account."""
     __tablename__ = "accounts"
+    __table_args__ = (
+        Index("ix_accounts_parent_account_id", "parent_account_id"),
+        Index("ix_accounts_name", "name"),
+    )
 
     # Define attributes with explicit types that align with SQLAlchemy Columns
     # Using Mapped for better type hinting with SQLAlchemy 2.0+

@@ -92,6 +92,7 @@ async def test_create_account_success(async_client: TestClient, override_get_db:
     assert response_data["name"] == account_data_input["name"]
     assert response_data["account_number"] == account_data_input["account_number"]
     assert response_data["available_balance"] == account_data_input["available_balance"]
+    assert response_data["hierarchy_balance"] == response_data["available_balance"]
 
     # Verify that the account is actually in the database
     account_service = AccountService(override_get_db)
@@ -128,11 +129,42 @@ async def test_get_all_accounts(async_client: TestClient, override_get_db: Sessi
 
     assert isinstance(response_data, list)
     assert len(response_data) == 2
+    assert all(acc["hierarchy_balance"] == acc["available_balance"] for acc in response_data)
 
     # Check if the created accounts are in the response
     response_ids = {acc["id"] for acc in response_data}
     assert account1.id in response_ids
     assert account2.id in response_ids
+
+@pytest.mark.asyncio
+async def test_get_accounts_hierarchy_balance_field(async_client: TestClient, override_get_db: Session) -> None:
+    """
+    Tests that account responses include hierarchy_balance aggregations.
+    """
+    account_service = AccountService(override_get_db)
+    parent = account_service.create_account(
+        name="Hierarchy Parent",
+        currency="USD",
+        accounting_category="ASSET",
+        available_balance=300.0
+    )
+    child = account_service.create_account(
+        name="Hierarchy Child",
+        currency="USD",
+        accounting_category="ASSET",
+        parent_account_id=parent.id,
+        available_balance=75.0
+    )
+
+    response = async_client.get("/api/accounts")
+    assert response.status_code == 200
+
+    accounts_data = response.json()
+    parent_data = next(acc for acc in accounts_data if acc["id"] == parent.id)
+    child_data = next(acc for acc in accounts_data if acc["id"] == child.id)
+
+    assert parent_data["hierarchy_balance"] == pytest.approx(parent.available_balance + child.available_balance)
+    assert child_data["hierarchy_balance"] == pytest.approx(child.available_balance)
 
 @pytest.mark.asyncio
 async def test_get_account_by_id_success(async_client: TestClient, override_get_db: Session) -> None:
@@ -158,6 +190,7 @@ async def test_get_account_by_id_success(async_client: TestClient, override_get_
     assert response_data["id"] == created_account.id
     assert response_data["name"] == created_account.name
     assert response_data["account_number"] == created_account.account_number
+    assert response_data["hierarchy_balance"] == response_data["available_balance"]
 
 @pytest.mark.asyncio
 async def test_get_account_by_id_not_found(async_client: TestClient) -> None:
@@ -204,6 +237,7 @@ async def test_update_account_success(async_client: TestClient, override_get_db:
     assert response_data["name"] == update_data_input["name"]
     assert response_data["available_balance"] == 123.46
     assert response_data["notes"] == update_data_input["notes"]
+    assert response_data["hierarchy_balance"] == response_data["available_balance"]
 
     # Verify update in the database
     db_account = override_get_db.query(Account).filter(Account.id == created_account.id).first()

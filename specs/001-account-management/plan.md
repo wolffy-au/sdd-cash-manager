@@ -20,6 +20,15 @@ Implement the Account Management feature that enables creation, editing, and hie
 **Performance Goals**: 1000 TPS, <100ms API response, <100ms hierarchical balance computation  
 **Constraints**: Accuracy tolerance 0.001%, absolute error < 0.01 units of smallest currency denomination, AES-256 encryption, TLS 1.3, RS256 JWT signing algorithm, RBAC with audited actions.  
 **Scale/Scope**: User load and precise scaling requirements remain under clarification; current focus is a resilient MVP adhering to the provided capacity targets.
+**Security & Data Integrity**:
+- **Input Sanitization**: Define specific requirements and strategies for sanitizing all user-supplied data to prevent injection attacks.
+- **Threat Model**: Document the threat model and explicitly map security requirements to identified threats.
+- **Security Failure/Breach Response**: Define clear requirements for responding to security failures and data breaches.
+- **Concurrent Transaction Handling**: Specify requirements for managing concurrent transactions to prevent race conditions and ensure data integrity.
+- **Data Backup and Recovery**: Define requirements for data backup and recovery procedures.
+- **Security Acceptance Criteria**: Establish measurable acceptance criteria for all security-related requirements.
+- **Security Breach/Leak Handling**: Detail requirements for handling security breaches or data leaks.
+- **External Standards/Compliance**: Identify and document any assumed or required external security standards or compliance regulations (e.g., GDPR, PCI DSS if applicable).
 
 ## Constitution Check
 
