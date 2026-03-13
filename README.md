@@ -52,9 +52,15 @@ You can override the defaults by exporting these variables before running the ap
 Settings are automatically loaded from a `.env` file in the project root when present.
 
 1. **Configure Database:**
-    The project is configured to use SQLite for development purposes. The database connection string is defined in `src/core/config.py`. For production, a PostgreSQL database will be used with the `psycopg2-binary` driver.
+    The project is configured to use SQLite for development purposes. The database connection string is defined in `src/core/config.py`.
 
-    *Note: Ensure you have the necessary database drivers installed if switching from SQLite.*
+    **For Production Environments (Reliability & Recovery)**:
+    For production deployments, a PostgreSQL database is highly recommended to meet reliability (T052) and recovery (T053) non-functional requirements. The `psycopg2-binary` driver is already included.
+
+    To configure PostgreSQL, set the `SDD_CASH_MANAGER_DATABASE_URL` environment variable to your PostgreSQL connection string, e.g.:
+    `export SDD_CASH_MANAGER_DATABASE_URL="postgresql://user:password@host:port/dbname"`
+
+    *Note: Ensure your PostgreSQL instance is properly secured and backed up according to your RPO/RTO requirements.*
 
 2. **Run Tests:**
     All tests can be run using pytest:

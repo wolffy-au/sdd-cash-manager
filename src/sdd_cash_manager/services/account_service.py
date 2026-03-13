@@ -61,6 +61,7 @@ class AccountService:
         self._use_db = bool(db_session or session_factory)
         self.balance_history: dict[str, list[AccountBalanceSnapshot]] = {}
         self._cipher = SensitiveDataCipher()
+        self._hierarchy_balance_cache: dict[str, Decimal] = {}
 
     def _acquire_session(self) -> tuple[Session, bool]:
         """Return a session plus a flag indicating whether the caller must close it."""
@@ -100,6 +101,51 @@ class AccountService:
         account = self.get_account(account_id)
         if account is not None:
             self._record_balance_snapshot(account, reason=reason, timestamp=timestamp)
+
+    def _invalidate_hierarchy_cache(self) -> None:
+        """Clear the in-memory hierarchy balance cache."""
+        self._hierarchy_balance_cache.clear()
+
+    def _calculate_hierarchy_balance_in_memory(self, account_id: str) -> Decimal:
+        visited: set[str] = set()
+
+        def _sum_hierarchy(acc_id: str) -> Decimal:
+            if acc_id in visited:
+                return Decimal("0.0")
+            visited.add(acc_id)
+            account = self.accounts.get(acc_id)
+            if account is None:
+                return Decimal("0.0")
+
+            subtotal = account.available_balance
+            for child in self.accounts.values():
+                if child.parent_account_id == acc_id:
+                    subtotal += _sum_hierarchy(child.id)
+            return subtotal
+
+        return _sum_hierarchy(account_id)
+
+    def _calculate_hierarchy_balance_from_db(self, account_id: str) -> Decimal:
+        session, should_close = self._acquire_session()
+        try:
+            hierarchy_cte = (
+                select(Account.id, Account.available_balance)
+                .where(Account.id == account_id)
+                .cte(name="account_hierarchy", recursive=True)
+            )
+            hierarchy_cte = hierarchy_cte.union_all(
+                select(Account.id, Account.available_balance)
+                .where(Account.parent_account_id == hierarchy_cte.c.id)
+            )
+            total_query = select(func.coalesce(func.sum(hierarchy_cte.c.available_balance), Decimal("0.0")))
+            total = session.scalar(total_query)
+            return total or Decimal("0.0")
+        except Exception as e:
+            log_critical_application_error(f"Failed to calculate hierarchy balance for account {account_id}: {e}", account_id=account_id, metadata={"service": "AccountService"})
+            raise RuntimeError(f"Failed to calculate hierarchy balance for account {account_id} due to unexpected error.") from e
+        finally:
+            if should_close and session is not None:
+                session.close()
 
     def _should_encrypt_notes(self) -> bool:
         """Return True when notes should be encrypted before persistence."""
@@ -319,6 +365,7 @@ class AccountService:
 
         if not self._use_db:
             self.accounts[account.id] = account
+            self._invalidate_hierarchy_cache()
             return account
 
         session, should_close = self._acquire_session()
@@ -326,6 +373,7 @@ class AccountService:
             session.add(account)
             session.flush()
             session.refresh(account)
+            self._invalidate_hierarchy_cache()
             return account
         except Exception as e:
             log_critical_application_error(f"Failed to create account {account_id_to_use}: {e}", account_id=account_id_to_use, metadata={"service": "AccountService"})
@@ -419,12 +467,14 @@ class AccountService:
                 return None
 
             self._apply_updates(account, kwargs)
+            self._invalidate_hierarchy_cache() # Invalidate cache after update
 
             if self._use_db and session is not None:
                 # Changes to the 'account' object are already tracked by the session
                 # No need for session.add(account) if it was already retrieved from the session
                 session.flush() # Persist changes within the transaction
                 session.refresh(account) # Reload fresh state after flush
+            self._invalidate_hierarchy_cache() # Invalidate cache after update
             return account
         except ValueError:
             raise
@@ -450,6 +500,7 @@ class AccountService:
                 raise ValueError("Cannot delete an account that still has placeholder child accounts.")
 
             del self.accounts[account_id]
+            self._invalidate_hierarchy_cache()
             return True
 
         session, should_close = self._acquire_session()
@@ -475,6 +526,7 @@ class AccountService:
 
             session.delete(account)
             session.flush()
+            self._invalidate_hierarchy_cache()
             return True
         except Exception as e:
             log_critical_application_error(f"Failed to delete account {account_id}: {e}", account_id=account_id, metadata={"service": "AccountService"})
@@ -538,47 +590,21 @@ class AccountService:
             return Decimal("0.0")
         return quantize_currency(account.available_balance)
 
-    def get_account_hierarchy_balance(self, account_id: str) -> Decimal: # Changed return type
-        """Return the aggregated balance for an account and its descendants."""
+    def get_account_hierarchy_balance(self, account_id: str) -> Decimal:
+        """Return the aggregated balance for an account and its descendants.
+        Uses an in-memory cache for performance.
+        """
         if not account_id:
-            return Decimal("0.0") # Changed default to Decimal
+            return Decimal("0.0")
+
+        # Check cache first
+        if account_id in self._hierarchy_balance_cache:
+            return self._hierarchy_balance_cache[account_id]
 
         if not self._use_db:
-            visited: set[str] = set()
+            balance = self._calculate_hierarchy_balance_in_memory(account_id)
+        else:
+            balance = self._calculate_hierarchy_balance_from_db(account_id)
 
-            def _sum_hierarchy(acc_id: str) -> Decimal: # Changed return type
-                if acc_id in visited:
-                    return Decimal("0.0") # Changed default to Decimal
-                visited.add(acc_id)
-                account = self.accounts.get(acc_id)
-                if account is None:
-                    return Decimal("0.0") # Changed default to Decimal
-
-                subtotal = account.available_balance
-                for child in self.accounts.values():
-                    if child.parent_account_id == acc_id:
-                        subtotal += _sum_hierarchy(child.id)
-                return subtotal
-
-            return _sum_hierarchy(account_id) # Removed float() cast
-
-        session, should_close = self._acquire_session()
-        try:
-            hierarchy_cte = (
-                select(Account.id, Account.available_balance)
-                .where(Account.id == account_id)
-                .cte(name="account_hierarchy", recursive=True)
-            )
-            hierarchy_cte = hierarchy_cte.union_all(
-                select(Account.id, Account.available_balance)
-                .where(Account.parent_account_id == hierarchy_cte.c.id)
-            )
-            total_query = select(func.coalesce(func.sum(hierarchy_cte.c.available_balance), Decimal("0.0"))) # Changed to Decimal
-            total = session.scalar(total_query)
-            return total or Decimal("0.0") # Changed to Decimal
-        except Exception as e:
-            log_critical_application_error(f"Failed to calculate hierarchy balance for account {account_id}: {e}", account_id=account_id, metadata={"service": "AccountService"})
-            raise RuntimeError(f"Failed to calculate hierarchy balance for account {account_id} due to unexpected error.") from e
-        finally:
-            if should_close and session is not None:
-                session.close()
+        self._hierarchy_balance_cache[account_id] = balance # Cache result
+        return balance

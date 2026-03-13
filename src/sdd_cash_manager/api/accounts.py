@@ -309,6 +309,16 @@ logger = get_logger(__name__)
 # --- API Router ---
 router = APIRouter(prefix="/accounts", tags=["Accounts"])
 
+@router.get("/health", status_code=200, tags=["Monitoring"])
+async def health_check():
+    """
+    Health check endpoint to verify the API is running.
+    Returns a simple 200 OK status.
+    """
+    print("Health check endpoint hit!") # Debug print
+    return {"status": "ok"}
+
+
 async def _handle_request_validation_error(request, exc):
     return JSONResponse(
         status_code=400,

@@ -46,6 +46,7 @@ This document consolidates technical specifications, patterns, utilities, and pr
   - Keep commits small and focused.
   - Use `commitizen` for managing version changes.
   - Adopt the Conventional Commits specification for commit message structure (e.g., feat, fix, refactor, chore) to ensure consistency and facilitate automated changelog generation.
+  - Ensure every commit on your branch already follows Conventional Commits so that Commitizen can reliably infer the version bump (patch/minor/major) and update the changelog.
 - **Security**:
   - *For overarching security principles, refer to SpecKit Constitution V. Security Practices.*
 - **Performance**:

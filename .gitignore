@@ -42,6 +42,9 @@ Thumbs.db
 
 .aider.tags.*
 .aider.chat.*
+.aider.conf.yml
+.aider.input.history
+.aider.model.settings.yml
 
 # MyPy cache
 .mypy_cache/

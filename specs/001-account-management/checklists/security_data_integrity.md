@@ -18,8 +18,7 @@ This checklist validates the quality, clarity, and completeness of the security 
 - [x] Are requirements for input sanitization defined for all user-supplied data? [Clarity, Spec §NFR-Security]
 - [x] Are requirements for encryption of sensitive data (at rest and in transit) clearly defined? [Completeness, Spec §NFR-Security]
 - [x] Are requirements for secure handling of API keys and credentials specified? [Completeness, Spec §NFR-Security]
-- [ ] Are requirements for input sanitization defined for all user-supplied data? [Clarity, Spec §NFR-Security]
-- [x] Are requirements for maintaining high accuracy in financial calculations clearly specified? [Clarity, Spec §FR-3, FR-4]
+- - [x] Are requirements for maintaining high accuracy in financial calculations clearly specified? [Clarity, Spec §FR-3, FR-4]
 - [x] Are requirements for data integrity during transactions (e.g., atomicity, consistency) documented? [Completeness, Spec §NFR-Accuracy]
 - [x] Are requirements for data backup and recovery defined to ensure reliability? [Gap]
 

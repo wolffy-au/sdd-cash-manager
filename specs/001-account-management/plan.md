@@ -20,6 +20,7 @@ Implement the Account Management feature that enables creation, editing, and hie
 **Performance Goals**: 1000 TPS, <100ms API response, <100ms hierarchical balance computation  
 **Constraints**: Accuracy tolerance 0.001%, absolute error < 0.01 units of smallest currency denomination, AES-256 encryption, TLS 1.3, RS256 JWT signing algorithm, RBAC with audited actions.  
 **Scale/Scope**: User load and precise scaling requirements remain under clarification; current focus is a resilient MVP adhering to the provided capacity targets.
+**Terminology Alignment**: Account types are formally defined by the `BankingProductType` enum, and accounting categories by the `AccountingCategory` enum, ensuring consistent understanding with the spec.
 **Security & Data Integrity**:
 - **Input Sanitization**: Define specific requirements and strategies for sanitizing all user-supplied data to prevent injection attacks.
 - **Threat Model**: Document the threat model and explicitly map security requirements to identified threats.

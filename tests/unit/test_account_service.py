@@ -2,11 +2,13 @@ import threading
 import time
 import uuid
 from decimal import Decimal
+from pathlib import Path
+from typing import Callable, cast
 from unittest.mock import MagicMock
 
 import pytest
 from sqlalchemy import create_engine, select
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import Session, sessionmaker
 
 from sdd_cash_manager.models.account import Account
 from sdd_cash_manager.models.base import Base
@@ -76,7 +78,8 @@ def _assert_update_error(
 
 @pytest.fixture(scope="function")
 def db_session():
-    engine = create_engine("sqlite:///file:test_db?mode=memory&cache=shared")
+    db_file = Path("file:test_db")
+    engine = create_engine(f"sqlite:///{db_file}?mode=memory&cache=shared")
     Base.metadata.create_all(bind=engine)
     TestingSession = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     session = TestingSession()
@@ -85,6 +88,8 @@ def db_session():
     finally:
         session.close()
         Base.metadata.drop_all(bind=engine)
+        if db_file.exists():
+            db_file.unlink()
 
 @pytest.fixture
 def db_account_service(db_session):
@@ -536,7 +541,7 @@ def test_encrypt_notes_respects_db_flag(monkeypatch):
     service_no_db = AccountService()
     assert service_no_db._encrypt_notes("plain") == "plain"
 
-    dummy_session = object()
+    dummy_session = cast(Session, object())
     service_with_db = AccountService(db_session=dummy_session)
     encrypted_values: list[str] = []
 
@@ -572,7 +577,7 @@ def test_create_account_logs_runtime_error_on_db_failure(monkeypatch):
         def close(self):
             pass
 
-    service = AccountService(session_factory=lambda: FailingSession())
+    service = AccountService(session_factory=cast(Callable[[], Session], lambda: FailingSession()))
 
     with pytest.raises(RuntimeError, match="Failed to create account test-id due to unexpected error."):
         service.create_account(
@@ -668,3 +673,75 @@ def test_account_service_concurrent_update_with_locking(db_session):
     # If the concurrent thread successfully updated and committed 200.0,
     # and main thread rolled back, then final should be 200.0
     assert final_account.available_balance == Decimal("200.00") # Expect thread's update to be last
+
+
+def test_get_account_hierarchy_balance_uses_cache(monkeypatch):
+    service = AccountService()
+    root = _ensure_account(service.create_account("Root", "USD", AccountingCategory.ASSET, available_balance=Decimal("100.0")))
+    _ensure_account(
+        service.create_account(
+            "Child",
+            "USD",
+            AccountingCategory.ASSET,
+            parent_account_id=root.id,
+            available_balance=Decimal("50.0")
+        )
+    )
+
+    # Mock the internal calculation method
+    mock_in_memory_calc = MagicMock(
+        wraps=service._calculate_hierarchy_balance_in_memory
+    )
+    monkeypatch.setattr(
+        service, "_calculate_hierarchy_balance_in_memory", mock_in_memory_calc
+    )
+
+    # First call, should calculate and cache
+    balance1 = service.get_account_hierarchy_balance(root.id)
+    assert balance1 == Decimal("150.00")
+    mock_in_memory_calc.assert_called_once_with(root.id) # Should be called once
+
+    assert root.id in service._hierarchy_balance_cache
+    assert service._hierarchy_balance_cache[root.id] == Decimal("150.00")
+
+    # Second call, should use cache and NOT call the internal calculation again
+    balance2 = service.get_account_hierarchy_balance(root.id)
+    assert balance2 == Decimal("150.00")
+    mock_in_memory_calc.assert_called_once() # Should still be called only once
+
+def test_account_operations_invalidate_hierarchy_cache():
+    service = AccountService()
+    root = _ensure_account(service.create_account("Root", "USD", AccountingCategory.ASSET, available_balance=Decimal("100.0")))
+    child = _ensure_account(
+        service.create_account(
+            "Child",
+            "USD",
+            AccountingCategory.ASSET,
+            parent_account_id=root.id,
+            available_balance=Decimal("50.0")
+        )
+    )
+
+    # Populate cache
+    service.get_account_hierarchy_balance(root.id)
+    assert root.id in service._hierarchy_balance_cache
+
+    # Test Create invalidates cache
+    service.create_account("New Account", "USD", AccountingCategory.ASSET)
+    assert not service._hierarchy_balance_cache # Cache should be empty
+
+    # Repopulate cache
+    service.get_account_hierarchy_balance(root.id)
+    assert root.id in service._hierarchy_balance_cache
+
+    # Test Update invalidates cache
+    service.update_account(root.id, available_balance=Decimal("120.0"))
+    assert not service._hierarchy_balance_cache # Cache should be empty
+
+    # Repopulate cache
+    service.get_account_hierarchy_balance(root.id)
+    assert root.id in service._hierarchy_balance_cache
+
+    # Test Delete invalidates cache
+    service.delete_account(child.id)
+    assert not service._hierarchy_balance_cache # Cache should be empty

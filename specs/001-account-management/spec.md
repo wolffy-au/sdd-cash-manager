@@ -3,7 +3,7 @@
 | Requirement Key | Has Task? | Task IDs                                                              | Notes                                                                                                |
 | :-------------- | :-------- | :-------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------- |
 | FR-001          | Yes       | T010, T011, T013, T014, T015, T016, T017, T018, T019                    | Core account creation/management. The primary identifier for each account **MUST be a UUID** (as per Constitution). `account_number` is an optional, secondary identifier for external reference, with a maximum length of 50 characters, allowing alphanumeric and hyphens. Covered by Acceptance Scenarios 1-4 under FR-001; relevant Edge Cases in Account Management apply.                                                                    |
-| FR-002          | Yes       | T012, T017                                                            | Account types and enums defined. Ensure all defined AccountingCategory and BankingProductType values are covered by T012 and T017. **Standard banking account types (e.g., Checking, Savings, Credit Card, Loan) and their corresponding enums will be implemented.** Covered by Acceptance Scenarios 1-2 under FR-002; relevant Edge Cases in Balance Calculations and Account Management apply. |
+| FR-002          | Yes       | T012, T017 | Account types and enums defined. The standard banking account types include Checking, Savings, Credit Card, and Loan. The comprehensive list of types is defined by the `AccountingCategory` and `BankingProductType` enums, covered by T012 and T017. Covered by Acceptance Scenarios 1-2 under FR-002; relevant Edge Cases in Balance Calculations and Account Management apply. |
 | FR-003          | Yes       | T011, T013, T025, T029, T034                                          | Running and reconciled balances. Covered by Acceptance Scenarios 1-4 under FR-003 & FR-004; relevant Edge Cases in Balance Calculations and Data Integrity apply.                                                                     |
 | FR-004          | Yes       | T011, T025, T029                                                | Historical running balances. Clarify data fields in Transaction model: e.g., transaction\_running\_balance (after), historical\_running\_balance (prior). Differentiate from Account's available balance. **Calculation: `transaction_running_balance = previous_running_balance + transaction_amount; historical_running_balance = previous_running_balance; available_balance = running_balance - pending_transactions + credit_limit`.** Covered by Acceptance Scenarios 1-4 under FR-003 & FR-004; relevant Edge Cases in Balance Calculations and Data Integrity apply. |
 | FR-005          | Yes       | T011                                                                  | Account notes. Covered by Acceptance Scenario 3 under FR-001; relevant Edge Cases in Account Management apply.                                                                                       |
@@ -20,15 +20,15 @@
 
 | User Story Key | Task IDs                                                              | Notes                                                                                                |
 | :------------- | :-------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------- |
-| US1            | T008, T009, T010, T011, T012, T013, T014, T015, T016, T017 | As a user, I want to create and manage multiple financial accounts. Covered by FR-001, FR-002, FR-003, FR-004, FR-005; relevant Edge Cases in Account Management and Data Integrity apply. Covered by FR-001, FR-002, FR-003, FR-004, FR-005; relevant Edge Cases in Account Management and Data Integrity apply. Covered by FR-001, FR-002, FR-003, FR-004, FR-005. |
+| US1            | T008, T009, T010, T011, T012, T013, T014, T015, T016, T017 | As a user, I want to create and manage multiple financial accounts, as defined by FR-001. Relevant Edge Cases in Account Management and Data Integrity apply. |
 | US2            | T027, T028, T029, T030, T031, T032 | As a user, I want to organize my accounts into a hierarchy. Covered by FR-006, FR-007; relevant Edge Cases in Hierarchical Accounts apply. Covered by FR-006, FR-007; relevant Edge Cases in Hierarchical Accounts apply. Covered by FR-006, FR-007. |
 | US3            | T018, T019, T020, T021, T022, T023, T024, T025, T026 | As a user, I want to manually adjust an account's balance. Covered by FR-010, FR-011, FR-012, FR-013; relevant Edge Cases in Manual Balance Adjustments and Data Integrity apply. Covered by FR-010, FR-011, FR-012, FR-013; relevant Edge Cases in Manual Balance Adjustments and Data Integrity apply. Covered by FR-010, FR-011, FR-012, FR-013. |
 
 ## Non-Functional Requirements
 
-- **Performance:** API endpoint response times must be under 200ms, aiming for <100ms for typical operations. Individual transaction processing (creation, update) must complete within 50ms (p95). The system must support at least 1000 transactions per minute (approx. 16.7 TPS) under normal load. All financial calculations must be performed within a 0.001% tolerance of the true value, with absolute error not exceeding 0.01 units of the smallest currency denomination.
-- **Scalability:** Account retrieval for hierarchies up to 5 levels deep must complete within 200ms. The system should be designed to scale horizontally to support increasing transaction volumes and user loads, specifically meeting the throughput and concurrency targets defined in tasks T050 (RPS) and T051 (concurrent transaction capacity).
-- **Accuracy & Reliability:** High degree of accuracy and data integrity maintained through atomic transactions. Target uptime is 99.9% (approx. 8.76 hours downtime per year), with a Recovery Time Objective (RTO) of less than 4 hours and a Recovery Point Objective (RPO) of 1 hour.
+- **Performance:** API endpoint response times must be under 200ms, aiming for <100ms for typical operations (e.g., account creation, retrieval by ID, simple balance queries). Individual transaction processing (creation, update) must complete within 50ms (p95). The system must support at least 1000 transactions per minute (approx. 16.7 TPS) under normal load. All financial calculations must be performed within a 0.001% tolerance of the true value, with absolute error not exceeding 0.01 units of the smallest currency denomination.
+- **Scalability:** Account retrieval for hierarchies up to 5 levels deep must complete within 200ms. The system should be designed to scale horizontally to support increasing transaction volumes and user loads, specifically meeting the throughput and concurrency targets defined in tasks T055 (RPS) and T056 (concurrent transaction capacity).
+- **Accuracy & Reliability:** High degree of accuracy and data integrity maintained through atomic transactions. Target uptime is 99.9% (approx. 8.76 hours downtime per year), measured by API endpoint availability and success rate, with a Recovery Time Objective (RTO) of less than 4 hours and a Recovery Point Objective (RPO) of 1 hour.
 - **Security:** Implement standard JWT-based authentication using RS256 signing algorithm, adhering to OAuth 2.0 standards. Utilize Role-Based Access Control (RBAC) for authorization. Encrypt sensitive data at rest using AES-256 and ensure data in transit is protected via TLS 1.3.
 
 ## Terminology Definitions
@@ -142,7 +142,7 @@ This specification covers the core functionalities related to financial account 
 
 - **Account Management:**
   - Extremely long account names or notes that might exceed display limits or database constraints.
-  - Race conditions if multiple users attempt to create or modify the same account data concurrently.
+  - Race conditions if multiple users attempt to create or modify the same account data concurrently. **Resolution**: Mitigated through robust concurrency control mechanisms, including pessimistic locking for critical sections, as detailed in the "Concurrency Control" section.
 - **Balance Calculations:**
   - Arithmetic overflow/underflow with extremely large or small balance amounts.
   - Precision issues with financial calculations involving many decimal places.
@@ -150,7 +150,7 @@ This specification covers the core functionalities related to financial account 
   - What happens if `credit_limit` is null/negative or `pending_transactions` is malformed in available balance calculation?
   - **Required Response:** Null or negative `credit_limit` defaults to 0 (with a warning log), and malformed `pending_transactions` payloads must be rejected with validation errors before impacting balance calculations.
 - **Hierarchical Accounts:**
-  - Creation of excessively deep account hierarchies beyond the specified 5 levels.
+  - Creation of excessively deep account hierarchies beyond the specified 5 levels. **Resolution**: The system will prevent creation of hierarchies exceeding 5 levels to maintain performance guarantees and data integrity.
   - Circular references between parent and child accounts.
   - Concurrent modification or deletion of accounts within a hierarchy during balance calculation.
 - **Manual Balance Adjustments:**
@@ -169,7 +169,7 @@ This section details the comprehensive validation rules applied to all input poi
 
 - All API inputs are validated using Pydantic schemas, FastAPI's type coercion, and custom validators to enforce data integrity.
 - **Validation and sanitization must be consistently applied and enforced across all layers (API, service, and data access) to prevent bypasses and ensure robustness against injection attacks.**
-- Schema validation rejects malformed input with a `400 Bad Request` status code.
+    - **Sanitization for Vulnerabilities**: Implement sanitization mechanisms to mitigate risks from HTML tags (preventing XSS), specific control characters, and command injection patterns. Potentially harmful characters will be removed or replaced to ensure user-supplied data is safe for processing and rendering. This applies to all user-facing input fields and API payloads.
 - SQLAlchemy ORM parameter binding is used for all database operations, preventing SQL injection.
 - Logging scrubs control characters.
 
@@ -225,18 +225,24 @@ This section details the comprehensive validation rules applied to all input poi
 
 ## Threat Model
 
-A formal threat model (e.g., using STRIDE, DREAD, or similar methodology) for the Account Management feature **MUST** be documented. This model will identify potential threats, vulnerabilities, and attack vectors specific to the system's architecture, data flows, and asset types. All security requirements defined in this specification, and any subsequent derived security controls, **MUST** be explicitly mapped back to specific threats identified in this threat model. This ensures comprehensive coverage and justification for security measures. The threat model **MUST** be regularly reviewed and updated.
+A formal threat model for the Account Management feature has been documented in [specs/001-account-management/threat_model.md](specs/001-account-management/threat_model.md). This model identifies potential threats, vulnerabilities, and attack vectors specific to the system's architecture, data flows, and asset types. All security requirements defined in this specification, and any subsequent derived security controls, **MUST** be explicitly mapped back to specific threats identified in this threat model. This ensures comprehensive coverage and justification for security measures. The threat model **MUST** be regularly reviewed and updated.
 
 ## Security Incident Response
 
-Requirements for handling security failures, data breaches, and other security incidents **MUST** be clearly defined. This includes:
+Requirements for handling security failures, data breaches, and other security incidents **MUST** be clearly defined, as implemented in task T045. This includes:
 
 - **Detection**: Mechanisms and tools for prompt detection of security incidents.
 - **Containment**: Procedures to limit the scope and impact of an incident.
 - **Eradication**: Steps to remove the cause of the incident.
 - **Recovery**: Processes to restore affected systems and data to normal operation, including post-incident validation.
-- **Post-Incident Analysis**: Requirements for conducting root cause analysis and implementing lessons learned to prevent recurrence.
+- **Backup and Recovery (Desktop Application)**:
+  - **Frequency**: Data backups will be performed daily.
+  - **Recovery Point Objective (RPO)**: An RPO of 5 minutes is targeted, ensuring minimal data loss.
+  - **Applicability**: Due to the desktop application nature, specific RTO targets and offsite backup storage requirements are not applicable. Local backups will be managed by the application's data persistence strategy.
+
 - **Breach Notification**: Procedures and timelines for notifying affected parties and regulatory bodies in case of a data breach, adhering to all applicable legal and regulatory requirements.
+
+Measurable outcomes for these procedures will be defined as part of task T045's implementation.
 
 ## Concurrency Control
 

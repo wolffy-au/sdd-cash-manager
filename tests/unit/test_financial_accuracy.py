@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 from decimal import Decimal
+from pathlib import Path
 
 import pytest
 from sqlalchemy import create_engine
@@ -16,7 +17,8 @@ from sdd_cash_manager.services.transaction_service import BALANCING_ACCOUNT_ID, 
 @pytest.fixture(scope="function")
 def db_session():
     # Use a named in-memory database for shared access
-    engine = create_engine("sqlite:///file:test_financial_accuracy_db?mode=memory&cache=shared")
+    db_file = Path("file:test_financial_accuracy_db")
+    engine = create_engine(f"sqlite:///{db_file}?mode=memory&cache=shared")
     Base.metadata.create_all(bind=engine)
     TestingSession = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     session = TestingSession()
@@ -25,6 +27,8 @@ def db_session():
     finally:
         session.close()
         Base.metadata.drop_all(bind=engine)
+        if db_file.exists():
+            db_file.unlink()
 
 
 @pytest.fixture

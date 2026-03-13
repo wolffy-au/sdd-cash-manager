@@ -481,3 +481,14 @@ async def test_perform_balance_adjustment_validation_error(async_client: TestCli
     detail_str = str(response_data.get("detail", "")) # pyright: ignore[reportOptionalMemberAccess]
     assert "Input should be a valid decimal" in detail_str
     assert "invalid character in year" in detail_str
+
+
+@pytest.mark.asyncio
+async def test_health_check_endpoint_success(async_client: TestClient) -> None:
+    """
+    Tests that the /api/accounts/health endpoint returns a 200 OK status.
+    """
+    print("--- Testing health_check_endpoint_success ---")
+    response = async_client.get("/api/accounts/health")
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
