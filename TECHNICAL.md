@@ -100,11 +100,124 @@ The concept of using autonomous agents to uplift code quality and incrementally 
 
 - **Outcome Metrics and Considerations**: To gauge the success of this automated process, metrics such as reduced bug counts, improvement in test pass rates, and time savings in code reviews should be established and monitored. Additionally, potential challenges such as dependency conflicts and AI reasoning errors should be anticipated and addressed proactively.
 
-## Error Management
+## API Testing Patterns (Integration Testing with httpx)
 
-- **Consistent Error Responses**: Define a standard format for API error responses (e.g., JSON structure including error code, message, and details) for predictable client-side handling.
-- **Exception Handling**: Implement robust try-except blocks to catch and handle exceptions gracefully, preventing application crashes.
-- **Meaningful Error Codes**: Utilize standardized HTTP status codes for API errors and define custom error codes for specific application-level issues.
+Building on the implementation of feature 002-add-api-pytests, the following patterns and practices have been established for API-level integration testing:
+
+### Test Infrastructure Architecture
+
+- **In-Process ASGI Testing**: Use `httpx.AsyncClient` with `ASGITransport` to test FastAPI applications without spinning up external servers. This provides realistic full-stack coverage with minimal overhead (~2-3 seconds for 7 tests).
+- **Deterministic Fixtures**: Create seeded test data via pytest fixtures that:
+  - Set up known, repeatable account hierarchies (visible, hidden, placeholder accounts)
+  - Include balancing accounts for double-entry accounting invariant validation
+  - Provide explicit cleanup (teardown) hooks to ensure test isolation
+  - Use fixture-scoped cleanup to prevent test pollution
+
+### JWT Token Management in Tests
+
+- **JWT Helper Utilities**: Create a dedicated `jwt_utils.py` module that:
+  - Generates short-lived test tokens matching app configuration
+  - Uses the same algorithm/secret as the application (read from environment)
+  - Allows test-specific payload customization (user ID, roles, etc.)
+  - Does not share implementation with production JWT code to avoid circular dependencies
+- **Environment-Driven Configuration**: Read JWT settings from environment variables (`SDD_CASH_MANAGER_JWT_SECRET`, `SDD_CASH_MANAGER_JWT_ALGORITHM`) in `conftest.py` so tests adapt to runtime configuration
+
+### Test Data Cleanup and Isolation
+
+- **Fixture Cleanup Strategy**: Use pytest `yield` fixtures with explicit cleanup blocks to:
+  - Delete test-created accounts after each test
+  - Reset database state (SQLite) to clean slate
+  - Ensure tests are truly independent and can run in any order
+- **Balancing Accounts**: For financial applications using double-entry accounting, include a dedicated balancing account fixture that:
+  - Gets created once per test session or module
+  - Absorbs offsetting transactions automatically
+  - Never appears in normal user queries (marked as `hidden=True`)
+  - Validates hierarchy invariants remain intact
+
+### Test Assertion Helpers
+
+- **Shared Assertion Utilities**: Create a `helpers.py` module with reusable validators:
+  - `assert_http_status(response, expected_code)` - Verify HTTP status without exposing full response details
+  - `assert_payload_contains(response, required_keys)` - Validate response structure
+  - `reset_test_database(db_session)` - Clean state between tests
+  - These helpers reduce duplication and provide consistent error messaging
+- **Financial Data Validation**: Include helpers that validate:
+  - Decimal precision (e.g., currency values quantized to 2 decimal places)
+  - Double-entry invariants (debits = credits)
+  - Account hierarchy constraints (parent-child relationships)
+
+### Test Module Organization
+
+- **Three-Tier Test Coverage**:
+  - **test_accounts.py**: Happy-path and filtering for core resources (2-3 tests)
+  - **test_transactions.py**: Business logic and hierarchy effects (2-3 tests)
+  - **test_validation.py**: Error paths, auth failures, and edge cases (3-4 tests)
+- **Test Naming Convention**: Use explicit, action-oriented names:
+  - `test_create_and_get_account` (setup + verify)
+  - `test_list_accounts_filters` (feature-specific)
+  - `test_unauthorized_request_returns_401` (error case)
+- **Parallel Execution**: Organize tests so they can run concurrently:
+  - Tests should not share mutable state
+  - Use unique IDs for created resources
+  - Rely on cleanup fixtures, not test ordering
+
+### CI/CD Integration
+
+- **Test Runner Script**: Create `scripts/run_api_tests.sh` that:
+  - Activates the virtual environment
+  - Ensures API is running (or skips with graceful exit)
+  - Executes pytest with consistent flags (`-v`, `--tb=short`, coverage options)
+  - Generates both human-readable and machine-readable output (JUnit XML for CI)
+  - Returns appropriate exit codes for pass/fail/skip scenarios
+- **GitHub Actions Integration**: Integrate into CI workflows by:
+  - Running in an isolated step after dependency installation
+  - Setting timeout limits for test suite (5-10 minutes)
+  - Collecting coverage reports and artifacts
+
+### Performance and Stability
+
+- **Target Execution Time**: Aim for <5 seconds total for a ~7-test suite (acceptability threshold for dev feedback loop)
+- **Flakiness Prevention**:
+  - Use `pytest-asyncio` with `asyncio_mode = "auto"` for async test handling
+  - Avoid hardcoded timeouts; use application-defined values
+  - Ensure database cleanup is deterministic (not time-dependent)
+  - Run full suite multiple times locally before committing to verify consistency
+- **Code Coverage**: Expect 60-70% coverage for integration tests (more granular coverage via unit tests):
+  - API endpoints: 70-80%
+  - Models: 90-95%
+  - Schemas (DTOs): 100%
+  - Services: 50-60% (complementary unit tests for edge cases)
+
+### Requirements Traceability
+
+- **Explicit Mapping**: Maintain a Requirements Traceability Matrix linking:
+  - Functional Requirements (FR-001, FR-002, etc.) → Task IDs
+  - Success Criteria (SC-001, SC-002, etc.) → Test Functions
+  - User Stories (US1, US2, US3) → Test Modules
+- **Verification**: Use this matrix to verify:
+  - 100% of requirements have corresponding tasks
+  - 100% of tasks are marked complete
+  - 100% of success criteria are tested
+- **Location**: Store in tasks.md as an early-reference table to reduce artifact navigation
+
+### Documentation and Contributor Onboarding
+
+- **Quickstart Guide**: Create `specs/<feature>/quickstart.md` with:
+  - Environment setup steps (virtualenv, dependencies)
+  - Required environment variable configuration
+  - Command to run tests locally
+  - How to interpret results (passing vs. failing)
+  - How to run individual tests or subsets
+- **Test Module README**: Include `tests/api/README.md` that:
+  - Describes fixture locations and purposes
+  - Lists all helper utilities
+  - Provides examples of common test patterns
+  - Links to full specification and quickstart
+- **AGENTS.md Integration**: Tag the test suite in AGENTS.md with:
+  - Complete project structure showing test organization
+  - Full command reference for running tests
+  - Current coverage and performance metrics
+  - Dependencies and prerequisites
 
 ## Observability and Logging
 
@@ -278,3 +391,60 @@ npm install -g snyk@latest
 snyk auth <token>
 snyk test --all-projects
 ```
+
+## Specification and Requirements Management
+
+Experience from implementing feature 002-add-api-pytests has revealed critical practices for managing specifications, plans, and tasks effectively:
+
+### Artifact Consistency and Traceability
+
+- **Three-Tier Artifact Model**:
+  - **spec.md**: Functional Requirements (FR), Non-Functional Requirements (NFR), Success Criteria (SC), User Stories
+  - **plan.md**: Architecture choices, data models, technical strategy, phased approach
+  - **tasks.md**: Concrete task breakdown, implementation sequencing, test mapping
+  - Each artifact must remain in sync; inconsistencies create confusion during implementation
+- **Requirement Numbering**: Assign stable identifiers to requirements (e.g., FR-001, SC-001) and reference them consistently across all artifacts. Avoid implicit requirements or vague references.
+- **Requirement Validation**:
+  - FR/SC must be measurable (avoid vague terms like "fast" or "scalable" without units)
+  - Placeholder terms (TODO, TKTK, ???) must be resolved before implementation
+  - User stories must have explicit acceptance criteria linked to success criteria
+
+### Requirements Traceability Matrix
+
+- **Mandatory Component**: After task generation, create a table mapping Requirements → Tasks:
+  - Columns: Requirement ID, Type (FR/NFR), Task IDs, User Story, Success Criteria
+  - Validates 100% of requirements are covered by tasks
+  - Validates no orphaned tasks exist without requirement linkage
+  - Serves as implementation verification checklist
+- **Update Strategy**: Maintain the matrix in tasks.md as the primary reference. Update it whenever requirements change, new tasks are added, or mappings are discovered incorrect.
+- **Example Structure**:
+  ```
+  | FR-001 | API test infrastructure | T001-T006 | Setup | SC-001, SC-002 |
+  | FR-002 | Account creation endpoint | T007-T010 | US1 | SC-002 |
+  ```
+
+### Documentation-First Approach
+
+- **Specification Before Implementation**: Write spec.md, plan.md, and tasks.md *before* coding to clarify scope, detect conflicts early, and enable team review.
+- **Quickstart Guides**: Create feature-specific quickstart guides (`specs/<feature>/quickstart.md`) that provide step-by-step setup, environment variables, test commands, and failure modes.
+- **Artifact Interconnection**: Link artifacts explicitly with cross-references between spec.md, plan.md, and tasks.md to show how architecture decisions address requirements and phases map to task groupings.
+
+### Constitution Alignment Verification
+
+- **Non-Negotiable Principles**: Before implementation, verify compliance with project constitution:
+  - Financial Data Accuracy (VII): Tests validate calculations and double-entry invariants
+  - Data Longevity (VIII): Use standard, portable storage formats
+  - Cross-Platform Consistency (IX): Avoid OS-specific code
+  - Code Quality (I), Testing (II), Security (V): Build in from day 1
+- **Constitution Violations**: Any conflict must be resolved *before* implementation starts—never proceed if a constitution principle is violated.
+
+### Quality Gate Patterns
+
+- **Analysis Before Implementation**: Run cross-artifact analysis tools (e.g., speckit.analyze) after task generation to detect ambiguities, duplications, unmapped tasks, terminology inconsistencies, and constitution violations.
+- **High-Signal Findings**: Prioritize by severity:
+  - CRITICAL: Constitution violations, missing artifacts, zero-coverage requirements
+  - HIGH: Duplicate/conflicting requirements, untestable acceptance criteria
+  - MEDIUM: Terminology drift, missing non-functional coverage
+  - LOW: Style/wording improvements
+- **Remediation**: Address CRITICAL/HIGH findings before implementation; track MEDIUM/LOW as post-implementation refinements.
+
