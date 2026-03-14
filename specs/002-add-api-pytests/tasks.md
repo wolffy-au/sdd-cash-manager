@@ -32,13 +32,13 @@
 
 ### Tests for User Story 1
 
-- [ ] T007 [P] [US1] Add creation test in `tests/api/test_accounts.py` that posts `/accounts` with valid payload and asserts `201 Created`, returned fields, and later GET `/accounts/{id}`
-- [ ] T008 [P] [US1] Add listing/filter test in `tests/api/test_accounts.py` that fetches `/accounts` with `search_term`, `include_hidden`, `include_placeholder` and validates response filtering
+- [x] T007 [P] [US1] Add creation test in `tests/api/test_accounts.py` that posts `/accounts` with valid payload and asserts `201 Created`, returned fields, and later GET `/accounts/{id}`
+- [x] T008 [P] [US1] Add listing/filter test in `tests/api/test_accounts.py` that fetches `/accounts` with `search_term`, `include_hidden`, `include_placeholder` and validates response filtering
 
 ### Implementation for User Story 1
 
-- [ ] T009 [US1] Ensure `tests/api/conftest.py` exposes fixtures to provide seeded accounts used by the creation/list tests
-- [ ] T010 [US1] Validate response assertions (status + required payload keys) using helpers from `tests/api/helpers.py`
+- [x] T009 [US1] Ensure `tests/api/conftest.py` exposes fixtures to provide seeded accounts used by the creation/list tests
+- [x] T010 [US1] Validate response assertions (status + required payload keys) using helpers from `tests/api/helpers.py`
 
 **Checkpoint**: Story 1 demonstrates account creation/listing flow and is independently runnable.
 
@@ -51,13 +51,13 @@
 
 ### Tests for User Story 2
 
-- [ ] T011 [P] [US2] Add balance adjustment test in `tests/api/test_transactions.py` that POSTs `/accounts/{id}/adjustment` and asserts `status == COMPLETED` plus transaction entries
-- [ ] T012 [P] [US2] Add POST-adjustment follow-up test in `tests/api/test_transactions.py` that GETs `/accounts/{id}/balance` for both accounts and compares totals before/after
+- [x] T011 [P] [US2] Add balance adjustment test in `tests/api/test_transactions.py` that POSTs `/accounts/{id}/adjustment` and asserts `status == COMPLETED` plus transaction entries
+- [x] T012 [P] [US2] Add POST-adjustment follow-up test in `tests/api/test_transactions.py` that GETs `/accounts/{id}/balance` for both accounts and compares totals before/after
 
 ### Implementation for User Story 2
 
-- [ ] T013 [US2] Use fixtures from `tests/api/fixtures.py` to prepare accounts with predictable balances and pass their IDs to the transaction tests
-- [ ] T014 [US2] Assert both HTTP contract expectations (status/payload shape) and business rules (balancing account adjustments) using `tests/api/helpers.py`
+- [x] T013 [US2] Use fixtures from `tests/api/fixtures.py` to prepare accounts with predictable balances and pass their IDs to the transaction tests
+- [x] T014 [US2] Assert both HTTP contract expectations (status/payload shape) and business rules (balancing account adjustments) using `tests/api/helpers.py`
 
 **Checkpoint**: Transaction and hierarchy tests run independently ensuring double-entry invariants stay intact.
 
