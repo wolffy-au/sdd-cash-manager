@@ -89,7 +89,7 @@
 - [x] T019 [P] Update `README.md` or `docs/api-tests.md` with the quickstart steps from `specs/002-add-api-pytests/quickstart.md`
 - [x] T020 [P] Add CI job or script entry (e.g., `scripts/run_api_tests.sh`) that runs `pytest tests/api` and enforces timeout/logging behavior
 - [x] T021 [P] Run `pytest tests/api` locally, capture logs, and commit any necessary fixture tweaks for flakiness based on real output
-- [ ] T022 [P] Tag tests/API tasks in AGENTS.md or other tooling so tooling knows the new suite exists
+- [x] T022 [P] Tag tests/API tasks in AGENTS.md or other tooling so tooling knows the new suite exists
 
 ---
 
