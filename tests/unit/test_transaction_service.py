@@ -103,6 +103,58 @@ def setup_accounts(db_session, account_service):
     db_session.commit()
     return acc1, acc2, balancing_acc
 
+def test_acquire_session_uses_factory():
+    sentinel = MagicMock()
+    service = TransactionService(session_factory=lambda: sentinel)
+    session, should_close = service._acquire_session()
+    assert session is sentinel
+    assert should_close is True
+
+def test_validate_string_field_min_length():
+    with pytest.raises(ValueError, match="field must be at least 2 characters long."):
+        TransactionService._validate_string_field("x", "field", min_length=2)
+
+def test_validate_string_field_allowed_chars():
+    with pytest.raises(ValueError, match="contains invalid characters"):
+        TransactionService._validate_string_field(
+            "abc-123",
+            "field",
+            allowed_chars_regex=r"[A-Za-z0-9]+"
+        )
+
+
+def test_get_transaction_without_db_session_raises():
+    service = TransactionService()
+    with pytest.raises(
+        RuntimeError,
+        match="TransactionService must be used with a database session to get transactions."
+    ):
+        service.get_transaction("txn-id")
+
+
+def test_get_transaction_requires_active_session():
+    service = TransactionService(session_factory=lambda: MagicMock())
+    service.db_session = None
+    with pytest.raises(
+        ValueError,
+        match="Database session is required to retrieve transactions."
+    ):
+        service.get_transaction("txn-id")
+
+
+class _FailingSession:
+    def add(self, _):
+        raise RuntimeError("forced failure")
+
+    def flush(self):
+        pass
+
+    def refresh(self, _):
+        pass
+
+    def close(self):
+        pass
+
 
 def test_transaction_service_acquire_session_without_db_raises(monkeypatch):
     service = TransactionService()
@@ -198,6 +250,25 @@ def test_create_transaction_persists_to_db(transaction_service, db_session, setu
     assert any(e.account_id == acc2.id and e.credit_amount == amount for e in retrieved_entries)
 
 
+def test_create_transaction_session_failure(monkeypatch):
+    monkeypatch.setattr(
+        "sdd_cash_manager.services.transaction_service.log_critical_application_error",
+        lambda *args, **kwargs: None
+    )
+    service = TransactionService(session_factory=lambda: _FailingSession())
+    now = datetime.now(timezone.utc)
+    with pytest.raises(RuntimeError, match="Failed to create transaction"):
+        service.create_transaction(
+            effective_date=now,
+            booking_date=now,
+            description="Should fail",
+            amount=Decimal("100.00"),
+            debit_account_id="acc-debit",
+            credit_account_id="acc-credit",
+            action_type="Test"
+        )
+
+
 def test_get_transaction_from_db(transaction_service, db_session, setup_accounts):
     acc1, acc2, _ = setup_accounts
     now = datetime.now(timezone.utc)
@@ -220,6 +291,36 @@ def test_get_transaction_from_db(transaction_service, db_session, setup_accounts
     assert transaction_service.get_transaction(str(uuid.uuid4())) is None
 
 
+def test_get_transactions_by_account_requires_db():
+    service = TransactionService()
+    with pytest.raises(
+        RuntimeError,
+        match="TransactionService must be used with a database session to get transactions by account."
+    ):
+        service.get_transactions_by_account("acc-1")
+
+
+def test_get_transactions_by_account_session_error(monkeypatch):
+    monkeypatch.setattr(
+        "sdd_cash_manager.services.transaction_service.log_critical_application_error",
+        lambda *args, **kwargs: None
+    )
+
+    class _BadScaler:
+        def scalars(self, _):
+            raise RuntimeError("boom")
+
+        def close(self):
+            pass
+
+    service = TransactionService(session_factory=lambda: _BadScaler())
+    with pytest.raises(
+        RuntimeError,
+        match="Failed to retrieve transactions for account acc-1"
+    ):
+        service.get_transactions_by_account("acc-1")
+
+
 def test_get_transactions_by_account_from_db(transaction_service, db_session, setup_accounts):
     acc1, acc2, _ = setup_accounts
     now = datetime.now(timezone.utc)
@@ -238,6 +339,15 @@ def test_get_transactions_by_account_from_db(transaction_service, db_session, se
     txs_for_acc2 = transaction_service.get_transactions_by_account(acc2.id)
     assert len(txs_for_acc2) == 3
     assert {tx.id for tx in txs_for_acc2} == {tx1.id, tx2.id, tx3.id}
+
+
+def test_update_transaction_status_requires_db():
+    service = TransactionService()
+    with pytest.raises(
+        RuntimeError,
+        match="TransactionService must be used with a database session to update transaction status."
+    ):
+        service.update_transaction_status("txn-id", processing_status=ProcessingStatus.POSTED)
 
 
 def test_update_transaction_status_persists_to_db(transaction_service, db_session, setup_accounts):
@@ -495,3 +605,39 @@ def test_perform_balance_adjustment_no_account_service_raises_error(db_session):
             action_type="Test Failure"
         )
     db_session.rollback() # Rollback any pending operations
+
+
+def test_perform_balance_adjustment_update_account_missing(transaction_service, account_service, db_session, setup_accounts, monkeypatch):
+    acc1, _, _ = setup_accounts
+    target_balance = account_service.get_account(acc1.id).available_balance + Decimal("50.00")
+    monkeypatch.setattr(account_service, "update_account", MagicMock(return_value=None))
+
+    with pytest.raises(ValueError, match=f"Account with ID {acc1.id} not found."):
+        transaction_service.perform_balance_adjustment(
+            account_id=acc1.id,
+            target_balance=target_balance,
+            adjustment_date=datetime.now(timezone.utc),
+            description="Missing update",
+            action_type="Adjust"
+        )
+    db_session.rollback()
+
+
+def test_perform_balance_adjustment_unexpected_error(transaction_service, account_service, db_session, setup_accounts, monkeypatch):
+    acc1, _, _ = setup_accounts
+    target_balance = account_service.get_account(acc1.id).available_balance + Decimal("25.00")
+    monkeypatch.setattr(
+        "sdd_cash_manager.services.transaction_service.log_critical_application_error",
+        lambda *args, **kwargs: None
+    )
+    monkeypatch.setattr(account_service, "record_balance_snapshot", MagicMock(side_effect=TypeError("boom")))
+
+    with pytest.raises(RuntimeError, match=f"Failed to perform balance adjustment for account {acc1.id}"):
+        transaction_service.perform_balance_adjustment(
+            account_id=acc1.id,
+            target_balance=target_balance,
+            adjustment_date=datetime.now(timezone.utc),
+            description="Unexpected failure",
+            action_type="Adjust"
+        )
+    db_session.rollback()
