@@ -72,7 +72,7 @@ Python 3.12 (from .python-version): Follow standard conventions. See TECHNICAL.m
 - **Tests**: `tests/api/` - Integration tests exercising the full FastAPI app via httpx
 - **Config**: `tests/api/conftest.py` - AsyncClient setup, environment-driven JWT settings
 - **Fixtures**: `tests/api/fixtures.py` - Seeded accounts (visible, hidden, placeholder), balancing account with cleanup
-- **Utilities**: 
+- **Utilities**:
   - `jwt_utils.py` - Short-lived token generation matching app auth settings
   - `helpers.py` - HTTP status/payload assertions, database reset
 - **Test Modules**:
@@ -83,6 +83,7 @@ Python 3.12 (from .python-version): Follow standard conventions. See TECHNICAL.m
 ### Running Tests
 
 **Local Development:**
+
 ```bash
 # All tests
 pytest tests/api -v
@@ -97,6 +98,7 @@ pytest tests/api --cov=src --cov-report=html
 ```
 
 **CI/CD Integration:**
+
 ```bash
 scripts/run_api_tests.sh    # Runs full suite with logging & XML output
 ```

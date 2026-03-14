@@ -3,6 +3,22 @@
 **Input**: Design documents from `/specs/002-add-api-pytests/`  
 **Prerequisites**: plan.md, spec.md, research.md, data-model.md, contracts/
 
+## Requirements Traceability Matrix
+
+| Requirement | Type | Tasks | User Story | Success Criteria |
+|-------------|------|-------|------------|------------------|
+| API test infrastructure | FR-001 | T001-T006 | Setup | SC-001, SC-002 |
+| Account creation endpoint | FR-002 | T007-T010 | US1 | SC-002 |
+| Account filtering/search | FR-003 | T007-T010 | US1 | SC-002 |
+| Balance adjustment endpoint | FR-004 | T011-T014 | US2 | SC-003 |
+| Double-entry invariants | FR-005 | T011-T014 | US2 | SC-003 |
+| Validation error handling | FR-006 | T015-T018 | US3 | SC-004 |
+| HTTP contract verification | FR-002,003,004,006 | T007-T018 | All | SC-001,004 |
+| JWT authentication enforcement | Auth | T005,T016-T017 | US3 | SC-004 |
+| Deterministic test fixtures | NFR-001 | T004-T006 | Setup | SC-001 |
+| Test execution speed (<5s) | NFR-002 | T002,T021 | Polish | SC-001 |
+| CI/CD integration | NFR-003 | T020,T022 | Polish | SC-001 |
+
 ## Phase 1: Setup (Shared Infrastructure)
 
 **Purpose**: Establish the dedicated API test surface so pytest/httpx exercises the real service.
@@ -110,7 +126,7 @@
 
 ### User Story 1
 
-- Model & fixture updates (`tests/api/fixtures.py`) can land in parallel with contract assertions (`tests/api/tests_accounts.py`) because they touch different files.
+- Model & fixture updates (`tests/api/fixtures.py`) can land in parallel with contract assertions (`tests/api/test_accounts.py`) because they touch different files.
 - Spawn `pytest tests/api/test_accounts.py::test_create_and_get_account` and `pytest tests/api/test_accounts.py::test_list_accounts_filters` simultaneously: they share fixtures but can run concurrently due to cleanup hooks.
 
 ### User Story 2

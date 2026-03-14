@@ -17,7 +17,7 @@
    ```
 
    Tests use httpx clients, seed deterministic accounts, and clean up after each scenario.
-   The fixtures enforce deterministic connect/read/write httpx timeouts so slow or hung servers surface as failures (FR-007).
+   The fixtures enforce deterministic connect/read/write httpx timeouts so slow or hung servers surface as failures.
 
 4. **Interpret results**
    - Passing suite: all acceptance criteria (account creation, hierarchy balance, validation errors) verified.

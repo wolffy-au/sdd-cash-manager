@@ -268,3 +268,13 @@ pysonar \
   --sonar-token=sqa_7dd818bf6c9db3aed46fd6a8463669f5a885970d \
   --sonar-project-key=sdd-cash-manager
 ```
+
+## Snyk
+
+To force a Snyk check, run:
+
+```bash
+npm install -g snyk@latest
+snyk auth <token>
+snyk test --all-projects
+```
