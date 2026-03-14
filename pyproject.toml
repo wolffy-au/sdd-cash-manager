@@ -149,7 +149,6 @@ source = ["src"]
 
 [tool.coverage.report]
 show_missing = true
-fail_under = 90
 
 [tool.coverage.html]
 directory = "build/coverage-reports"

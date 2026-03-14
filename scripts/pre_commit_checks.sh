@@ -31,7 +31,7 @@ uv run behave tests/features/ || true
 # --- Unit/Integration Testing ---
 echo "Running pytest..."
 # Runs pytest for unit and integration tests.
-uv run pytest
+uv run pytest --cov-fail-under=90
 
 echo "Pre-commit checks passed successfully."
 exit 0

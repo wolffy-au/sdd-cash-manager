@@ -1,7 +1,7 @@
 {
     "name": "SddCashManagerDevContainer",
     "image": "mcr.microsoft.com/devcontainers/python:3.12-trixie",
-    "runArgs": ["--network=sonar-net"],
+    // "runArgs": ["--network=sonar-net"],
     "init": true,
     "remoteUser": "devcontainer",
     "updateRemoteUserUID": true,
@@ -41,7 +41,6 @@
                 "lee2py.aider-composer",
                 "ms-azuretools.vscode-containers",
                 "github.vscode-github-actions",
-                "DavidAnson.vscode-markdownlint",
                 "jebbs.plantuml",
                 "snyk-security.snyk-vulnerability-scanner",
                 "redhat.vscode-yaml",

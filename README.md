@@ -69,6 +69,38 @@ Settings are automatically loaded from a `.env` file in the project root when pr
     pytest
     ```
 
+## API Pytest Quickstart
+
+The dedicated API regression suite lives under `tests/api` and exercises the FastAPI endpoints through `httpx` clients. Follow these steps to run it:
+
+1. **Prepare the environment**
+   - Activate your virtual environment (e.g., `source .venv/bin/activate`).
+   - Install project dependencies via the configured tooling (e.g., `uv sync --all-groups` or `pip install -r requirements.txt`).
+   - Ensure the local API is running and reachable (`uvicorn src.main:app --reload` by default).
+
+2. **Set required environment variables**
+   - `SDD_CASH_MANAGER_SECURITY_ENABLED=true` (enforces JWT auth during the suite).
+   - `SDD_CASH_MANAGER_JWT_SECRET` and `SDD_CASH_MANAGER_JWT_ALGORITHM=HS256` (match the fixtures’ expectations).
+   - Optionally adjust `SDD_CASH_MANAGER_DATABASE_URL` if you want to run against a specific database.
+
+3. **Run the API tests**
+
+   ```bash
+   pytest tests/api
+   ```
+
+   These tests seed deterministic accounts, rely on JWT-authenticated requests, and clean up after each scenario. Failures indicate regressions in account creation, listings, adjustments, or validation behavior.
+
+4. **Interpret results**
+   - Passing suite: all acceptance criteria (account creation, hierarchy balances, validation errors, authentication guards) are satisfied.
+   - Failing test: inspect the HTTP response payload logged by pytest; it pinpoints the endpoint or fixture needing attention.
+
+5. **Optional workflows**
+   - Run individual tests for faster iteration: `pytest tests/api/test_accounts.py::test_create_and_get_account`.
+   - Use `-k` filters (e.g., `pytest tests/api -k balance`) to scope the suite.
+
+Refer to `specs/002-add-api-pytests/quickstart.md` for further context.
+
 ## Running the Application
 
 The application can be run using uvicorn:
