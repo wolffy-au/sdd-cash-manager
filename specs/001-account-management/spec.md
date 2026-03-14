@@ -169,7 +169,7 @@ This section details the comprehensive validation rules applied to all input poi
 
 - All API inputs are validated using Pydantic schemas, FastAPI's type coercion, and custom validators to enforce data integrity.
 - **Validation and sanitization must be consistently applied and enforced across all layers (API, service, and data access) to prevent bypasses and ensure robustness against injection attacks.**
-    - **Sanitization for Vulnerabilities**: Implement sanitization mechanisms to mitigate risks from HTML tags (preventing XSS), specific control characters, and command injection patterns. Potentially harmful characters will be removed or replaced to ensure user-supplied data is safe for processing and rendering. This applies to all user-facing input fields and API payloads.
+  - **Sanitization for Vulnerabilities**: Implement sanitization mechanisms to mitigate risks from HTML tags (preventing XSS), specific control characters, and command injection patterns. Potentially harmful characters will be removed or replaced to ensure user-supplied data is safe for processing and rendering. This applies to all user-facing input fields and API payloads.
 - SQLAlchemy ORM parameter binding is used for all database operations, preventing SQL injection.
 - Logging scrubs control characters.
 
