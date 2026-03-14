@@ -1,3 +1,16 @@
+## v0.2.0 (2026-03-14)
+
+### Feat
+
+- add available_balance, balance adjustment endpoint, and role auth
+- enhance API documentation and implementation plan for pytest coverage
+- add api pytest specification
+
+### Fix
+
+- **specs/002**: apply speckit.analyze remediation fixes
+- **app**: add uvicorn entrypoint and support legacy banking types
+
 ## v0.1.0 (2026-03-13)
 
 ### Feat
