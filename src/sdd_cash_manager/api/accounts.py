@@ -102,12 +102,15 @@ class AccountingCategory(str, Enum):
     EXPENSE = "EXPENSE"
 
 class BankingProductType(str, Enum):
+    # Primary canonical product types used internally
     BANK = "BANK"
     CREDIT_CARD = "CREDIT_CARD"
     LOAN = "LOAN"
     CASH = "CASH"
     INVESTMENT = "INVESTMENT"
     OTHER = "OTHER"
+    # Legacy / alternate names accepted by the public API and mapped to canonical values
+    CHECKING = "BANK"  # Accept 'CHECKING' from older clients and treat as 'BANK'
 
 class ActionType(str, Enum):
     ADJUSTMENT = "ADJUSTMENT"
@@ -135,7 +138,8 @@ class AccountCreatePayload(BaseModel):
     name: NameField
     currency: CurrencyField
     accounting_category: AccountingCategory
-    banking_product_type: BankingProductType
+    # Accept strings for legacy client values (e.g., "CHECKING") and validate later
+    banking_product_type: str
     account_number: AccountNumberField | None = None
     available_balance: BalanceField
     credit_limit: BalanceField | None = None
@@ -163,7 +167,7 @@ class AccountUpdatePayload(BaseModel):
     name: NameField | None = None
     currency: CurrencyField | None = None
     accounting_category: AccountingCategory | None = None
-    banking_product_type: BankingProductType | None = None
+    banking_product_type: str | None = None
     account_number: AccountNumberField | None = None
     available_balance: BalanceField | None = None
     credit_limit: BalanceField | None = None
@@ -370,7 +374,7 @@ def create_account(
             currency=account_data.currency,
             accounting_category=account_data.accounting_category.value,
             account_number=account_data.account_number,
-            banking_product_type=account_data.banking_product_type.value,
+            banking_product_type=account_data.banking_product_type,
             available_balance=available_balance_decimal,
             credit_limit=credit_limit_decimal,
             notes=account_data.notes,

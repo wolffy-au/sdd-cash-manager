@@ -8,6 +8,9 @@ from httpx import AsyncClient, Timeout
 
 from tests.api.jwt_utils import generate_access_token
 
+# Ensure fixtures defined in tests/api/fixtures.py are registered with pytest
+from .fixtures import *  # noqa: F401,F403
+
 
 @pytest.fixture(scope="session")
 def api_base_url() -> str:
@@ -23,10 +26,31 @@ def api_security_enabled() -> bool:
 
 @pytest.fixture
 async def api_client(api_base_url: str) -> AsyncGenerator[AsyncClient, None]:
-    """Provide an httpx AsyncClient configured for the local API."""
+    """Provide an httpx AsyncClient configured for the local API.
+
+    Use the in-process FastAPI app when available to avoid needing uvicorn.
+    """
     timeout = Timeout(10.0, connect=5.0)
-    async with AsyncClient(base_url=api_base_url, timeout=timeout) as client:
-        yield client
+
+    # Import the project FastAPI app from src/main.py (raise on failure)
+    import pathlib
+    import sys
+
+    src_dir = str(pathlib.Path(__file__).resolve().parents[2] / "src")
+    if src_dir not in sys.path:
+        sys.path.insert(0, src_dir)
+    from main import app  # src/main.py defines the FastAPI app
+
+    # Use ASGI transport so httpx sends requests directly to the FastAPI app
+    try:
+        from httpx import ASGITransport
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://testserver", timeout=timeout, follow_redirects=True) as client:
+            yield client
+    except Exception:
+        # Fall back to a network client if ASGI transport fails
+        async with AsyncClient(base_url=api_base_url, timeout=timeout, follow_redirects=True) as client:
+            yield client
 
 
 @pytest.fixture
