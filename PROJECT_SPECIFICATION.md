@@ -36,7 +36,7 @@ This document outlines the key business features and input/output formats, the f
 - **Search Accounts by Name:** Provides the ability to locate accounts by their name.
 - **Application State Management (Save/New):** The system tracks whether changes have been made to the account data, prompting users to save unsaved work and managing "new" (empty) data states.
 
-### 1.3 Adjust Balance Window
+### 1.2 Adjust Balance Window
 
 - **Manual Balance Adjustment:** Provides a dedicated window for users to manually adjust an account's balance to a specific value.
 - **Automated Transaction Creation:** When a new balance is entered, the system automatically creates a new transaction on a specified date.
