@@ -33,3 +33,13 @@ async def test_unauthorized_request_returns_401(api_client: AsyncClient) -> None
 
     response = await api_client.post("/accounts", json=payload)
     assert_status(response, 401)
+
+
+@pytest.mark.asyncio
+async def test_list_accounts_requires_authenticated_headers(
+    api_client: AsyncClient,
+    authenticated_headers: dict[str, str],
+) -> None:
+    """Ensure listing accounts succeeds when a valid JWT is supplied."""
+    response = await api_client.get("/accounts", headers=authenticated_headers)
+    assert_status(response, 200)

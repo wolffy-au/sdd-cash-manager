@@ -137,7 +137,7 @@ indent-style = "space"
 
 [tool.pytest.ini_options]
 pythonpath = "src"
-testpaths = ["./tests/unit", "./tests/security", "./tests/integration"]
+testpaths = ["./tests/unit", "./tests/security", "./tests/integration", "./tests/api"]
 python_files = "*_test.py test_*.py *_spec.py"
 asyncio_default_fixture_loop_scope = "module"
 addopts = "--verbose --cov=sdd_cash_manager --cov-report=term-missing --junitxml='build/unit-tests.xml'"

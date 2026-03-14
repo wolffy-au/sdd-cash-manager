@@ -15,6 +15,7 @@ DEFAULT_ACCOUNT_BASE = {
     "currency": "USD",
     "accounting_category": "ASSET",
     "banking_product_type": "CHECKING",
+    "available_balance": "0.00",
 }
 
 
@@ -54,7 +55,7 @@ async def _seed_hidden_account(client: AsyncClient, headers: dict[str, str]) -> 
     return await _create_account(
         client,
         headers,
-        name="hidden-account",
+        name="visible-account-hidden",
         hidden=True,
         notes="hidden account seed",
     )
@@ -64,7 +65,7 @@ async def _seed_placeholder_account(client: AsyncClient, headers: dict[str, str]
     return await _create_account(
         client,
         headers,
-        name="placeholder-account",
+        name="visible-account-placeholder",
         placeholder=True,
         notes="placeholder account seed",
     )

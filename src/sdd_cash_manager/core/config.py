@@ -61,8 +61,9 @@ class AppSettings:
     encryption_key: str = field(
         default_factory=lambda: os.environ.get("SDD_CASH_MANAGER_ENCRYPTION_KEY", "change-me-key")
     )
+    # Security guard is enabled by default; opt-out explicitly via the env var if needed.
     security_enabled: bool = field(
-        default_factory=lambda: _coerce_bool("SDD_CASH_MANAGER_SECURITY_ENABLED", False)
+        default_factory=lambda: _coerce_bool("SDD_CASH_MANAGER_SECURITY_ENABLED", True)
     )
     log_format: str = field(
         default_factory=lambda: os.environ.get("SDD_CASH_MANAGER_LOG_FORMAT", "%(asctime)s - %(name)s - %(levelname)s - %(message)s")

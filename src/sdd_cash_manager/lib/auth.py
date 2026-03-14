@@ -25,6 +25,13 @@ class Role(str, Enum):
     ADMIN = "admin"
 
 
+_ROLE_HIERARCHY = {
+    Role.VIEWER: {Role.VIEWER, Role.OPERATOR, Role.ADMIN},
+    Role.OPERATOR: {Role.OPERATOR, Role.ADMIN},
+    Role.ADMIN: {Role.ADMIN},
+}
+
+
 class TokenPayload(BaseModel):
     """Decoded JWT payload for a request context."""
 
@@ -74,7 +81,7 @@ def require_token(credentials: HTTPAuthorizationCredentials | None = _bearer_dep
         return _DEFAULT_TOKEN
 
     if credentials is None:
-        raise HTTPException(status_code=403, detail="Missing credentials")
+        raise HTTPException(status_code=401, detail="Missing credentials")
 
     return _decode_token(credentials.credentials)
 
@@ -88,7 +95,9 @@ def require_role(required_role: Role) -> Callable[..., TokenPayload]:
     def _dependency(token: TokenPayload = _TOKEN_DEPENDENCY) -> TokenPayload:
         if not _security_enabled():
             return token
-        if required_role not in token.roles:
+
+        allowed_roles = _ROLE_HIERARCHY.get(required_role, {required_role})
+        if not any(role in allowed_roles for role in token.roles):
             raise HTTPException(status_code=403, detail="Insufficient privileges")
         return token
 

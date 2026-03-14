@@ -1,7 +1,8 @@
 """Shared pytest fixtures for the API regression suite."""
 
 import os
-from typing import AsyncGenerator
+from pathlib import Path
+from typing import AsyncGenerator, Generator
 
 import pytest
 from httpx import AsyncClient, Timeout
@@ -33,10 +34,9 @@ async def api_client(api_base_url: str) -> AsyncGenerator[AsyncClient, None]:
     timeout = Timeout(10.0, connect=5.0)
 
     # Import the project FastAPI app from src/main.py (raise on failure)
-    import pathlib
     import sys
 
-    src_dir = str(pathlib.Path(__file__).resolve().parents[2] / "src")
+    src_dir = str(Path(__file__).resolve().parents[2] / "src")
     if src_dir not in sys.path:
         sys.path.insert(0, src_dir)
     from main import app  # src/main.py defines the FastAPI app
@@ -61,3 +61,13 @@ async def authenticated_headers(api_security_enabled: bool) -> dict[str, str]:
         token = generate_access_token()
         headers["Authorization"] = f"Bearer {token}"
     return headers
+
+@pytest.fixture(scope="session", autouse=True)
+def cleanup_sqlite_db_file() -> Generator[None, None, None]:
+    """Ensure the disk-backed SQLite database gets removed after the API suite runs."""
+    try:
+        yield
+    finally:
+        db_path = Path("sdd_cash_manager.db")
+        if db_path.exists():
+            db_path.unlink()

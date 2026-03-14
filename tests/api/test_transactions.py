@@ -1,11 +1,11 @@
 """HTTP tests covering transaction and hierarchy behaviors (User Story 2)."""
 
+from datetime import date
 from decimal import Decimal
 
 import pytest
 from httpx import AsyncClient
 
-from sdd_cash_manager.services.transaction_service import BALANCING_ACCOUNT_ID
 from tests.api.helpers import assert_payload_keys, assert_status
 
 
@@ -17,11 +17,14 @@ async def test_perform_balance_adjustment_credit_persists_to_db(
 ) -> None:
     """Post an adjustment and assert the transaction is recorded with completed entries."""
     target_account = seeded_accounts["visible"]
-    amount = Decimal("150.00")
+    initial_balance = Decimal(str(target_account["available_balance"]))
+    target_balance = initial_balance + Decimal("150.00")
+    adjustment_date = date.today().isoformat()
     payload = {
-        "amount": str(amount),
-        "action_type": "CREDIT",
+        "target_balance": str(target_balance),
+        "adjustment_date": adjustment_date,
         "description": "Automated credit adjustment",
+        "action_type": "ADJUSTMENT",
     }
 
     response = await api_client.post(
@@ -29,16 +32,25 @@ async def test_perform_balance_adjustment_credit_persists_to_db(
         json=payload,
         headers=authenticated_headers,
     )
-    assert_status(response, 201)
+    assert_status(response, 200)
     transaction = response.json()
-    assert transaction["status"] == "COMPLETED"
-    entries = transaction.get("entries", [])
-    assert isinstance(entries, list)
-    recorded_amounts = {str(entry.get("amount")) for entry in entries}
-    assert payload["amount"] in recorded_amounts
-    assert BALANCING_ACCOUNT_ID in {entry.get("account_id") for entry in entries}
-    assert target_account["id"] in {entry.get("account_id") for entry in entries}
-    assert_payload_keys(transaction, {"transaction_id", "status", "entries"})
+    assert transaction["account_id"] == target_account["id"]
+    assert Decimal(str(transaction["new_balance"])) == target_balance
+    adjustment_amount = target_balance - initial_balance
+    assert Decimal(str(transaction["amount"])) == adjustment_amount
+    assert transaction["processing_status"] == "Posted"
+    assert transaction["reconciliation_status"] == "Pending Reconciliation"
+    assert_payload_keys(
+        transaction,
+        {
+            "transaction_id",
+            "account_id",
+            "new_balance",
+            "amount",
+            "processing_status",
+            "reconciliation_status",
+        },
+    )
 
 
 @pytest.mark.asyncio
@@ -51,11 +63,14 @@ async def test_balance_endpoint_reflects_adjustments(
     target_account = seeded_accounts["visible"]
     initial_balance = Decimal(str(target_account["available_balance"]))
     adjustment_amount = Decimal("75.00")
+    target_balance = initial_balance + adjustment_amount
+    adjustment_date = date.today().isoformat()
 
     adjustment_payload = {
-        "amount": str(adjustment_amount),
-        "action_type": "CREDIT",
+        "target_balance": str(target_balance),
+        "adjustment_date": adjustment_date,
         "description": "Balance check adjustment",
+        "action_type": "ADJUSTMENT",
     }
 
     post_resp = await api_client.post(
@@ -63,12 +78,13 @@ async def test_balance_endpoint_reflects_adjustments(
         json=adjustment_payload,
         headers=authenticated_headers,
     )
-    assert_status(post_resp, 201)
+    assert_status(post_resp, 200)
 
-    balance_resp = await api_client.get(
-        f"/accounts/{target_account['id']}/balance", headers=authenticated_headers
+    get_resp = await api_client.get(
+        f"/accounts/{target_account['id']}", headers=authenticated_headers
     )
-    assert_status(balance_resp, 200)
-    balance_body = balance_resp.json()
-    updated_balance = Decimal(str(balance_body["available_balance"]))
-    assert updated_balance == initial_balance + adjustment_amount
+    assert_status(get_resp, 200)
+    account_body = get_resp.json()
+    updated_balance = Decimal(str(account_body["available_balance"]))
+    assert updated_balance == target_balance
+    assert Decimal(str(account_body["hierarchy_balance"])) == target_balance

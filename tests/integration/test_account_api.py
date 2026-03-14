@@ -12,6 +12,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from sdd_cash_manager.database import get_db
+from sdd_cash_manager.lib.auth import Role, create_access_token
 from sdd_cash_manager.models.account import Account
 from sdd_cash_manager.models.base import Base  # Import Base for metadata.create_all
 from sdd_cash_manager.services.account_service import (
@@ -68,9 +69,16 @@ async def async_client(override_get_db: Session) -> AsyncGenerator[TestClient, N
 
     test_app = FastAPI()
     test_app.include_router(account_router, prefix="/api")
+    token = create_access_token(subject="integration", roles=[Role.ADMIN])
     test_app.dependency_overrides[get_db] = lambda: override_get_db
 
     with TestClient(test_app) as client:
+        client.headers.update(
+            {
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+            }
+        )
         yield client
 
 # --- Test Cases ---

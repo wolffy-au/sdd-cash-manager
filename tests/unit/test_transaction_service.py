@@ -2,11 +2,12 @@ import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
+from typing import cast
 from unittest.mock import MagicMock
 
 import pytest
 from sqlalchemy import create_engine, select
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import Session, sessionmaker
 
 from sdd_cash_manager.models.account import Account
 from sdd_cash_manager.models.base import Base
@@ -255,7 +256,7 @@ def test_create_transaction_session_failure(monkeypatch):
         "sdd_cash_manager.services.transaction_service.log_critical_application_error",
         lambda *args, **kwargs: None
     )
-    service = TransactionService(session_factory=lambda: _FailingSession())
+    service = TransactionService(session_factory=lambda: cast(Session, _FailingSession()))
     now = datetime.now(timezone.utc)
     with pytest.raises(RuntimeError, match="Failed to create transaction"):
         service.create_transaction(
@@ -313,7 +314,7 @@ def test_get_transactions_by_account_session_error(monkeypatch):
         def close(self):
             pass
 
-    service = TransactionService(session_factory=lambda: _BadScaler())
+    service = TransactionService(session_factory=lambda: cast(Session, _BadScaler()))
     with pytest.raises(
         RuntimeError,
         match="Failed to retrieve transactions for account acc-1"

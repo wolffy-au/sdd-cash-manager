@@ -372,6 +372,7 @@ class AccountService:
         try:
             session.add(account)
             session.flush()
+            session.commit()
             session.refresh(account)
             self._invalidate_hierarchy_cache()
             return account
@@ -473,6 +474,7 @@ class AccountService:
                 # Changes to the 'account' object are already tracked by the session
                 # No need for session.add(account) if it was already retrieved from the session
                 session.flush() # Persist changes within the transaction
+                session.commit()
                 session.refresh(account) # Reload fresh state after flush
             self._invalidate_hierarchy_cache() # Invalidate cache after update
             return account

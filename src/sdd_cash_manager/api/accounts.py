@@ -141,12 +141,12 @@ class AccountCreatePayload(BaseModel):
     # Accept strings for legacy client values (e.g., "CHECKING") and validate later
     banking_product_type: str
     account_number: AccountNumberField | None = None
-    available_balance: BalanceField
     credit_limit: BalanceField | None = None
     notes: NotesField | None = None
     parent_account_id: UUID | None = None
     hidden: bool = False
     placeholder: bool = False
+    available_balance: BalanceField = Decimal("0.0")
 
     @field_validator("name")
     def _validate_name(cls, value: str) -> str:
@@ -369,12 +369,19 @@ def create_account(
     )
 
     try:
+        # Normalize banking_product_type to a plain string (accept Enum or str)
+        banking_product_type_value = getattr(
+            account_data.banking_product_type,
+            "value",
+            account_data.banking_product_type,
+        )
+
         new_account = account_service.create_account(
             name=account_data.name,
             currency=account_data.currency,
             accounting_category=account_data.accounting_category.value,
             account_number=account_data.account_number,
-            banking_product_type=account_data.banking_product_type,
+            banking_product_type=banking_product_type_value,
             available_balance=available_balance_decimal,
             credit_limit=credit_limit_decimal,
             notes=account_data.notes,
@@ -401,9 +408,36 @@ def get_accounts(
     search_term: str | None = None,
     hidden: bool | None = None,
     placeholder: bool | None = None,
+    include_hidden: str | None = None,
+    include_placeholder: str | None = None,
     account_service: AccountService = account_service_dependency,
     _current_user: TokenPayload = _viewer_dependency
 ) -> list[AccountResponse]:
+    # Map legacy `include_hidden`/`include_placeholder` query params (strings) to boolean flags
+    def _to_bool(value: str | None) -> bool | None:
+        if value is None:
+            return None
+        return str(value).strip().lower() in ("1", "true", "yes")
+
+    # Determine effective behavior for hidden/placeholder filtering:
+    # - If `hidden` / `placeholder` is explicitly provided, treat as strict filter (only show matching entries).
+    # - If not provided, `include_hidden` / `include_placeholder` indicate whether hidden/placeholder entries
+    #   should be INCLUDED in the results (True => include both visible and hidden; False => exclude hidden).
+    if hidden is None:
+        if include_hidden is None:
+            # default: exclude hidden accounts
+            hidden = False
+        else:
+            # include_hidden True => do not restrict by hidden (allow both); False => exclude hidden
+            hidden = None if _to_bool(include_hidden) else False
+
+    if placeholder is None:
+        if include_placeholder is None:
+            # default: exclude placeholder accounts
+            placeholder = False
+        else:
+            placeholder = None if _to_bool(include_placeholder) else False
+
     """Retrieve a filtered list of accounts.
 
     Args:
@@ -636,3 +670,18 @@ def adjust_account_balance(
     except Exception:
         logger.exception("Unhandled error while adjusting balance for account=%s", account_id)
         raise HTTPException(status_code=500, detail="An unexpected error occurred during balance adjustment.") from None
+
+
+@router.post("/{account_id}/adjustment", response_model=BalanceAdjustmentResponse)
+def adjust_account_balance_alias(
+    account_id: UUID,
+    request_data: BalanceAdjustmentPayload,
+    transaction_service: TransactionService = transaction_service_dependency,
+    _current_user: TokenPayload = _operator_dependency
+) -> BalanceAdjustmentResponse:
+    return adjust_account_balance(
+        account_id=account_id,
+        request_data=request_data,
+        transaction_service=transaction_service,
+        _current_user=_current_user,
+    )
