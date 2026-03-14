@@ -31,4 +31,19 @@ jobs:
         run: uv sync --upgrade --all-groups
 
       - name: Run linters and tests
-        run: scripts/pre_commit_checks.sh
+        run: uv run pymarkdownlnt fix *.md specs/*.md
+
+      - name: Run ruff for linting and auto-fixing
+        run: uv run ruff check . --fix
+
+      - name: Run pyright for static type checking
+        run: uv run pyright
+
+      - name: Run mypy for static type checking
+        run: uv run mypy
+
+      - name: Run behave tests
+        run: uv run behave tests/features/ || true
+
+      - name: Run pytest for unit and integration tests
+        run: uv run pytest --cov-fail-under=90

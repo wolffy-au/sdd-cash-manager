@@ -418,7 +418,8 @@ Experience from implementing feature 002-add-api-pytests has revealed critical p
   - Serves as implementation verification checklist
 - **Update Strategy**: Maintain the matrix in tasks.md as the primary reference. Update it whenever requirements change, new tasks are added, or mappings are discovered incorrect.
 - **Example Structure**:
-  ```
+  
+  ```markdown
   | FR-001 | API test infrastructure | T001-T006 | Setup | SC-001, SC-002 |
   | FR-002 | Account creation endpoint | T007-T010 | US1 | SC-002 |
   ```
@@ -447,4 +448,3 @@ Experience from implementing feature 002-add-api-pytests has revealed critical p
   - MEDIUM: Terminology drift, missing non-functional coverage
   - LOW: Style/wording improvements
 - **Remediation**: Address CRITICAL/HIGH findings before implementation; track MEDIUM/LOW as post-implementation refinements.
-
