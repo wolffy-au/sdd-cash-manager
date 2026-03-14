@@ -70,13 +70,13 @@
 
 ### Tests for User Story 3
 
-- [ ] T015 [P] [US3] Add invalid payload test in `tests/api/test_validation.py` posting incomplete `/accounts` bodies and asserting `422 Unprocessable Entity` plus documented error detail arrays
-- [ ] T016 [P] [US3] Add authentication test in `tests/api/test_validation.py` that omits or mangles the JWT and confirms a `401 Not authenticated` response
+- [x] T015 [P] [US3] Add invalid payload test in `tests/api/test_validation.py` posting incomplete `/accounts` bodies and asserting `422 Unprocessable Entity` plus documented error detail arrays
+- [x] T016 [P] [US3] Add authentication test in `tests/api/test_validation.py` that omits or mangles the JWT and confirms a `401 Not authenticated` response
 
 ### Implementation for User Story 3
 
-- [ ] T017 [US3] Leverage `tests/api/jwt_utils.py` to craft both valid and invalid tokens for the validation tests
-- [ ] T018 [US3] Ensure error expectations cover both HTTP status and schema detail fields via `tests/api/helpers.py`
+- [x] T017 [US3] Leverage `tests/api/jwt_utils.py` to craft both valid and invalid tokens for the validation tests
+- [x] T018 [US3] Ensure error expectations cover both HTTP status and schema detail fields via `tests/api/helpers.py`
 
 **Checkpoint**: Validation story makes sure malformed data and auth failures are traceable.
 
