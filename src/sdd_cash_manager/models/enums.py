@@ -2,6 +2,10 @@ from enum import Enum
 
 
 class AccountingCategory(str, Enum):
+    """
+    Enum for different accounting categories.
+    Used for classifying accounts for financial reporting.
+    """
     ASSET = "Asset"
     LIABILITY = "Liability"
     EQUITY = "Equity"
@@ -10,6 +14,10 @@ class AccountingCategory(str, Enum):
     EXPENSE = "Expense"
 
 class BankingProductType(str, Enum):
+    """
+    Enum for different types of banking products or financial entities.
+    These types influence balance calculations and transaction handling.
+    """
     CHECKING = "Checking"
     BANK = "Bank"
     SAVINGS = "Savings"
@@ -28,15 +36,22 @@ class BankingProductType(str, Enum):
     UTILITIES = "Utilities"
     GROCERIES = "Groceries"
     SALARIES_PAID = "Salaries Paid"
-    # Add other types as needed
+    ADJUSTMENT_DEBIT = "Adjustment Debit" # Added for T022
+    ADJUSTMENT_CREDIT = "Adjustment Credit" # Added for T022
 
 class ProcessingStatus(str, Enum):
+    """
+    Enum for the processing status of financial operations.
+    """
     PENDING = "Pending"
     POSTED = "Posted"
     FAILED = "Failed"
     CANCELLED = "Cancelled"
 
 class ReconciliationStatus(str, Enum):
+    """
+    Enum for the reconciliation status of transactions.
+    """
     PENDING_RECONCILIATION = "Pending Reconciliation"
     RECONCILED = "Reconciled"
     UNRECONCILED = "Unreconciled"

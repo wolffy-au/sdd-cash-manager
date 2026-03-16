@@ -1,12 +1,19 @@
-.git
+# Ignore files for Docker builds
+
+# General ignore patterns
+.git/
 .venv
-venv
-env
-ENV
+.env*
+*.log
+*.tmp
+*.swp
+*.swo
+
+# Python specific
 __pycache__/
 *.pyc
-*.pyo
-*.pyd
+.venv/
+virtualenv/
 *.egg-info/
 dist/
 build/
@@ -14,22 +21,20 @@ build/
 .ruff_cache/
 .pytest_cache/
 .coverage
-htmlcov/
-*.cover
+
+# Node.js specific (if applicable)
+node_modules/
+
+# IDE/Editor specific
 .vscode/
 .idea/
-*.swp
-*.swo
-*.log
-.env*
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-.DS_Store
-Thumbs.db
+
+# Tool specific
+.sonar/
+.sonarlint/
+.codex/
+.gemini/
+.aider/
+.specify/
 .aider.tags.*
 .aider.chat.*
-Dockerfile*
-.dockerignore
-*.tmp

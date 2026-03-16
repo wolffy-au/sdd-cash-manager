@@ -34,6 +34,7 @@ ruff check .
 Python 3.11 (Inferred from .python-version): Follow standard conventions
 
 ## Recent Changes
+- 003-adjust-balance: Added Python 3.11 + FastAPI, SQLAlchemy, Pydantic, python-accounting
 
 - 001-account-management: Added Python 3.11 + FastAPI, SQLAlchemy, Pydantic, python-accounting
 - 001-account-management: Added [if applicable, e.g., PostgreSQL, CoreData, files or N/A]
