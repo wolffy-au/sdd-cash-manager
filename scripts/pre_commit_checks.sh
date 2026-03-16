@@ -26,13 +26,15 @@ uv run mypy
 # --- Code Quality Checks ---
 echo "Running code quality checks..."
 # Runs SonarQube for code quality checks
-# uv run sonar-scanner -Dsonar.projectKey=sdd-cash-manager -Dsonar.sources=. -Dsonar.host.url=http://host.containers.internal:9000 -Dsonar.login=sqa_7dd818bf6c9db3aed46fd6a8463669f5a885970d
-uv run pysonar --sonar-host-url=http://host.containers.internal:9000 --sonar-token=sqa_7dd818bf6c9db3aed46fd6a8463669f5a885970d --sonar-project-key=sdd-cash-manager
+uv sync --upgrade --all-groups
+uv run poetry lock --regenerate
+# uv run sonar-scanner -Dsonar.projectKey=sdd-cash-manager -Dsonar.sources=. -Dsonar.host.url=http://host.containers.internal:9000 -Dsonar.login=squ_bff548115b3d2f68cc3813af626f133ac498f836
+uv run pysonar --sonar-host-url=http://host.containers.internal:9000 --sonar-token=squ_bff548115b3d2f68cc3813af626f133ac498f836 --sonar-project-key=sdd-cash-manager
 
 # --- Security Checks ---
 echo "Running snyk security checks..."
 # Runs snyk to check for vulnerabilities in the project dependencies. Assumes snyk is executable in the environment.
-uv run snyk test --all-projects
+uv run snyk test --command=python
 
 # --- BDD Testing ---
 echo "Running behave tests..."

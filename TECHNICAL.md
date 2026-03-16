@@ -378,7 +378,7 @@ To force a SonarQube check, run:
 sudo apt-get update && sudo apt-get install -y default-jre
 pysonar \
   --sonar-host-url=http://host.containers.internal:9000 \
-  --sonar-token=sqa_7dd818bf6c9db3aed46fd6a8463669f5a885970d \
+  --sonar-token=squ_bff548115b3d2f68cc3813af626f133ac498f836 \
   --sonar-project-key=sdd-cash-manager
 ```
 
@@ -389,7 +389,7 @@ To force a Snyk check, run:
 ```bash
 npm install -g snyk@latest
 snyk auth <token>
-snyk test --all-projects
+snyk test --command=python3
 ```
 
 ## Specification and Requirements Management
