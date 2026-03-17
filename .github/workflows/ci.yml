@@ -46,4 +46,17 @@ jobs:
         run: uv run behave tests/features/ || true
 
       - name: Run pytest for unit and integration tests
-        run: uv run pytest --cov-fail-under=90
+        run: uv run pytest --cov --cov-report=xml --cov-fail-under=90
+
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@v2
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+
+      - name: SonarQube Quality Gate
+        uses: SonarSource/sonarqube-quality-gate-action@v1
+        timeout-minutes: 5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        

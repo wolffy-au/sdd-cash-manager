@@ -55,13 +55,13 @@ run_command "pip install commitizen"
 echo "✅ Done"
 
 # Installing SonarQube
-echo -e "\n🔍 Installing SonarQube Scanner...
+echo -e "\n🔍 Installing SonarQube Scanner..."
 run_command "sudo apt-get update && sudo apt-get install -y default-jre"
 echo "✅ Done"
 
 # Installing Snyk CLI
-echo -e "\n🔒 Installing Snyk CLI...
-run_command "npm install -g snyk@latest
+echo -e "\n🔒 Installing Snyk CLI..."
+run_command "npm install -g snyk@latest"
 echo "✅ Done"
 
 echo -e "\n🧹 Cleaning cache..."
