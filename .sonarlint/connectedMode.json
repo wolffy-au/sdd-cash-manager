@@ -1,4 +1,5 @@
 {
-    "sonarQubeUri": "http://host.containers.internal:9000",
-    "projectKey": "sdd-cash-manager"
+    "sonarCloudOrganization": "wolffy-au",
+    "projectKey": "wolffy-au_sdd-cash-manager",
+    "region": "EU"
 }
