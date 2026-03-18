@@ -1,11 +1,14 @@
 """HTTP tests covering account creation and listing flows (User Story 1)."""
 
+import logging
 from decimal import Decimal
 
 import pytest
 from httpx import AsyncClient
 
 from tests.api.helpers import assert_payload_keys, assert_status
+
+logger = logging.getLogger(__name__) # Initialize logger
 
 REQUIRED_CREATE_KEYS = {"id", "name", "currency", "available_balance", "hidden", "placeholder"}
 

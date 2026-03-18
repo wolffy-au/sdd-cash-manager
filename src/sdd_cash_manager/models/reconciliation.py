@@ -1,26 +1,9 @@
-from datetime import date
-from decimal import Decimal
-from typing import Optional, Dict, Any
-from uuid import UUID
+import uuid
 
-from sqlalchemy import Column, Date, Boolean, String, Numeric, ForeignKey
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import Boolean, Column, Date, ForeignKey, Numeric, String
 from sqlalchemy.orm import relationship
 
 from sdd_cash_manager.database import Base
-
-# Placeholder model for Account, assuming it exists for ForeignKey
-class Account(Base):
-    """
-    Placeholder SQLAlchemy model for the Account entity.
-    Assumed to exist for defining foreign key relationships and ORM back_populates.
-    """
-    __tablename__ = "accounts"
-    id = Column(UUID, primary_key=True)
-    running_balance = Column(Numeric, nullable=False)
-    manual_balance_adjustments = relationship("ManualBalanceAdjustment", back_populates="account")
-    adjustment_transactions = relationship("AdjustmentTransaction", back_populates="account")
-    reconciliation_view_entries = relationship("ReconciliationViewEntry", back_populates="account")
 
 
 class ReconciliationViewEntry(Base):
@@ -43,14 +26,14 @@ class ReconciliationViewEntry(Base):
     """
     __tablename__ = "reconciliation_view_entries"
 
-    entry_id = Column(UUID, primary_key=True, default=uuid4)
-    account_id = Column(UUID, ForeignKey("accounts.id"), nullable=False)
+    entry_id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    account_id = Column(String, ForeignKey("accounts.id"), nullable=False)
     entry_date = Column(Date, nullable=False)
     amount = Column(Numeric, nullable=False)
     description = Column(String, nullable=False)
     is_adjustment = Column(Boolean, nullable=False, default=False)
     reconciled_status = Column(String, nullable=False)  # e.g., PENDING_RECONCILIATION, RECONCILED, UNRECONCILED
-    original_transaction_id = Column(UUID, ForeignKey("adjustment_transactions.transaction_id"), nullable=True) # Assuming adjustment_transactions table exists
+    original_transaction_id = Column(String, ForeignKey("adjustment_transactions.transaction_id"), nullable=True) # Assuming adjustment_transactions table exists
 
     # Relationships
     account = relationship("Account", back_populates="reconciliation_view_entries")

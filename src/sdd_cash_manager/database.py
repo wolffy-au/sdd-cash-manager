@@ -1,11 +1,11 @@
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import configure_mappers, sessionmaker
 
 from sdd_cash_manager.core.config import settings
-from sdd_cash_manager.lib.logging_config import get_logger
 from sdd_cash_manager.models.base import Base
 
-logger = get_logger(__name__)
+# Configure mappers after models are defined and imported
+configure_mappers()
 DATABASE_URL = settings.database_url
 
 engine = create_engine(DATABASE_URL, echo=settings.database_echo)

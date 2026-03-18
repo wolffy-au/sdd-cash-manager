@@ -1,20 +1,16 @@
 import logging
-from datetime import date, datetime
+from datetime import datetime
 from decimal import Decimal
 from uuid import UUID, uuid4
 
-from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session
 
-from sdd_cash_manager.database import get_db
 from sdd_cash_manager.models.adjustment import AdjustmentTransaction, ManualBalanceAdjustment
 from sdd_cash_manager.schemas.adjustment import (
     ManualBalanceAdjustmentCreate,
-    ManualBalanceAdjustmentUpdate,
-    AdjustmentTransactionCreate,
 )
-from sdd_cash_manager.services.account_service import AccountService # Assuming AccountService exists
-
+from sdd_cash_manager.services.account_service import AccountService  # Assuming AccountService exists
 
 logger = logging.getLogger(__name__)
 
@@ -79,7 +75,7 @@ class ManualBalanceAdjustmentService:
                 logger.info(f"Difference detected ({difference}). Proceeding to create AdjustmentTransaction.")
                 transaction_type = "ADJUSTMENT_DEBIT" if difference > Decimal("0") else "ADJUSTMENT_CREDIT"
                 description = "Manual balance adjustment"
-                
+
                 new_transaction_id = uuid4()
 
                 new_transaction = AdjustmentTransaction(

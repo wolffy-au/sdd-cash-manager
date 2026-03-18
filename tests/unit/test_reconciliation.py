@@ -1,14 +1,13 @@
-import pytest
 from datetime import date, datetime
 from decimal import Decimal
+from unittest.mock import MagicMock
 from uuid import UUID, uuid4
 
+import pytest
 from sqlalchemy.orm import Session
-from unittest.mock import MagicMock
 
 from sdd_cash_manager.models.adjustment import AdjustmentTransaction
 from sdd_cash_manager.models.reconciliation import ReconciliationViewEntry
-from sdd_cash_manager.schemas.reconciliation import ReconciliationViewEntryCreate # Assuming this schema will be used by the service
 from sdd_cash_manager.services.reconciliation_service import ReconciliationService
 
 # Mock data

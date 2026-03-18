@@ -1,9 +1,11 @@
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Optional, Literal, Dict, Any
+from typing import Any, Dict, Literal, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator # Import field_validator
+from pydantic import ConfigDict # Import ConfigDict
+
 
 # --- ManualBalanceAdjustment Schemas ---
 class ManualBalanceAdjustmentBase(BaseModel):
@@ -15,7 +17,8 @@ class ManualBalanceAdjustmentBase(BaseModel):
     effective_date: date = Field(..., description="The date on which this adjustment should take effect.")
     submitted_by_user_id: UUID = Field(..., description="The UUID of the user who initiated the adjustment.")
 
-    @validator("effective_date")
+    # Update @validator to @field_validator for Pydantic V2 compatibility
+    @field_validator("effective_date")
     def check_effective_date_validity(cls, value):
         """
         Validates that the effective date is within a reasonable range.
@@ -41,7 +44,7 @@ class ManualBalanceAdjustmentCreate(ManualBalanceAdjustmentBase):
 class ManualBalanceAdjustmentUpdate(ManualBalanceAdjustmentBase):
     """
     Pydantic schema for updating a manual balance adjustment.
-    Includes fields that can be updated after creation, such as status.
+    Fields that can be updated after creation, such as status.
     """
     status: Literal["PENDING", "COMPLETED", "ZERO_DIFFERENCE"]
 
@@ -57,8 +60,9 @@ class ManualBalanceAdjustment(ManualBalanceAdjustmentBase):
     created_transaction_id: Optional[UUID] = None
     status: Literal["PENDING", "COMPLETED", "ZERO_DIFFERENCE"]
 
-    class Config:
-        orm_mode = True # For SQLAlchemy ORM compatibility
+    # Update Config class to use model_config for Pydantic V2 compatibility
+    # orm_mode is renamed to from_attributes
+    model_config = ConfigDict(from_attributes=True)
 
 
 # --- AdjustmentTransaction Schemas ---
@@ -100,5 +104,7 @@ class AdjustmentTransaction(AdjustmentTransactionBase):
     effective_date: date
     created_at: datetime
 
-    class Config:
-        orm_mode = True # For SQLAlchemy ORM compatibility
+    # Update Config class to use model_config for Pydantic V2 compatibility
+    # orm_mode is renamed to from_attributes
+    model_config = ConfigDict(from_attributes=True)
+

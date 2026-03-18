@@ -1,5 +1,6 @@
 # tests/unit/test_database.py
 
+import logging
 from unittest.mock import MagicMock
 
 import pytest
@@ -9,6 +10,8 @@ from sqlalchemy import create_engine
 # Removed 'src.' prefix
 from sdd_cash_manager import database
 from sdd_cash_manager.models.base import Base
+
+logger = logging.getLogger(__name__) # Initialize logger
 
 # --- Fixture to patch global SQLAlchemy objects ---
 

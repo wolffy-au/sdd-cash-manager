@@ -1,7 +1,5 @@
-from datetime import date, datetime
-from decimal import Decimal
-from typing import Optional, Literal, Dict, Any
-from uuid import UUID
+
+import uuid
 
 from sqlalchemy import (
     Column,
@@ -9,13 +7,14 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Integer,
-    String,
     Numeric,
+    String,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
 from sdd_cash_manager.database import Base
+
 
 # Placeholder models for relationships - assuming they exist elsewhere
 class Account(Base):
@@ -24,7 +23,8 @@ class Account(Base):
     Assumed to exist for defining foreign key relationships.
     """
     __tablename__ = "accounts"
-    id = Column(UUID, primary_key=True)
+    __table_args__ = {'extend_existing': True}
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     running_balance = Column(Numeric, nullable=False)
     manual_balance_adjustments = relationship("ManualBalanceAdjustment", back_populates="account")
     adjustment_transactions = relationship("AdjustmentTransaction", back_populates="account")
@@ -35,7 +35,7 @@ class User(Base):
     Assumed to exist for defining foreign key relationships.
     """
     __tablename__ = "users"
-    id = Column(UUID, primary_key=True)
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     manual_balance_adjustments = relationship("ManualBalanceAdjustment", back_populates="user")
 
 class ManualBalanceAdjustment(Base):
@@ -48,12 +48,12 @@ class ManualBalanceAdjustment(Base):
     __tablename__ = "manual_balance_adjustments"
 
     id = Column(Integer, primary_key=True)
-    account_id = Column(UUID, ForeignKey("accounts.id"), nullable=False)
+    account_id = Column(String, ForeignKey("accounts.id"), nullable=False)
     target_balance = Column(Numeric, nullable=False)
     effective_date = Column(Date, nullable=False)
-    submitted_by_user_id = Column(UUID, ForeignKey("users.id"), nullable=False)
+    submitted_by_user_id = Column(String, ForeignKey("users.id"), nullable=False)
     adjustment_attempt_timestamp = Column(DateTime, nullable=False)
-    created_transaction_id = Column(UUID, ForeignKey("adjustment_transactions.transaction_id"), nullable=True)
+    created_transaction_id = Column(String, ForeignKey("adjustment_transactions.transaction_id"), nullable=True)
     status = Column(String, nullable=False)  # e.g., PENDING, COMPLETED, ZERO_DIFFERENCE
 
     # Relationships
@@ -71,8 +71,8 @@ class AdjustmentTransaction(Base):
     """
     __tablename__ = "adjustment_transactions"
 
-    transaction_id = Column(UUID, primary_key=True)
-    account_id = Column(UUID, ForeignKey("accounts.id"), nullable=False)
+    transaction_id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    account_id = Column(String, ForeignKey("accounts.id"), nullable=False)
     effective_date = Column(Date, nullable=False)
     amount = Column(Numeric, nullable=False)
     transaction_type = Column(String, nullable=False)  # e.g., ADJUSTMENT_DEBIT, ADJUSTMENT_CREDIT

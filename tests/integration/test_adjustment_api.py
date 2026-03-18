@@ -1,15 +1,19 @@
+from uuid import UUID, uuid4
+from decimal import Decimal  # Import Decimal
+
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
-from httpx import Response
-from typing import Dict, Any
-from uuid import UUID, uuid4
+from unittest.mock import patch
 
-from sdd_cash_manager.main import app # Assuming app is FastAPI instance in main.py
-from sdd_cash_manager.database import get_db # Assuming get_db is available
-from sdd_cash_manager.schemas.adjustment import ManualBalanceAdjustmentCreate, AdjustmentTransactionCreate
-from sdd_cash_manager.models.adjustment import ManualBalanceAdjustment, AdjustmentTransaction # Import models for assertions
+from sdd_cash_manager.database import get_db  # Assuming get_db is available
+from sdd_cash_manager.main import app  # Assuming app is FastAPI instance in main.py
+from sdd_cash_manager.models.adjustment import (  # Import models for assertions
+    AdjustmentTransaction,
+    ManualBalanceAdjustment,
+)
 from sdd_cash_manager.models.enums import BankingProductType
+from sdd_cash_manager.schemas.adjustment import ManualBalanceAdjustmentCreate
 
 # Mock data
 TEST_ACCOUNT_ID = "a1b2c3d4-e5f6-7890-1234-567890abcdef"
@@ -41,7 +45,7 @@ class MockManualBalanceAdjustmentService:
             raise ValueError("Account not found") # Simplified error
 
         difference = adjustment_data.target_balance - account.running_balance
-        
+
         transaction = None
         if difference != Decimal("0"):
             transaction_type = BankingProductType.ADJUSTMENT_DEBIT if difference > Decimal("0") else BankingProductType.ADJUSTMENT_CREDIT
@@ -67,7 +71,7 @@ class MockManualBalanceAdjustmentService:
             created_transaction_id=transaction.transaction_id if transaction else None,
             status="COMPLETED" if transaction else "ZERO_DIFFERENCE"
         )
-        
+
         # In a real integration test, these would be added to a test DB session
         # Here, we simulate the outcome and return values
         return adjustment
@@ -107,12 +111,12 @@ def test_create_manual_balance_adjustment_integration_success():
         "effective_date": "2026-03-31",
         "submitted_by_user_id": TEST_USER_ID,
     }
-    
+
     response = client.post(f"/accounts/{TEST_ACCOUNT_ID}/adjust-balance", json=payload)
-    
+
     assert response.status_code == status.HTTP_201_CREATED
     data = response.json()
-    
+
     assert data["account_id"] == TEST_ACCOUNT_ID
     assert data["target_balance"] == "1500.00"
     assert data["effective_date"] == "2026-03-31"
@@ -126,9 +130,9 @@ def test_create_manual_balance_adjustment_integration_zero_difference():
         "effective_date": "2026-03-31",
         "submitted_by_user_id": TEST_USER_ID,
     }
-    
+
     response = client.post(f"/accounts/{TEST_ACCOUNT_ID}/adjust-balance", json=payload)
-    
+
     assert response.status_code == status.HTTP_201_CREATED
     data = response.json()
     assert data["status"] == "ZERO_DIFFERENCE"
@@ -140,19 +144,19 @@ def test_create_manual_balance_adjustment_integration_account_not_found():
         "effective_date": "2026-03-31",
         "submitted_by_user_id": TEST_USER_ID,
     }
-    
+
     # Mock the service to raise ValueError for account not found
     # We need to access the mocked service instance to set side_effect
     # This requires patching the service *class* and then configuring its instance's method.
-    
+
     # Get the mock service instance created by the fixture
     mock_service_instance = mock_db_session.mock_calls[0].args[0].mock_calls[0].return_value if hasattr(mock_db_session, 'mock_calls') else MagicMock()
-    
+
     # Setting side_effect directly on the mock instance's method
     mock_service_instance.create_adjustment.side_effect = ValueError("Account with id {} not found".format(UUID(int=99)))
-    
+
     response = client.post(f"/accounts/{UUID(int=99)}/adjust-balance", json=payload)
-    
+
     assert response.status_code == status.HTTP_404_NOT_FOUND
     assert response.json() == {"detail": "Account with id 00000000-0000-0000-0000-000000000099 not found"}
 
@@ -162,13 +166,13 @@ def test_create_manual_balance_adjustment_integration_server_error():
         "effective_date": "2026-03-31",
         "submitted_by_user_id": TEST_USER_ID,
     }
-    
+
     # Mock the service to raise a generic exception
     mock_service_instance = mock_db_session.mock_calls[0].args[0].mock_calls[0].return_value if hasattr(mock_db_session, 'mock_calls') else MagicMock()
     mock_service_instance.create_adjustment.side_effect = Exception("Database connection error")
-    
+
     response = client.post(f"/accounts/{TEST_ACCOUNT_ID}/adjust-balance", json=payload)
-    
+
     assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
     assert response.json() == {"detail": "An internal error occurred during balance adjustment."}
 
@@ -179,9 +183,9 @@ def test_create_manual_balance_adjustment_invalid_date_validation_error():
         "effective_date": "2027-03-31", # Date outside the expected range
         "submitted_by_user_id": TEST_USER_ID,
     }
-    
+
     response = client.post(f"/accounts/{TEST_ACCOUNT_ID}/adjust-balance", json=payload)
-    
+
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY # Pydantic validation error
     assert "Effective date must be within a reasonable range." in response.text
 
@@ -192,8 +196,8 @@ def test_create_manual_balance_adjustment_invalid_balance_validation_error():
         "effective_date": "2026-03-31",
         "submitted_by_user_id": TEST_USER_ID,
     }
-    
+
     response = client.post(f"/accounts/{TEST_ACCOUNT_ID}/adjust-balance", json=payload)
-    
+
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY # Pydantic validation error
     assert "Field must be greater than or equal to 0" in response.text

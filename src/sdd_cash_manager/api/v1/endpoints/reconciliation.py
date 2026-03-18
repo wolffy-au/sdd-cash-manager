@@ -1,7 +1,5 @@
-from datetime import date
-from decimal import Decimal
+from typing import List
 from uuid import UUID
-from typing import List, Dict, Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -9,8 +7,6 @@ from sqlalchemy.orm.exc import NoResultFound
 
 from sdd_cash_manager.database import get_db
 from sdd_cash_manager.models.reconciliation import ReconciliationViewEntry
-from sdd_cash_manager.schemas.reconciliation import ReconciliationViewEntry # Assuming schema maps directly to model for GET
-from sdd_cash_manager.services.reconciliation_service import ReconciliationService # For potential service interaction if needed for fetching
 
 router = APIRouter()
 
@@ -33,7 +29,7 @@ async def get_reconciliation_view(
         # In a real application, this would likely involve a ReconciliationService
         # to query the database for ReconciliationViewEntry records associated with the account_id.
         # For now, we'll simulate a query.
-        
+
         # Example of how a service might be used:
         # reconciliation_service = ReconciliationService(db)
         # entries = reconciliation_service.get_reconciliation_entries(account_id)
@@ -46,8 +42,8 @@ async def get_reconciliation_view(
 
         if not reconciliation_entries:
             # Return empty list if no entries found, not necessarily an error
-            return [] 
-        
+            return []
+
         return reconciliation_entries
 
     except NoResultFound:

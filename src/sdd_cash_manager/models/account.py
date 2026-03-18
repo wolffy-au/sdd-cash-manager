@@ -7,10 +7,11 @@ from typing import TYPE_CHECKING, List
 from sqlalchemy import Boolean, Index, Numeric, String  # Changed Float to Numeric
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from sdd_cash_manager.models.base import Base
+from sdd_cash_manager.database import Base
 
 if TYPE_CHECKING:
     from sdd_cash_manager.models.transaction import Entry
+from sdd_cash_manager.models.reconciliation import ReconciliationViewEntry  # Added import for type resolution
 
 
 class Account(Base):
@@ -38,6 +39,7 @@ class Account(Base):
 
     # Relationships
     entries: Mapped[List["Entry"]] = relationship(back_populates="account")
+    reconciliation_view_entries: Mapped[List[ReconciliationViewEntry]] = relationship(back_populates="account")
 
     def __init__(
         self,

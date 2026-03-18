@@ -1,17 +1,16 @@
-from datetime import datetime
-from uuid import UUID
 import logging
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from sqlalchemy.exc import SQLAlchemyError
 
 from sdd_cash_manager.database import get_db
 from sdd_cash_manager.schemas.adjustment import (
-    ManualBalanceAdjustmentCreate,
     ManualBalanceAdjustment,
+    ManualBalanceAdjustmentCreate,
 )
 from sdd_cash_manager.services.adjustment_service import ManualBalanceAdjustmentService
+
 # Assuming a dependency for user authentication and authorization exists
 # from sdd_cash_manager.security.auth import get_current_user # Example auth dependency
 
@@ -56,23 +55,23 @@ async def create_manual_balance_adjustment(
     # --- End T030: Permissioning ---
 
     logger.info(f"Received request to adjust balance for account {account_id}. Data: {adjustment_data}")
-    
+
     # Placeholder for user ID from authentication context
     submitted_by_user_id = UUID(int=2) # Using the mocked user ID from get_user_permissions
 
     try:
         adjustment_service = ManualBalanceAdjustmentService(db)
-        
+
         adjustment = adjustment_service.create_adjustment(
             account_id=account_id,
             adjustment_data=adjustment_data
         )
-        
+
         # --- T030: Log audit entry ---
         # Log this successful adjustment attempt for audit purposes.
         logger.info(f"Manual balance adjustment created successfully for account {account_id} by user {submitted_by_user_id}. Adjustment ID: {adjustment.id}, Status: {adjustment.status}")
         # --- End T030: Audit logging ---
-        
+
         return adjustment
 
     except ValueError as e:

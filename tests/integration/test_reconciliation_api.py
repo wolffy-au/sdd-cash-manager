@@ -1,12 +1,14 @@
-import pytest
+import uuid
+from datetime import date  # Add import for date
+from decimal import Decimal  # Add import for Decimal
+from uuid import UUID  # Keep UUID for type hinting if needed
+
 from fastapi import status
 from fastapi.testclient import TestClient
-from uuid import UUID
 
-from sdd_cash_manager.main import app
 from sdd_cash_manager.database import get_db
-from sdd_cash_manager.models.reconciliation import ReconciliationViewEntry # Import model for mocking return
-from sdd_cash_manager.models.adjustment import AdjustmentTransaction # For potential relation checks
+from sdd_cash_manager.main import app
+from sdd_cash_manager.models.reconciliation import ReconciliationViewEntry  # Import model for mocking return
 
 # Mock data
 TEST_ACCOUNT_ID = "a1b2c3d4-e5f6-7890-1234-567890abcdef"
@@ -29,27 +31,27 @@ def test_get_reconciliation_view_success(mock_db_session):
     # Mock a successful response with data
     mock_entries = [
         ReconciliationViewEntry(
-            entry_id=uuid4(),
+            entry_id=uuid.uuid4(),
             account_id=UUID(TEST_ACCOUNT_ID),
             entry_date=date(2026, 3, 31),
             amount=Decimal("500.00"),
             description="Manual balance adjustment",
             is_adjustment=True,
             reconciled_status="PENDING_RECONCILIATION",
-            original_transaction_id=uuid4(), # Mock transaction ID
+            original_transaction_id=uuid.uuid4(), # Mock transaction ID
         ),
         ReconciliationViewEntry(
-            entry_id=uuid4(),
+            entry_id=uuid.uuid4(),
             account_id=UUID(TEST_ACCOUNT_ID),
             entry_date=date(2026, 3, 30),
             amount=Decimal("-100.00"),
             description="Regular transaction",
             is_adjustment=False,
             reconciled_status="CLEARED",
-            original_transaction_id=uuid4(),
+            original_transaction_id=uuid.uuid4(),
         ),
     ]
-    
+
     # Configure mock_db_session to return mock entries when query is called
     mock_db_session.query.return_value.filter.return_value.all.return_value = mock_entries
 
@@ -57,7 +59,7 @@ def test_get_reconciliation_view_success(mock_db_session):
 
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
-    
+
     assert len(data) == 2
     # Check first entry details
     assert data[0]["account_id"] == TEST_ACCOUNT_ID
