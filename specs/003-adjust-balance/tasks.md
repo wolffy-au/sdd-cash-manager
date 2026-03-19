@@ -93,6 +93,13 @@ These tasks address broader quality attributes and final checks.
 
 ---
 
+## Phase 7: Alignment Tasks
+
+These tasks capture the remaining alignment work that surfaced during the reconciliation between the specification and the current code base.
+
+- [ ] T050 Fix `tests/integration/test_adjustment_api.py` to import `datetime`, `Session`, and `MagicMock`, ensuring the manual adjustment API tests run without `NameError` before executing their service mocks. (`tests/integration/test_adjustment_api.py`)
+- [ ] T051 Fix `tests/integration/test_reconciliation_api.py` to import `Session` and `MagicMock` so the reconciliation view tests can construct mock DB sessions without failing at import time. (`tests/integration/test_reconciliation_api.py`)
+
 ## Dependencies
 
 The user stories must be completed in the following order:

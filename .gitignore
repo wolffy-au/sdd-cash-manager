@@ -54,7 +54,8 @@ Thumbs.db
 .ruff_cache/
 .sonar/
 .sonarlint/
-.codex/
+.codex/*
+!.codex/AGENTS.md
 .gemini/
 .aider/
 .secrets

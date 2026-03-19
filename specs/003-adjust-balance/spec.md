@@ -104,7 +104,7 @@ As an auditor, I need this adjustment transaction to be visible in reconciliatio
 - **Authorization/audit logging** – The adjustment endpoint still uses a stubbed permission check and a hard-coded submitting user (`src/sdd_cash_manager/api/v1/endpoints/adjustment.py#L27-L68`), so the UI cannot disable the control for unauthorized roles and audit logging lacks the real JWT context that the spec requires.
 - **Testing gaps** – Existing tests exercise only the naive adjustment flow (difference detection and the stub service) and do not assert the effective-date balance, ledger transaction creation, reconciliation entry persistence, zero-difference audit records, or permission enforcement, leaving the critical behaviors unvalidated (`tests/unit/test_adjustment.py`, `tests/integration/test_adjustment_api.py`, `tests/unit/test_reconciliation.py`).
 
-## Outstanding work (aligned with Codex TODO list)
+## Outstanding work
 
 - **Balance accuracy** – Ensure the service pulls the running balance as of the effective date and respects the cleared vs. running distinction before computing adjustments.  
 - **Ledger-level posting** – Post the adjustment through `TransactionService` so debit/credit entries exist alongside the new `AdjustmentTransaction`, keeping the ledger consistent.  

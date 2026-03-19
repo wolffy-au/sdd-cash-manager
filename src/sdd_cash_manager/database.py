@@ -1,3 +1,5 @@
+import logging
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import configure_mappers, sessionmaker
 
@@ -10,6 +12,7 @@ DATABASE_URL = settings.database_url
 
 engine = create_engine(DATABASE_URL, echo=settings.database_echo)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+logger = logging.getLogger(__name__)
 
 
 def get_db():

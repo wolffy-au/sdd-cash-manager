@@ -7,12 +7,12 @@ from typing import TYPE_CHECKING, List
 from sqlalchemy import Boolean, Index, Numeric, String  # Changed Float to Numeric
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from sdd_cash_manager.database import Base
+from sdd_cash_manager.models.adjustment import AdjustmentTransaction, ManualBalanceAdjustment
+from sdd_cash_manager.models.base import Base
+from sdd_cash_manager.models.reconciliation import ReconciliationViewEntry
 
 if TYPE_CHECKING:
     from sdd_cash_manager.models.transaction import Entry
-    from sdd_cash_manager.models.reconciliation import ReconciliationViewEntry  # Added import for type resolution
-    from sdd_cash_manager.models.adjustment import ManualBalanceAdjustment, AdjustmentTransaction
 
 
 class Account(Base):

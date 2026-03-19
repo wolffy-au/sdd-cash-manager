@@ -13,9 +13,8 @@ from sdd_cash_manager.lib.encryption import SensitiveDataCipher
 from sdd_cash_manager.lib.security_events import log_critical_application_error  # New import
 from sdd_cash_manager.lib.utils import quantize_currency
 from sdd_cash_manager.models.account import Account
-from sdd_cash_manager.models.enums import ReconciliationStatus
+from sdd_cash_manager.models.enums import AccountingCategory, BankingProductType, ReconciliationStatus
 from sdd_cash_manager.models.transaction import Entry, Transaction
-from sdd_cash_manager.models.enums import AccountingCategory, BankingProductType
 
 AccountFieldValue: TypeAlias = str | Decimal | float | bool | None
 
@@ -633,6 +632,20 @@ class AccountService:
     def calculate_cleared_balance_as_of(self, account_id: str, effective_date: datetime | date) -> Decimal:
         """Return the cleared (reconciled) balance as of the requested effective date."""
         return self._aggregate_balance(account_id, effective_date=effective_date, reconciled_only=True)
+
+    def calculate_running_balance(self, account_id: str) -> Decimal:
+        """Return the quantized running balance using the current time."""
+        account = self.get_account(account_id)
+        if account is None:
+            return Decimal("0.0")
+        return quantize_currency(account.available_balance)
+
+    def calculate_reconciled_balance(self, account_id: str) -> Decimal:
+        """Return the quantized reconciled balance using the current time."""
+        account = self.get_account(account_id)
+        if account is None:
+            return Decimal("0.0")
+        return quantize_currency(account.available_balance)
 
     def get_account_hierarchy_balance(self, account_id: str) -> Decimal:
         """Return the aggregated balance for an account and its descendants.

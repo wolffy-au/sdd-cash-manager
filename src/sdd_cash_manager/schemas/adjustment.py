@@ -3,8 +3,12 @@ from decimal import Decimal
 from typing import Any, Dict, Literal, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field, field_validator # Import field_validator
-from pydantic import ConfigDict # Import ConfigDict
+from pydantic import (  # Import field_validator
+    BaseModel,
+    ConfigDict,  # Import ConfigDict
+    Field,
+    field_validator,
+)
 
 
 # --- ManualBalanceAdjustment Schemas ---
@@ -22,7 +26,7 @@ class ManualBalanceAdjustmentBase(BaseModel):
     def check_effective_date_validity(cls, value):
         """
         Validates that the effective date is within a reasonable range.
-        
+
         Note: Actual business logic for 'current statement range' might require
         external context or configuration and should be refined.
         """

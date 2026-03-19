@@ -1,10 +1,12 @@
 import uuid
 from datetime import date  # Add import for date
 from decimal import Decimal  # Add import for Decimal
+from unittest.mock import MagicMock
 from uuid import UUID  # Keep UUID for type hinting if needed
 
 from fastapi import status
 from fastapi.testclient import TestClient
+from sqlalchemy.orm import Session
 
 from sdd_cash_manager.database import get_db
 from sdd_cash_manager.main import app

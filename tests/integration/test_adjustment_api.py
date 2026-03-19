@@ -1,10 +1,13 @@
-from uuid import UUID, uuid4
+from datetime import datetime
 from decimal import Decimal  # Import Decimal
+from typing import Optional
+from unittest.mock import MagicMock, patch
+from uuid import UUID, uuid4
 
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
-from unittest.mock import patch
+from sqlalchemy.orm import Session
 
 from sdd_cash_manager.database import get_db  # Assuming get_db is available
 from sdd_cash_manager.main import app  # Assuming app is FastAPI instance in main.py
@@ -23,21 +26,21 @@ TEST_USER_ID = "f0e9d8c7-b6a5-4321-0987-654321fedcba"
 # We'll patch these services when they are called by the API endpoint
 
 class MockAccount:
-    def __init__(self, id: UUID, running_balance: Decimal):
+    def __init__(self, id: UUID, running_balance: Decimal) -> None:
         self.id = id
         self.running_balance = running_balance
 
 class MockAccountService:
-    def get_account(self, account_id: UUID):
+    def get_account(self, account_id: UUID) -> Optional[MockAccount]:
         # Returns a mock account for testing
         if str(account_id) == TEST_ACCOUNT_ID:
-            return MockAccount(id=UUID(account_id), running_balance=Decimal("1000.00"))
+            return MockAccount(id=account_id, running_balance=Decimal("1000.00"))
         return None
 
 class MockManualBalanceAdjustmentService:
-    def __init__(self, db_session):
+    def __init__(self, db_session: Session) -> None:
         self.db = db_session
-        self.account_service = MockAccountService(db_session)
+        self.account_service = MockAccountService()
 
     def create_adjustment(self, account_id: UUID, adjustment_data: ManualBalanceAdjustmentCreate) -> ManualBalanceAdjustment:
         account = self.account_service.get_account(account_id)
@@ -79,7 +82,7 @@ class MockManualBalanceAdjustmentService:
 
 # Mock db session for integration tests
 @pytest.fixture
-def mock_db_session():
+def mock_db_session() -> Session:
     mock_session = MagicMock(spec=Session)
     mock_session.commit.return_value = None
     mock_session.flush.return_value = None
@@ -146,19 +149,10 @@ def test_create_manual_balance_adjustment_integration_account_not_found():
     }
 
     # Mock the service to raise ValueError for account not found
-    # We need to access the mocked service instance to set side_effect
-    # This requires patching the service *class* and then configuring its instance's method.
-
-    # Get the mock service instance created by the fixture
-    mock_service_instance = mock_db_session.mock_calls[0].args[0].mock_calls[0].return_value if hasattr(mock_db_session, 'mock_calls') else MagicMock()
-
-    # Setting side_effect directly on the mock instance's method
-    mock_service_instance.create_adjustment.side_effect = ValueError("Account with id {} not found".format(UUID(int=99)))
-
-    response = client.post(f"/accounts/{UUID(int=99)}/adjust-balance", json=payload)
-
-    assert response.status_code == status.HTTP_404_NOT_FOUND
-    assert response.json() == {"detail": "Account with id 00000000-0000-0000-0000-000000000099 not found"}
+    with patch.object(MockManualBalanceAdjustmentService, "create_adjustment", side_effect=ValueError("Account with id {} not found".format(UUID(int=99)))):
+        response = client.post(f"/accounts/{UUID(int=99)}/adjust-balance", json=payload)
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        assert response.json() == {"detail": "Account with id 00000000-0000-0000-0000-000000000099 not found"}
 
 def test_create_manual_balance_adjustment_integration_server_error():
     payload = {
@@ -168,13 +162,10 @@ def test_create_manual_balance_adjustment_integration_server_error():
     }
 
     # Mock the service to raise a generic exception
-    mock_service_instance = mock_db_session.mock_calls[0].args[0].mock_calls[0].return_value if hasattr(mock_db_session, 'mock_calls') else MagicMock()
-    mock_service_instance.create_adjustment.side_effect = Exception("Database connection error")
-
-    response = client.post(f"/accounts/{TEST_ACCOUNT_ID}/adjust-balance", json=payload)
-
-    assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
-    assert response.json() == {"detail": "An internal error occurred during balance adjustment."}
+    with patch.object(MockManualBalanceAdjustmentService, "create_adjustment", side_effect=Exception("Database connection error")):
+        response = client.post(f"/accounts/{TEST_ACCOUNT_ID}/adjust-balance", json=payload)
+        assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+        assert response.json() == {"detail": "An internal error occurred during balance adjustment."}
 
 def test_create_manual_balance_adjustment_invalid_date_validation_error():
     # Pydantic validation for effective_date occurs before service call

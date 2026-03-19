@@ -116,7 +116,7 @@ class ManualBalanceAdjustmentService:
             adjustment.status = "COMPLETED"
 
             self.reconciliation_service.create_reconciliation_entry_from_transaction(
-                account_id=account_id_str,
+                account_id=UUID(account_id_str),
                 transaction=adjustment_transaction,
                 auto_commit=False,
             )

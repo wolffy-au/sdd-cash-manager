@@ -2,13 +2,14 @@ from typing import List
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.exc import NoResultFound
 from sqlalchemy.orm import Session
-from sqlalchemy.orm.exc import NoResultFound
 
 from sdd_cash_manager.database import get_db
 from sdd_cash_manager.models.reconciliation import ReconciliationViewEntry
 
 router = APIRouter()
+_get_db_dependency = Depends(get_db)
 
 @router.get(
     "/accounts/{account_id}/reconciliation",
@@ -17,8 +18,8 @@ router = APIRouter()
 )
 async def get_reconciliation_view(
     account_id: UUID,
-    db: Session = Depends(get_db),
-):
+    db: Session = _get_db_dependency,
+) -> List[ReconciliationViewEntry]:
     """
     Retrieve reconciliation entries for a specific account.
 
@@ -56,4 +57,4 @@ async def get_reconciliation_view(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An internal error occurred while fetching reconciliation data."
-        )
+        ) from e

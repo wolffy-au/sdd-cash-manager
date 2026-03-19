@@ -6,8 +6,11 @@ from sqlalchemy.orm import Session
 
 from sdd_cash_manager.database import get_db
 from sdd_cash_manager.lib.auth import Role, TokenPayload, require_role
+from sdd_cash_manager.models.adjustment import ManualBalanceAdjustment as ManualBalanceAdjustmentModel
 from sdd_cash_manager.schemas.adjustment import (
-    ManualBalanceAdjustment,
+    ManualBalanceAdjustment as ManualBalanceAdjustmentSchema,
+)
+from sdd_cash_manager.schemas.adjustment import (
     ManualBalanceAdjustmentCreate,
 )
 from sdd_cash_manager.services.adjustment_service import ManualBalanceAdjustmentService
@@ -15,20 +18,21 @@ from sdd_cash_manager.services.adjustment_service import ManualBalanceAdjustment
 router = APIRouter()
 logger = logging.getLogger(__name__)
 _adjustment_operator_dependency = Depends(require_role(Role.OPERATOR))
+_get_db_dependency = Depends(get_db)
 
 
 @router.post(
     "/accounts/{account_id}/adjust-balance",
-    response_model=ManualBalanceAdjustment,
+    response_model=ManualBalanceAdjustmentSchema,
     status_code=status.HTTP_201_CREATED,
     summary="Manually adjust an account's balance",
 )
 async def create_manual_balance_adjustment(
     account_id: UUID,
     adjustment_data: ManualBalanceAdjustmentCreate,
-    db: Session = Depends(get_db),
+    db: Session = _get_db_dependency,
     current_user: TokenPayload = _adjustment_operator_dependency,
-):
+) -> ManualBalanceAdjustmentModel:
     """
     Manually adjust an account's balance.
 
@@ -61,7 +65,7 @@ async def create_manual_balance_adjustment(
         return adjustment
     except ValueError as exc:
         logger.warning("Adjustment request failed for account %s: %s", account_id, exc)
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     except RuntimeError as exc:
         logger.error(
             "Runtime failure creating balance adjustment for account %s: %s",
@@ -69,7 +73,7 @@ async def create_manual_balance_adjustment(
             exc,
             exc_info=True,
         )
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc))
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
     except Exception as exc:
         logger.error(
             "Unexpected error during balance adjustment for account %s: %s",
@@ -80,4 +84,4 @@ async def create_manual_balance_adjustment(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An internal error occurred during balance adjustment.",
-        )
+        ) from exc
