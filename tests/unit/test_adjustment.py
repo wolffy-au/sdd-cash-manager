@@ -1,4 +1,5 @@
 import logging
+from contextlib import contextmanager
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from types import SimpleNamespace
@@ -112,6 +113,46 @@ class MockAccountService:
     def get_account(self, account_id: UUID) -> Optional[MockAccount]:
         return self.accounts.get(account_id)
 
+
+@contextmanager
+def manual_adjustment_service_context(
+    mock_db_session: Session,
+    current_balance: Decimal,
+    transaction_result: SimpleNamespace | None = None,
+) -> tuple[
+    ManualBalanceAdjustmentService,
+    MagicMock,
+    MagicMock,
+    MagicMock,
+]:
+    with patch(
+        "sdd_cash_manager.services.adjustment_service.TransactionService"
+    ) as MockTransactionService, patch(
+        "sdd_cash_manager.services.adjustment_service.ReconciliationService"
+    ) as MockReconciliationService:
+        mock_transaction_service = MagicMock()
+        if transaction_result is not None:
+            mock_transaction_service.create_transaction.return_value = transaction_result
+        mock_reconciliation_service = MagicMock()
+        MockTransactionService.return_value = mock_transaction_service
+        MockReconciliationService.return_value = mock_reconciliation_service
+
+        service = ManualBalanceAdjustmentService(mock_db_session)
+        account = SimpleNamespace(
+            id=str(TEST_ACCOUNT_ID), available_balance=current_balance
+        )
+        mock_account_service = MagicMock(spec=AccountService)
+        mock_account_service.get_account.return_value = account
+        mock_account_service.calculate_running_balance_as_of.return_value = current_balance
+        service.account_service = mock_account_service
+
+        yield (
+            service,
+            mock_transaction_service,
+            mock_reconciliation_service,
+            mock_account_service,
+        )
+
 def test_adjustment_transaction_creation_logic(mock_db_session):
     # Simulate calling the service logic that creates the transaction
     account_id = TEST_ACCOUNT_ID
@@ -188,26 +229,14 @@ def test_manual_balance_adjustment_service_posts_transaction_and_reconciliation(
         processing_status="Pending",
         reconciliation_status="Pending Reconciliation",
     )
-
-    with patch(
-        "sdd_cash_manager.services.adjustment_service.TransactionService"
-    ) as MockTransactionService, patch(
-        "sdd_cash_manager.services.adjustment_service.ReconciliationService"
-    ) as MockReconciliationService:
-        mock_transaction_service = MagicMock()
-        mock_transaction_service.create_transaction.return_value = mock_transaction
-        MockTransactionService.return_value = mock_transaction_service
-
-        mock_reconciliation_service = MagicMock()
-        MockReconciliationService.return_value = mock_reconciliation_service
-
-        service = ManualBalanceAdjustmentService(mock_db_session)
-        account = SimpleNamespace(id=str(TEST_ACCOUNT_ID), available_balance=Decimal("1000.00"))
-        mock_account_service = MagicMock(spec=AccountService)
-        mock_account_service.get_account.return_value = account
-        mock_account_service.calculate_running_balance_as_of.return_value = Decimal("1000.00")
-        service.account_service = mock_account_service
-
+    with manual_adjustment_service_context(
+        mock_db_session, Decimal("1000.00"), mock_transaction
+    ) as (
+        service,
+        mock_transaction_service,
+        mock_reconciliation_service,
+        mock_account_service,
+    ):
         adjustment_payload = ManualBalanceAdjustmentCreate(
             target_balance=target_balance,
             effective_date=effective_date,
@@ -221,6 +250,7 @@ def test_manual_balance_adjustment_service_posts_transaction_and_reconciliation(
         mock_reconciliation_service.create_reconciliation_entry_from_transaction.assert_called_once()
         assert adjustment.status == "COMPLETED"
         assert adjustment.created_transaction_id is not None
+        account = mock_account_service.get_account(TEST_ACCOUNT_ID)
         assert account.available_balance == target_balance
 
 
@@ -228,24 +258,12 @@ def test_manual_balance_adjustment_service_skips_transaction_on_zero_difference(
     effective_date = date(2026, 3, 31)
     target_balance = Decimal("1000.00")
 
-    with patch(
-        "sdd_cash_manager.services.adjustment_service.TransactionService"
-    ) as MockTransactionService, patch(
-        "sdd_cash_manager.services.adjustment_service.ReconciliationService"
-    ) as MockReconciliationService:
-        mock_transaction_service = MagicMock()
-        MockTransactionService.return_value = mock_transaction_service
-
-        mock_reconciliation_service = MagicMock()
-        MockReconciliationService.return_value = mock_reconciliation_service
-
-        service = ManualBalanceAdjustmentService(mock_db_session)
-        account = SimpleNamespace(id=str(TEST_ACCOUNT_ID), available_balance=target_balance)
-        mock_account_service = MagicMock(spec=AccountService)
-        mock_account_service.get_account.return_value = account
-        mock_account_service.calculate_running_balance_as_of.return_value = target_balance
-        service.account_service = mock_account_service
-
+    with manual_adjustment_service_context(mock_db_session, target_balance) as (
+        service,
+        mock_transaction_service,
+        mock_reconciliation_service,
+        mock_account_service,
+    ):
         adjustment_payload = ManualBalanceAdjustmentCreate(
             target_balance=target_balance,
             effective_date=effective_date,
