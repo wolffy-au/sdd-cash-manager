@@ -32,13 +32,13 @@ These tasks cover initial project setup and environment configuration.
 
 **Independent Test Criteria**: Trigger the adjustment flow for an account and verify the user can set a target balance, pick an effective date, and submit without any other workflows running.
 
-- [ ] T010 [P] [US1] Implement `ManualBalanceAdjustment` SQLAlchemy model in `src/sdd_cash_manager/models/adjustment.py`.
-- [ ] T011 [P] [US1] Implement `ManualBalanceAdjustment` Pydantic schema for request/response in `src/sdd_cash_manager/schemas/adjustment.py`.
-- [ ] T012 [P] [US1] Implement `ManualBalanceAdjustmentService` in `src/sdd_cash_manager/services/adjustment_service.py` to handle creation, validation (target balance >= 0), and persistence.
-- [ ] T013 [P] [US1] Implement FastAPI endpoint for manual balance adjustment (e.g., POST /accounts/{account_id}/adjust-balance) in `src/sdd_cash_manager/api/v1/endpoints/adjustment.py`.
-- [ ] T014 [P] [US1] Add validation for `effective_date` (past/present/future) and surface warnings if outside the current statement range (non-blocking toast notification) in API endpoint or service layer.
-- [ ] T015 [P] [US1] Write unit tests for `ManualBalanceAdjustmentService` and Pydantic schemas.
-- [ ] T016 [P] [US1] Write integration tests for the manual balance adjustment API endpoint.
+- [x] T010 [P] [US1] Implement `ManualBalanceAdjustment` SQLAlchemy model in `src/sdd_cash_manager/models/adjustment.py`.
+- [x] T011 [P] [US1] Implement `ManualBalanceAdjustment` Pydantic schema for request/response in `src/sdd_cash_manager/schemas/adjustment.py`.
+- [x] T012 [P] [US1] Implement `ManualBalanceAdjustmentService` in `src/sdd_cash_manager/services/adjustment_service.py` to handle creation, validation (target balance >= 0), and persistence.
+- [x] T013 [P] [US1] Implement FastAPI endpoint for manual balance adjustment (e.g., POST /accounts/{account_id}/adjust-balance) in `src/sdd_cash_manager/api/v1/endpoints/adjustment.py`.
+- [x] T014 [P] [US1] Add validation for `effective_date` (past/present/future) and surface warnings if outside the current statement range (non-blocking toast notification) in API endpoint or service layer.
+- [x] T015 [P] [US1] Write unit tests for `ManualBalanceAdjustmentService` and Pydantic schemas.
+- [x] T016 [P] [US1] Write integration tests for the manual balance adjustment API endpoint.
 
 ---
 
