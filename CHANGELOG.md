@@ -1,3 +1,18 @@
+## v0.3.0 (2026-03-19)
+
+### Feat
+
+- Harden manual adjustment audit
+- expose reconciliation view entries
+- finalize adjustment workflow
+- Add Adjust Balance Window feature specification and tasks
+- installed sonarqube and snyk in container build
+
+### Refactor
+
+- Refactor code structure for improved readability and maintainability
+- code structure for improved readability and maintainrability
+
 ## v0.2.0 (2026-03-14)
 
 ### Feat
