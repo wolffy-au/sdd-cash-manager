@@ -48,14 +48,14 @@ These tasks cover initial project setup and environment configuration.
 
 **Independent Test Criteria**: Submit a target balance that differs from the current running balance and verify the system logs a new transaction dated per the window, showing the debit/credit needed to reach the target.
 
-- [ ] T017 [P] [US2] Update `ManualBalanceAdjustment` model/service to trigger transaction creation upon successful adjustment.
-- [ ] T018 [P] [US2] Implement `AdjustmentTransaction` SQLAlchemy model in `src/sdd_cash_manager/models/adjustment.py`.
-- [ ] T019 [P] [US2] Implement `AdjustmentTransaction` Pydantic schema in `src/sdd_cash_manager/schemas/adjustment.py`.
-- [ ] T020 [P] [US2] Update `AdjustmentService` (or related service) to create `AdjustmentTransaction` based on calculated difference and effective date.
-- [ ] T021 [P] [US2] Implement logic to update `ManualBalanceAdjustment.created_transaction_id` and `ManualBalanceAdjustment.status` upon successful transaction creation.
-- [ ] T022 [P] [US2] Update `banking product enum` to include 'ADJUSTMENT_DEBIT' and 'ADJUSTMENT_CREDIT' as per spec clarification.
-- [ ] T023 [P] [US2] Write unit tests for `AdjustmentTransaction` model and creation logic.
-- [ ] T024 [P] [US2] Write integration tests for the automated transaction creation flow.
+- [x] T017 [P] [US2] Update `ManualBalanceAdjustment` model/service to trigger transaction creation upon successful adjustment.
+- [x] T018 [P] [US2] Implement `AdjustmentTransaction` SQLAlchemy model in `src/sdd_cash_manager/models/adjustment.py`.
+- [x] T019 [P] [US2] Implement `AdjustmentTransaction` Pydantic schema in `src/sdd_cash_manager/schemas/adjustment.py`.
+- [x] T020 [P] [US2] Update `AdjustmentService` (or related service) to create `AdjustmentTransaction` based on calculated difference and effective date.
+- [x] T021 [P] [US2] Implement logic to update `ManualBalanceAdjustment.created_transaction_id` and `ManualBalanceAdjustment.status` upon successful transaction creation.
+- [x] T022 [P] [US2] Update `banking product enum` to include 'ADJUSTMENT_DEBIT' and 'ADJUSTMENT_CREDIT' as per spec clarification.
+- [x] T023 [P] [US2] Write unit tests for `AdjustmentTransaction` model and creation logic.
+- [x] T024 [P] [US2] Write integration tests for the automated transaction creation flow.
 - [x] T036 [P] [US2] Ensure `ManualBalanceAdjustmentService` determines the current running balance as of the submitted `effective_date` (using account history/ledger snapshots) rather than relying on a mutable `account.running_balance`.
 - [x] T037 [P] [US2] Route adjustment posting through `TransactionService`/ledger entries to persist true debit/credit rows, update balances, and link the resulting `AdjustmentTransaction` to the `ManualBalanceAdjustment`.
 - [x] T038 [P] [US3] After the adjustment transaction posts, invoke `ReconciliationService.create_reconciliation_entry_from_transaction` so `ReconciliationViewEntry` immediately reflects the change for `/accounts/{account_id}/reconciliation`.
@@ -69,11 +69,11 @@ These tasks cover initial project setup and environment configuration.
 
 **Independent Test Criteria**: After performing an adjustment, open the reconciliation panel for the account and confirm the adjustment appears with the chosen effective date and status.
 
-- [ ] T025 [P] [US3] Implement `ReconciliationViewEntry` model/schema (or adapt existing reconciliation views) in `src/sdd_cash_manager/models/reconciliation.py` and `src/sdd_cash_manager/schemas/reconciliation.py`.
-- [ ] T026 [P] [US3] Develop logic to populate `ReconciliationViewEntry` with data from `AdjustmentTransaction`, ensuring `is_adjustment` flag and `reconciled_status` are correctly set.
-- [ ] T027 [P] [US3] Implement API endpoint to fetch reconciliation view data (e.g., GET /accounts/{account_id}/reconciliation).
-- [ ] T028 [P] [US3] Write unit tests for reconciliation view population logic.
-- [ ] T029 [P] [US3] Write integration tests for fetching reconciliation data including adjustment entries.
+- [x] T025 [P] [US3] Implement `ReconciliationViewEntry` model/schema (or adapt existing reconciliation views) in `src/sdd_cash_manager/models/reconciliation.py` and `src/sdd_cash_manager/schemas/reconciliation.py`.
+- [x] T026 [P] [US3] Develop logic to populate `ReconciliationViewEntry` with data from `AdjustmentTransaction`, ensuring `is_adjustment` flag and `reconciled_status` are correctly set.
+- [x] T027 [P] [US3] Implement API endpoint to fetch reconciliation view data (e.g., GET /accounts/{account_id}/reconciliation).
+- [x] T028 [P] [US3] Write unit tests for reconciliation view population logic.
+- [x] T029 [P] [US3] Write integration tests for fetching reconciliation data including adjustment entries.
 
 ---
 

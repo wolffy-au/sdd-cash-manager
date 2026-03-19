@@ -8,6 +8,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from sdd_cash_manager.models.adjustment import AdjustmentTransaction
+from sdd_cash_manager.models.enums import ReconciliationStatus
 from sdd_cash_manager.models.reconciliation import ReconciliationViewEntry
 from sdd_cash_manager.services.reconciliation_service import ReconciliationService
 
@@ -55,7 +56,7 @@ def test_create_reconciliation_entry_from_transaction(mock_db_session):
     assert created_entry.amount == mock_transaction.amount
     assert created_entry.description == mock_transaction.description
     assert created_entry.is_adjustment is True
-    assert created_entry.reconciled_status == "PENDING_RECONCILIATION"
+    assert created_entry.reconciled_status == ReconciliationStatus.PENDING_RECONCILIATION.value
     assert created_entry.original_transaction_id == str(mock_transaction.transaction_id)
     mock_db_session.add.assert_called_once()
     mock_db_session.flush.assert_called_once()
@@ -83,7 +84,7 @@ def test_create_reconciliation_entry_from_transaction_with_metadata(mock_db_sess
     assert created_entry.description == mock_transaction.description
     assert created_entry.entry_date == mock_transaction.effective_date
     assert created_entry.is_adjustment is True
-    assert created_entry.reconciled_status == "PENDING_RECONCILIATION"
+    assert created_entry.reconciled_status == ReconciliationStatus.PENDING_RECONCILIATION.value
     mock_db_session.add.assert_called_once()
     mock_db_session.flush.assert_called_once()
     mock_db_session.commit.assert_called_once()
@@ -137,3 +138,26 @@ def test_create_reconciliation_entry_unexpected_error(mock_db_session):
     mock_db_session.add.assert_called_once()
     mock_db_session.rollback.assert_called_once()
     mock_db_session.commit.assert_not_called()
+
+
+def test_get_reconciliation_entries_for_account(mock_db_session):
+    mock_entry = ReconciliationViewEntry(
+        entry_id=str(uuid4()),
+        account_id=str(TEST_ACCOUNT_ID),
+        entry_date=date(2026, 3, 30),
+        amount=Decimal("250.00"),
+        description="Test entry",
+        is_adjustment=False,
+        reconciled_status=ReconciliationStatus.PENDING_RECONCILIATION.value,
+        original_transaction_id=None,
+    )
+    query_mock = mock_db_session.query.return_value
+    filter_mock = query_mock.filter.return_value
+    filter_mock.all.return_value = [mock_entry]
+
+    reconciliation_service = ReconciliationService(mock_db_session)
+    entries = reconciliation_service.get_reconciliation_entries_for_account(TEST_ACCOUNT_ID)
+
+    assert entries == [mock_entry]
+    mock_db_session.query.assert_called_once_with(ReconciliationViewEntry)
+    filter_mock.all.assert_called_once()

@@ -5,6 +5,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from sdd_cash_manager.models.adjustment import AdjustmentTransaction, ManualBalanceAdjustment
+from sdd_cash_manager.models.enums import ReconciliationStatus
 from sdd_cash_manager.models.reconciliation import ReconciliationViewEntry
 
 
@@ -32,7 +33,7 @@ class ReconciliationService:
                 amount=transaction.amount,
                 description=transaction.description,
                 is_adjustment=True, # Explicitly mark as adjustment
-                reconciled_status="PENDING_RECONCILIATION", # Default status
+                reconciled_status=ReconciliationStatus.PENDING_RECONCILIATION.value, # Default status
                 original_transaction_id=str(transaction.transaction_id),
             )
             self.db.add(reconciliation_entry)
@@ -65,7 +66,7 @@ class ReconciliationService:
                 amount=Decimal("0.00"),
                 description="Manual balance adjustment (zero difference)",
                 is_adjustment=True,
-                reconciled_status="ZERO_DIFFERENCE",
+                reconciled_status=ReconciliationStatus.ZERO_DIFFERENCE.value,
                 original_transaction_id=None,
             )
             self.db.add(reconciliation_entry)
@@ -81,4 +82,18 @@ class ReconciliationService:
             self.db.rollback()
             print(f"Unexpected error creating zero-difference reconciliation entry: {e}")
             raise RuntimeError(f"An unexpected error occurred during reconciliation entry creation: {e}") from e
+
+    def get_reconciliation_entries_for_account(
+        self,
+        account_id: UUID,
+    ) -> list[ReconciliationViewEntry]:
+        """
+        Retrieve reconciliation view entries for the given account.
+        """
+        account_id_value = str(account_id)
+        return (
+            self.db.query(ReconciliationViewEntry)
+            .filter(ReconciliationViewEntry.account_id == account_id_value)
+            .all()
+        )
     # Add other methods for fetching, updating reconciliation entries if needed

@@ -55,3 +55,4 @@ class ReconciliationStatus(str, Enum):
     PENDING_RECONCILIATION = "Pending Reconciliation"
     RECONCILED = "Reconciled"
     UNRECONCILED = "Unreconciled"
+    ZERO_DIFFERENCE = "ZERO_DIFFERENCE"

@@ -5,6 +5,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
 
+from sdd_cash_manager.models.enums import ReconciliationStatus
+
 
 class ReconciliationViewEntryBase(BaseModel):
     account_id: UUID
@@ -12,7 +14,7 @@ class ReconciliationViewEntryBase(BaseModel):
     amount: Decimal
     description: str
     is_adjustment: bool = False
-    reconciled_status: str # Assuming string representation for now, can be Enum later
+    reconciled_status: ReconciliationStatus
 
 
 class ReconciliationViewEntryCreate(ReconciliationViewEntryBase):
@@ -21,7 +23,7 @@ class ReconciliationViewEntryCreate(ReconciliationViewEntryBase):
 
 class ReconciliationViewEntryUpdate(ReconciliationViewEntryBase):
     # Allow updating status, etc. if needed
-    reconciled_status: str
+    reconciled_status: ReconciliationStatus
 
 
 class ReconciliationViewEntry(ReconciliationViewEntryBase):

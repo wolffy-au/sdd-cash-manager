@@ -16,6 +16,7 @@ from sdd_cash_manager.database import get_db
 from sdd_cash_manager.lib.auth import Role, create_access_token
 from sdd_cash_manager.models.adjustment import AdjustmentTransaction, ManualBalanceAdjustment
 from sdd_cash_manager.models.base import Base
+from sdd_cash_manager.models.enums import ReconciliationStatus
 from sdd_cash_manager.services.account_service import AccountService
 
 
@@ -98,7 +99,7 @@ def test_adjustment_creates_reconciliation_entry(adjustment_client: TestClient, 
     assert len(recon_data) == 1
     entry = recon_data[0]
     assert entry["is_adjustment"] is True
-    assert entry["reconciled_status"] == "PENDING_RECONCILIATION"
+    assert entry["reconciled_status"] == ReconciliationStatus.PENDING_RECONCILIATION.value
     transaction_amount = str(transactions[0].amount)
     assert entry["amount"] == transaction_amount
 
@@ -132,5 +133,5 @@ def test_zero_difference_adjustment_tracks_manual_entry(adjustment_client: TestC
     recon_entries = recon_response.json()
     assert len(recon_entries) == 1
     entry = recon_entries[0]
-    assert entry["reconciled_status"] == "ZERO_DIFFERENCE"
+    assert entry["reconciled_status"] == ReconciliationStatus.ZERO_DIFFERENCE.value
     assert entry["amount"] == "0.00"
