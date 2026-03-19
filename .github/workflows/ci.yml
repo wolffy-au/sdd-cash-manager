@@ -7,6 +7,7 @@ on:
       - "feature/**"
       - "bugfix/**"
   pull_request:
+    types: [opened, synchronize, reopened]
     branches:
       - main
 
@@ -17,6 +18,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
 
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
@@ -31,7 +34,7 @@ jobs:
         run: uv sync --upgrade --all-groups
 
       - name: Run linters and tests
-        run: uv run pymarkdownlnt fix *.md specs/*.md
+        run: uv run pymarkdownlnt fix ./*.md specs/*.md
 
       - name: Run ruff for linting and auto-fixing
         run: uv run ruff check . --fix
@@ -49,20 +52,19 @@ jobs:
         run: uv run pytest --cov --cov-report=xml --cov-fail-under=90
 
       - name: SonarQube Scan
-        uses: SonarSource/sonarqube-scan-action@v2
+        uses: SonarSource/sonarqube-scan-action@9598b8a83feef37de07f549027fab50ecffe6a6e
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
       - name: SonarQube Quality Gate
-        uses: SonarSource/sonarqube-quality-gate-action@v1
+        uses: SonarSource/sonarqube-quality-gate-action@cb3ed20f9fec62b4c3b8ad9e77656c6adaade913
         timeout-minutes: 5
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
       - name: Snyk Scan
-        uses: snyk/actions@master
+        uses: snyk/actions@9adf32b1121593767fc3c057af55b55db032dc04
         with:
-          args: test --command=python --severity-threshold=high
+          args: test --command=python3 --severity-threshold=high
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        
