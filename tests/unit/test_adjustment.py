@@ -3,7 +3,7 @@ from contextlib import contextmanager
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from types import SimpleNamespace
-from typing import Optional, cast
+from typing import Generator, Optional, cast
 from unittest.mock import MagicMock, patch
 from uuid import UUID, uuid4
 
@@ -119,11 +119,15 @@ def manual_adjustment_service_context(
     mock_db_session: Session,
     current_balance: Decimal,
     transaction_result: SimpleNamespace | None = None,
-) -> tuple[
-    ManualBalanceAdjustmentService,
-    MagicMock,
-    MagicMock,
-    MagicMock,
+) -> Generator[
+    tuple[
+        ManualBalanceAdjustmentService,
+        MagicMock,
+        MagicMock,
+        MagicMock,
+    ],
+    None,
+    None,
 ]:
     with patch(
         "sdd_cash_manager.services.adjustment_service.TransactionService"
@@ -262,7 +266,7 @@ def test_manual_balance_adjustment_service_skips_transaction_on_zero_difference(
         service,
         mock_transaction_service,
         mock_reconciliation_service,
-        mock_account_service,
+        _mock_account_service,
     ):
         adjustment_payload = ManualBalanceAdjustmentCreate(
             target_balance=target_balance,
