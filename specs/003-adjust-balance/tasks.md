@@ -18,11 +18,11 @@ This document outlines the actionable tasks required to implement the 'Adjust Ba
 
 These tasks cover initial project setup and environment configuration.
 
-- [ ] T001 Create project structure per implementation plan (`src/api`, `src/models`, `src/services`, `tests/unit`, `tests/integration`).
-- [ ] T002 Set up Python 3.11 environment and install dependencies: FastAPI, SQLAlchemy, Pydantic, python-accounting, pytest, Alembic.
-- [ ] T003 Configure database connection for SQLite, with a strategy for PostgreSQL extensibility (refer to `research.md`).
-- [ ] T004 Initialize Alembic for database migrations.
-- [ ] T005 Set up basic FastAPI application structure (`main.py`, `api/`, `models/`, `services/`).
+- [x] T001 Create project structure per implementation plan (`src/api`, `src/models`, `src/services`, `tests/unit`, `tests/integration`).
+- [x] T002 Set up Python 3.11 environment and install dependencies: FastAPI, SQLAlchemy, Pydantic, python-accounting, pytest, Alembic.
+- [x] T003 Configure database connection for SQLite, with a strategy for PostgreSQL extensibility (refer to `research.md`).
+- [x] T004 Initialize Alembic for database migrations.
+- [x] T005 Set up basic FastAPI application structure (`main.py`, `api/`, `models/`, `services/`).
 
 ---
 
