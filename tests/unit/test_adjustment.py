@@ -1,5 +1,5 @@
 import logging
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from types import SimpleNamespace
 from typing import Optional, cast
@@ -41,7 +41,7 @@ def test_adjustment_transaction_model_creation():
     amount = Decimal("500.00")
     transaction_type = BankingProductType.ADJUSTMENT_DEBIT # Use the enum value
     description = "Manual balance adjustment"
-    created_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
 
     transaction = AdjustmentTransaction(
         transaction_id=transaction_id,
@@ -71,7 +71,7 @@ def test_adjustment_transaction_model_defaults():
     amount = Decimal("100.00")
     transaction_type = BankingProductType.ADJUSTMENT_CREDIT
     description = "Another adjustment"
-    created_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
 
     transaction = AdjustmentTransaction(
         transaction_id=transaction_id,
@@ -135,7 +135,7 @@ def test_adjustment_transaction_creation_logic(mock_db_session):
         target_balance=target_balance,
         effective_date=effective_date,
         submitted_by_user_id=UUID(int=2),
-        adjustment_attempt_timestamp=datetime.utcnow(),
+        adjustment_attempt_timestamp=datetime.now(timezone.utc),
         status="PENDING"
     )
     mock_db_session.add(adjustment)
@@ -153,7 +153,7 @@ def test_adjustment_transaction_creation_logic(mock_db_session):
         amount=abs(difference),
         transaction_type=transaction_type,
         description=description,
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
     )
     mock_db_session.add(new_transaction)
     mock_db_session.flush()
@@ -272,7 +272,7 @@ def test_adjustment_transaction_creation_negative_difference(mock_db_session):
         target_balance=target_balance,
         effective_date=effective_date,
         submitted_by_user_id=UUID(int=2),
-        adjustment_attempt_timestamp=datetime.utcnow(),
+        adjustment_attempt_timestamp=datetime.now(timezone.utc),
         status="PENDING"
     )
     mock_db_session.add(adjustment)
@@ -289,7 +289,7 @@ def test_adjustment_transaction_creation_negative_difference(mock_db_session):
         amount=abs(difference),
         transaction_type=transaction_type,
         description=description,
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
     )
     mock_db_session.add(new_transaction)
     mock_db_session.flush()

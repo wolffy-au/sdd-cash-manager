@@ -2,7 +2,7 @@
 
 **Feature Branch**: `feature/003-adjust-balance`  
 **Created**: 2026-03-14  
-**Status**: Draft  
+**Status**: Implemented  
 **Input**: User description: "### 1.2 Adjust Balance Window - **Manual Balance Adjustment:** Provides a dedicated window for users to manually adjust an account's balance to a specific value. - **Automated Transaction Creation:** When a new balance is entered, the system automatically creates a new transaction on a specified date. - **Difference Calculation:** The amount of this new transaction is calculated as the difference between the target new balance and the account's existing balance up to the specified date. - **Impact on Records:** This adjustment transaction updates the account's ledger and is reflected in reconciliation views.   - The banking product enum should be updated to expose explicit “TRANSACTION” or “DEPOSIT” symbols if literal matches are required by features or tests (src/sdd_cash_manager/models/enums.py#L12‑#L31).  - The system will differentiate 'running balance' (current state) from 'cleared balance' (posted transactions only) for adjustment and reconciliation purposes, moving away from solely deriving both from available_balance (src/sdd_cash_manager/services/account_service.py#L279‑#L592)."
 
 ## User Scenarios & Testing *(mandatory)*
@@ -106,7 +106,4 @@ As an auditor, I need this adjustment transaction to be visible in reconciliatio
 
 ## Outstanding work
 
-- **Full-stack reconciliation smoke test** – Add an end-to-end regression that posts to `/accounts/{account_id}/adjust-balance`, verifies the resulting `Transaction` and `Entry` rows exist, and confirms `/accounts/{account_id}/reconciliation` surfaces the new `ReconciliationViewEntry`.
-- **Permission and audit scenarios** – Create API tests (and/or assertions against `security_events`) that prove the endpoint returns 403 for unauthorized callers and that audit logs capture those rejections so the UI can safely grey-out the control.
-- **Zero-difference traceability** – Extend the reconciliation suite to prove zero-difference adjustments still persist `ManualBalanceAdjustment` records (status `ZERO_DIFFERENCE`) and surface the audit entry without creating ledger transactions.
-- **Documentation clarity** – Record the distinction between running-balance snapshots and cleared balances so future UI, reporting, or reconciliation work can reuse the existing helpers without uncertainty.
+- **Status**: Completed. The feature now includes the reconciliation smoke tests, permission/ audit logging validations, zero-difference traceability checks, and the new `TECHNICAL.md` section describing running vs. cleared balances, so no additional implementation remains in this area.

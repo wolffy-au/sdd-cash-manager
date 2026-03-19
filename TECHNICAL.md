@@ -72,7 +72,13 @@ This document consolidates technical specifications, patterns, utilities, and pr
   - Implement explicit error checking and informative logging for commands.
   - Prefer using helper functions for common operations (e.g., `run_command`).
 
-- **Configuration Management**: Always use fit-for-purpose utilities for managing project configuration and dependencies (e.g., use `uv add` or `uv remove` for dependency management instead of manual `pyproject.toml` edits).
+## Balance Semantics and Adjustments
+
+- **Running vs. Cleared Balances**: `AccountService.calculate_running_balance_as_of` performs a ledger-based aggregation of `Entry` rows up to the requested `effective_date`, while `calculate_running_balance` returns the current `available_balance`. Reconciliation and adjustment flows that refer to historical statements should always use the `_as_of` helpers so they stay aligned with ledger history.
+- **Cleared Balances**: Use `AccountService.calculate_cleared_balance_as_of` when you explicitly need only reconciled entries; this removes pending transactions and other in-flight entries, ensuring reporting consumers do not confuse cleared totals with the running balance.
+- **Zero-Difference Adjustments**: Zero-difference submissions still produce a `ManualBalanceAdjustment` record (status `ZERO_DIFFERENCE`) and a reconciliation-view entry. Use `ManualBalanceAdjustmentService` together with `ReconciliationService.create_reconciliation_entry_for_manual_adjustment` to record that auditable action even when no ledger entries change, so downstream UI/reporting layers can show the attempt without replaying double-entry rows.
+
+## Automated Code Uplift and Quality Improvement
 
 ## Automated Code Uplift and Quality Improvement
 

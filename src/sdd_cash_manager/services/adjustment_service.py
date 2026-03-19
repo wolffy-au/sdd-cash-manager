@@ -69,6 +69,10 @@ class ManualBalanceAdjustmentService:
             adjustment.status = "ZERO_DIFFERENCE"
             adjustment.created_transaction_id = None
             logger.info("Zero-difference adjustment recorded for account %s", account_id_str)
+            self.reconciliation_service.create_reconciliation_entry_for_manual_adjustment(
+                manual_adjustment=adjustment,
+                auto_commit=False,
+            )
             self.db.commit()
             return adjustment
 

@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from unittest.mock import MagicMock
 from uuid import UUID, uuid4
@@ -35,7 +35,7 @@ def test_create_reconciliation_entry_from_transaction(mock_db_session):
         amount=Decimal("500.00"),
         transaction_type="ADJUSTMENT_DEBIT",
         description="Manual balance adjustment",
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
         reconciliation_metadata=None,
     )
 
@@ -50,13 +50,13 @@ def test_create_reconciliation_entry_from_transaction(mock_db_session):
 
     # Assertions
     assert isinstance(created_entry, ReconciliationViewEntry)
-    assert created_entry.account_id == TEST_ACCOUNT_ID
+    assert created_entry.account_id == str(TEST_ACCOUNT_ID)
     assert created_entry.entry_date == mock_transaction.effective_date
     assert created_entry.amount == mock_transaction.amount
     assert created_entry.description == mock_transaction.description
     assert created_entry.is_adjustment is True
     assert created_entry.reconciled_status == "PENDING_RECONCILIATION"
-    assert created_entry.original_transaction_id == mock_transaction.transaction_id
+    assert created_entry.original_transaction_id == str(mock_transaction.transaction_id)
     mock_db_session.add.assert_called_once()
     mock_db_session.flush.assert_called_once()
     mock_db_session.commit.assert_called_once()
@@ -71,7 +71,7 @@ def test_create_reconciliation_entry_from_transaction_with_metadata(mock_db_sess
         transaction_type="ADJUSTMENT_CREDIT",
         description="Another adjustment",
         reconciliation_metadata={"source": "manual_entry"},
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
     )
 
     reconciliation_service = ReconciliationService(mock_db_session)
@@ -96,7 +96,7 @@ def test_create_reconciliation_entry_sqlalchemy_error(mock_db_session):
         amount=Decimal("500.00"),
         transaction_type="ADJUSTMENT_DEBIT",
         description="Manual balance adjustment",
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
     )
 
     mock_db_session.add.side_effect = SQLAlchemyError("Mock DB error")
@@ -121,7 +121,7 @@ def test_create_reconciliation_entry_unexpected_error(mock_db_session):
         amount=Decimal("500.00"),
         transaction_type="ADJUSTMENT_DEBIT",
         description="Manual balance adjustment",
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
     )
 
     mock_db_session.add.side_effect = Exception("Some other error")

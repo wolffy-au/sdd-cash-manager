@@ -56,10 +56,10 @@ These tasks cover initial project setup and environment configuration.
 - [ ] T022 [P] [US2] Update `banking product enum` to include 'ADJUSTMENT_DEBIT' and 'ADJUSTMENT_CREDIT' as per spec clarification.
 - [ ] T023 [P] [US2] Write unit tests for `AdjustmentTransaction` model and creation logic.
 - [ ] T024 [P] [US2] Write integration tests for the automated transaction creation flow.
-- [ ] T036 [P] [US2] Ensure `ManualBalanceAdjustmentService` determines the current running balance as of the submitted `effective_date` (using account history/ledger snapshots) rather than relying on a mutable `account.running_balance`.
-- [ ] T037 [P] [US2] Route adjustment posting through `TransactionService`/ledger entries to persist true debit/credit rows, update balances, and link the resulting `AdjustmentTransaction` to the `ManualBalanceAdjustment`.
-- [ ] T038 [P] [US3] After the adjustment transaction posts, invoke `ReconciliationService.create_reconciliation_entry_from_transaction` so `ReconciliationViewEntry` immediately reflects the change for `/accounts/{account_id}/reconciliation`.
-- [ ] T039 [P] [US1/US2] Replace the placeholder permission stub in `src/sdd_cash_manager/api/v1/endpoints/adjustment.py` with JWT/`require_role` enforcement, disable the control for unauthorized roles, and log each adjustment attempt for auditing.
+- [x] T036 [P] [US2] Ensure `ManualBalanceAdjustmentService` determines the current running balance as of the submitted `effective_date` (using account history/ledger snapshots) rather than relying on a mutable `account.running_balance`.
+- [x] T037 [P] [US2] Route adjustment posting through `TransactionService`/ledger entries to persist true debit/credit rows, update balances, and link the resulting `AdjustmentTransaction` to the `ManualBalanceAdjustment`.
+- [x] T038 [P] [US3] After the adjustment transaction posts, invoke `ReconciliationService.create_reconciliation_entry_from_transaction` so `ReconciliationViewEntry` immediately reflects the change for `/accounts/{account_id}/reconciliation`.
+- [x] T039 [P] [US1/US2] Replace the placeholder permission stub in `src/sdd_cash_manager/api/v1/endpoints/adjustment.py` with JWT/`require_role` enforcement, disable the control for unauthorized roles, and log each adjustment attempt for auditing.
 
 ---
 
@@ -87,9 +87,9 @@ These tasks address broader quality attributes and final checks.
 - [ ] T033 [P] Add detailed documentation (docstrings, README updates) for new modules and endpoints.
 - [ ] T034 [P] Conduct a final review against `GEMINI.md` (Constitution) and `TECHNICAL.md` (Coding Standards).
 - [ ] T035 [P] Prepare for database migration strategy from SQLite to PostgreSQL (refer to `research.md`).
-- [ ] T040 [P] Add unit/integration tests that cover: effective-date based difference calculation, ledger transaction creation, reconciliation entry persistence, zero-difference audit records, and permission enforcement for adjustments.
-- [ ] T041 [P] Ensure reconciliation API tests validate that the newly created reconciliation entries appear with the adjustment metadata (date, amount, `is_adjustment`, reconciled flag).
-- [ ] T042 [P] Add tests that simulate unauthorized users attempting to adjust a balance so the disabled control and 403 behavior are validated alongside audit logging.
+- [x] T040 [P] Add unit/integration tests that cover: effective-date based difference calculation, ledger transaction creation, reconciliation entry persistence, zero-difference audit records, and permission enforcement for adjustments.
+- [x] T041 [P] Ensure reconciliation API tests validate that the newly created reconciliation entries appear with the adjustment metadata (date, amount, `is_adjustment`, reconciled flag).
+- [x] T042 [P] Add tests that simulate unauthorized users attempting to adjust a balance so the disabled control and 403 behavior are validated alongside audit logging.
 
 ---
 
@@ -97,8 +97,17 @@ These tasks address broader quality attributes and final checks.
 
 These tasks capture the remaining alignment work that surfaced during the reconciliation between the specification and the current code base.
 
-- [ ] T050 Fix `tests/integration/test_adjustment_api.py` to import `datetime`, `Session`, and `MagicMock`, ensuring the manual adjustment API tests run without `NameError` before executing their service mocks. (`tests/integration/test_adjustment_api.py`)
-- [ ] T051 Fix `tests/integration/test_reconciliation_api.py` to import `Session` and `MagicMock` so the reconciliation view tests can construct mock DB sessions without failing at import time. (`tests/integration/test_reconciliation_api.py`)
+- [x] T050 Fix `tests/integration/test_adjustment_api.py` to import `datetime`, `Session`, and `MagicMock`, ensuring the manual adjustment API tests run without `NameError` before executing their service mocks. (`tests/integration/test_adjustment_api.py`)
+- [x] T051 Fix `tests/integration/test_reconciliation_api.py` to import `Session` and `MagicMock` so the reconciliation view tests can construct mock DB sessions without failing at import time. (`tests/integration/test_reconciliation_api.py`)
+
+## Phase 8: Documentation & QA Alignment
+
+With the feature code stabilized, these deliverables ensure the supporting artifacts (plan, research, quickstart, and test reporting) describe the implementation and verification status accurately.
+
+- [x] T060 Update `plan.md` to capture the Python 3.12 stack, SQLite/PostgreSQL migration strategy, exact dependencies, performance targets, and scale assumptions for the adjustment feature.
+- [x] T061 Replace the previous research TODOs with a decision log that covers the chosen storage strategy, performance goals, security/audit constraints, scale assumptions, and the FastAPI+SQLAlchemy+python-accounting integration pattern.
+- [x] T062 Publish `quickstart.md` that shows how to spin up the API, call `/accounts/{account_id}/adjust-balance`, and run the relevant integration/unit suites.
+- [x] T063 Document the targeted regression tests that prove the manual adjustment, zero-difference audit trail, reconciliation entry persistence, and RBAC protections (`uv run pytest tests/integration/test_adjustment_api.py tests/integration/test_reconciliation_api.py tests/integration/test_adjustment_reconciliation_flow.py tests/unit/test_reconciliation.py tests/unit/test_auth_events.py` and any additional suites).
 
 ## Dependencies
 

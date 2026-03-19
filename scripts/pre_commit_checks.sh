@@ -28,8 +28,8 @@ echo "Running code quality checks..."
 # Runs SonarQube for code quality checks
 uv sync --upgrade --all-groups
 uv run poetry lock --regenerate
-# uv run sonar-scanner -Dsonar.projectKey=sdd-cash-manager -Dsonar.sources=. -Dsonar.host.url=http://host.containers.internal:9000 -Dsonar.login=squ_bff548115b3d2f68cc3813af626f133ac498f836
-uv run pysonar --sonar-host-url=http://host.containers.internal:9000 --sonar-token=squ_bff548115b3d2f68cc3813af626f133ac498f836 --sonar-project-key=sdd-cash-manager || true
+# uv run sonar-scanner -Dsonar.projectKey=sdd-cash-manager -Dsonar.sources=. -Dsonar.host.url=http://host.containers.internal:9000 -Dsonar.login=<toiken>
+# uv run pysonar --sonar-host-url=http://host.containers.internal:9000 --sonar-token=<token> --sonar-project-key=sdd-cash-manager || true
 
 # --- Security Checks ---
 echo "Running snyk security checks..."

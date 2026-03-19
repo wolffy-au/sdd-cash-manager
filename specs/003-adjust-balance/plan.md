@@ -6,25 +6,19 @@
 
 ## Summary
 
-The feature allows manual adjustment of account balances, creating an automated transaction for the difference, and ensuring visibility in reconciliation views. The implementation will use Python 3.11 with FastAPI, SQLAlchemy, Pydantic, and python-accounting, with SQLite as the initial database.
+The feature allows manual adjustment of account balances, creating an automated transaction for the difference, and ensuring visibility in reconciliation views. The implementation will use Python 3.12 with FastAPI, SQLAlchemy, Pydantic, and python-accounting, with SQLite as the initial database.
 
 ## Technical Context
 
-<!--
-  ACTION REQUIRED: Replace the content in this section with the technical details
-  for the project. The structure here is presented in advisory capacity to guide
-  the iteration process.
--->
-
-**Language/Version**: Python 3.11  
-**Primary Dependencies**: FastAPI, SQLAlchemy, Pydantic, python-accounting  
-**Storage**: SQLite (for MVP, extensible to PostgreSQL) - **NEEDS CLARIFICATION**: Strategy for database extensibility/migration.
-**Testing**: pytest  
-**Target Platform**: Linux server  
-**Project Type**: Web Service/API  
-**Performance Goals**: API responsiveness (general expectation, specific targets to be defined in Phase 1 if needed)  
-**Constraints**: Standard web service constraints (to be defined in Phase 1 if needed)  
-**Scale/Scope**: (to be defined in Phase 1 if needed)
+**Language/Version**: Python 3.12 (minimum supported runtime for the branch and CI agents).  
+**Primary Dependencies**: FastAPI 0.128+, SQLAlchemy 2.0+, Pydantic 2.0+, python-accounting 1.0+, httpx 0.27+ (testing), pyjwt 2.9+, and `uv` for dependency and task orchestration.  
+**Storage**: SQLite for local development and tests, with Alembic-managed migration scripts prepared so the same models can target PostgreSQL (production pattern) without rewrites.  
+**Testing**: pytest (unit/integration), pytest-asyncio, pytest-mock, pytest-cov, behave, and httpx/AsyncClient for API exercises.  
+**Target Platform**: Linux containers or virtual machines running Python 3.12 with SQLite for local/dev and PostgreSQL for production deployments.  
+**Project Type**: Web Service / REST API that enforces double-entry accounting invariants via services and database transactions.  
+**Performance Goals**: The manual adjustment endpoint should respond under 200 ms (95th percentile < 250 ms) when servicing ~100 concurrent adjustment requests, with reconciliation entry persistence completing before the API responds.  
+**Constraints**: JWT+RBAC enforced at the endpoint, atomic transaction creation (double-entry) to keep ledgers balanced, quantized currency math to 2 decimal places, and audit-friendly persistence of every adjustment attempt.  
+**Scale/Scope**: MVP supports ~500 manual adjustments/day per instance, with leaderboards submitting ~1k ledger transactions/minute during busy reconciliation windows; the pipeline must stay responsive while writing reconciliation entries immediately after adjustment. 
 
 ## Constitution Check
 

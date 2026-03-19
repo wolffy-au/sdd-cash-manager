@@ -6,12 +6,14 @@ from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Any, Callable
 
+import jwt
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jose import JWTError, jwt
+from jwt import InvalidTokenError
 from pydantic import BaseModel, Field
 
 from sdd_cash_manager.core.config import settings
+from sdd_cash_manager.lib.security_events import SecurityEvent, log_security_event
 
 _bearer = HTTPBearer(auto_error=False)
 _bearer_dependency = Depends(_bearer)
@@ -47,7 +49,11 @@ def _decode_token(token: str) -> TokenPayload:
     """Decode the provided JWT string into a structured payload."""
     try:
         payload = jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
-    except JWTError as exc:
+    except InvalidTokenError as exc:
+        log_security_event(
+            SecurityEvent.AUTHENTICATION_FAILURE,
+            "Invalid authentication token provided",
+        )
         raise HTTPException(status_code=401, detail="Invalid authentication credentials") from exc
 
     subject = payload.get("sub")
@@ -81,6 +87,10 @@ def require_token(credentials: HTTPAuthorizationCredentials | None = _bearer_dep
         return _DEFAULT_TOKEN
 
     if credentials is None:
+        log_security_event(
+            SecurityEvent.AUTHENTICATION_FAILURE,
+            "Missing credentials for secured endpoint",
+        )
         raise HTTPException(status_code=401, detail="Missing credentials")
 
     return _decode_token(credentials.credentials)
@@ -98,6 +108,11 @@ def require_role(required_role: Role) -> Callable[..., TokenPayload]:
 
         allowed_roles = _ROLE_HIERARCHY.get(required_role, {required_role})
         if not any(role in allowed_roles for role in token.roles):
+            log_security_event(
+                SecurityEvent.AUTHORIZATION_FAILURE,
+                "Insufficient privileges for secured endpoint",
+                user_id=token.subject,
+            )
             raise HTTPException(status_code=403, detail="Insufficient privileges")
         return token
 

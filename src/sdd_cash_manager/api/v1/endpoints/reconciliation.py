@@ -36,8 +36,9 @@ async def get_reconciliation_view(
         # reconciliation_service = ReconciliationService(db)
         # entries = reconciliation_service.get_reconciliation_entries(account_id)
 
+        account_id_value = str(account_id)
         reconciliation_models = db.query(ReconciliationViewEntryModel).filter(
-            ReconciliationViewEntryModel.account_id == account_id
+            ReconciliationViewEntryModel.account_id == account_id_value
         ).all()
 
         if not reconciliation_models:

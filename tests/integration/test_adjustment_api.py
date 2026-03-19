@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal  # Import Decimal
 from typing import Optional
 from unittest.mock import MagicMock, patch
@@ -63,7 +63,7 @@ class MockManualBalanceAdjustmentService:
                 amount=abs(difference),
                 transaction_type=transaction_type,
                 description="Manual balance adjustment",
-                created_at=datetime.utcnow(),
+                created_at=datetime.now(timezone.utc),
             )
             account.running_balance += difference
 
@@ -73,7 +73,7 @@ class MockManualBalanceAdjustmentService:
             target_balance=adjustment_data.target_balance,
             effective_date=adjustment_data.effective_date,
             submitted_by_user_id=adjustment_data.submitted_by_user_id,
-            adjustment_attempt_timestamp=datetime.utcnow(),
+            adjustment_attempt_timestamp=datetime.now(timezone.utc),
             created_transaction_id=transaction.transaction_id if transaction else None,
             status="COMPLETED" if transaction else "ZERO_DIFFERENCE"
         )
@@ -200,7 +200,7 @@ def test_create_manual_balance_adjustment_invalid_date_validation_error():
         headers=auth_headers(),
     )
 
-    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY # Pydantic validation error
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT # Pydantic validation error
     assert "Effective date must be within a reasonable range" in response.text
 
 def test_create_manual_balance_adjustment_invalid_balance_validation_error():
@@ -217,5 +217,5 @@ def test_create_manual_balance_adjustment_invalid_balance_validation_error():
         headers=auth_headers(),
     )
 
-    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY # Pydantic validation error
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT # Pydantic validation error
     assert "greater than or equal to 0" in response.text

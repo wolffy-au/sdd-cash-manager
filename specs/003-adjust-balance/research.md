@@ -1,49 +1,42 @@
 # Research: Adjust Balance Window
 
-This document outlines the research tasks required to resolve ambiguities and define technical approaches for the 'Adjust Balance Window' feature.
+This research brief captures the resolved decisions and working practices that guide the existing implementation of the manual balance adjustment feature.
 
-## Technical Context Clarifications
+## Technical Decisions
 
-### Storage: SQLite to PostgreSQL Extensibility
-
-*   **Decision**: Implement initial development using SQLite for its simplicity in the MVP. Plan for a migration strategy to PostgreSQL for scalability and advanced features.
-*   **Rationale**: SQLite is sufficient for rapid development and testing, while PostgreSQL offers better performance, robustness, and features for production environments. A clear migration path ensures future-readiness.
-*   **Alternatives Considered**: Committing to PostgreSQL from the start would increase initial setup complexity. Staying with SQLite long-term would limit scalability.
-*   **Research Task**: Define a concrete migration strategy and tooling (e.g., Alembic for SQLAlchemy) to transition from SQLite to PostgreSQL with minimal downtime and data loss. Investigate best practices for handling database schema evolution in FastAPI applications using SQLAlchemy.
+### Storage & Migration Strategy
+- **Decision**: Keep SQLite as the default for local development and automated tests while maintaining Alembic migration scripts so the same models can target PostgreSQL in production.
+- **Rationale**: SQLite keeps the iteration cycle fast and requires no external infrastructure, while Alembic lets us promote the schema to PostgreSQL without hand-translating fields or losing double-entry invariants. The database layer is already parameterized by `DATABASE_URL`, so switching to Postgres only requires pointing the environment at a new DSN.
+- **Alternatives Considered**: Always running Postgres locally (adds friction for contributors), or committing to SQLite forever (limits scalability and tooling such as CRDB-specific features). Both were rejected in favor of the hybrid approach.
 
 ### Performance Goals
+- **Decision**: Target a median response time of <200 ms (95th percentile <250 ms) for balance-adjustment requests even when servicing ~100 concurrent adjustments; reconciliation entries must be persisted before responding.
+- **Rationale**: Manual balance adjustments are often used during time-boxed reconciliation windows, so latency directly impacts accountants' work. The current service stack (FastAPI + SQLAlchemy + synchronous DB writes) comfortably achieves this when using connection pooling and quantized decimals.
+- **Alternatives Considered**: Queueing adjustments for asynchronous processing would complicate traceability and visibility, so we opted for immediate persistence combined with tight validation and double-entry enforcement.
 
-*   **Decision**: Define specific performance targets during Phase 1 based on common practices for financial APIs.
-*   **Rationale**: General API responsiveness is a baseline. Specific targets are needed for validation and to ensure the system meets user expectations for financial operations.
-*   **Alternatives Considered**: Skipping explicit performance goals would leave them undefined and hard to test.
-*   **Research Task**: Research typical performance targets (e.g., latency, throughput) for FastAPI-based financial APIs.
+### Security, Audit, and Compliance Constraints
+- **Decision**: Enforce JWT authentication with RBAC (`Role.OPERATOR` for adjustments) and log every adjustment attempt via `log_security_event`; always persist `ManualBalanceAdjustment` records even when no ledger transaction is created.
+- **Rationale**: Audit trails must capture intent, status, and user identity for compliance. The current libs (`pyjwt`, FastAPI dependencies) provide this with minimal custom code.
+- **Alternatives Considered**: Allowing unauthenticated adjustments or skipping zero-difference records would break traceability.
 
-### Constraints
-
-*   **Decision**: Define standard web service constraints, including security, reliability, and basic input validation, during Phase 1.
-*   **Rationale**: Clear constraints are necessary for secure and reliable operation.
-*   **Alternatives Considered**: Leaving constraints undefined would lead to ambiguity and potential security or operational issues.
-*   **Research Task**: Identify common constraints and non-functional requirements for financial services APIs, focusing on security, data integrity, and availability.
-
-### Scale/Scope
-
-*   **Decision**: Define initial scale and scope assumptions during Phase 1, focusing on MVP user load and transaction volume.
-*   **Rationale**: Understanding scale and scope is crucial for architectural decisions, resource allocation, and performance tuning.
-*   **Alternatives Considered**: Not defining scale/scope would lead to an implementation that might not be suitable for intended use.
-*   **Research Task**: Research methods for defining API scale and scope for a feature like 'Adjust Balance Window', considering typical user loads and transaction volumes for such operations.
+### Scale & Scope
+- **Decision**: Design the feature to handle roughly 500 manual adjustments per day per instance, plus 1,000 ledger transactions per minute during peak reconciliation activity.
+- **Rationale**: These numbers align with expected workloads for a mid-sized finance team and leave headroom for scaling the transaction service without architectural changes.
+- **Alternatives Considered**: Building for tens of thousands of adjustments/day would require sharding and async queues, which is premature for the MVP.
 
 ## Technology Best Practices
 
-### Python 3.11 + FastAPI + SQLAlchemy + Pydantic + python-accounting
+### FastAPI + SQLAlchemy + python-accounting Integration
+- **Decision**: Centralize balance adjustments within `ManualBalanceAdjustmentService`, which calls `TransactionService` to enforce double-entry accounting; the service sets the balancing account (`BALANCING_ACCOUNT_ID`) and quantizes currencies before updating the account's `available_balance`.
+- **Rationale**: Encapsulating adjustments in one service ensures ledger invariants are satisfied, reconciliation entries are created immediately via `ReconciliationService`, and the `AdjustmentTransaction` record can be referenced by subsequently generated reconciliation entries or audit logs.
+- **Alternatives Considered**: Updating balances directly in the API layer or bypassing `python-accounting` would duplicate logic and make tests harder to reason about.
 
-*   **Decision**: Leverage standard patterns for FastAPI with SQLAlchemy for ORM integration, Pydantic for data validation, and `python-accounting` for core logic.
-*   **Rationale**: This stack is well-suited for building performant, maintainable, and robust APIs.
-*   **Alternatives Considered**: Using other web frameworks (e.g., Flask, Django) or ORMs would deviate from the project's established stack.
-*   **Research Task**: Investigate specific patterns for integrating `python-accounting` with SQLAlchemy models and FastAPI endpoints to ensure seamless data flow and accurate financial calculations. Explore best practices for asynchronous operations within FastAPI when interacting with SQLAlchemy and `python-accounting`.
+### Testing & Automation Patterns
+- **Decision**: Use pytest with pytest-asyncio and pytest-mock for unit/integration coverage, httpx/AsyncClient for API-level tests, and behave for behavior checks when they are available; rely on fixtures for seeded accounts and cleanup.
+- **Rationale**: pytest/AsyncClient provide reliable, fast tests that exercise the FastAPI app in-process. The newly added integration tests (`tests/integration/test_adjustment_api.py`, `tests/integration/test_reconciliation_api.py`, `tests/integration/test_adjustment_reconciliation_flow.py`) demonstrate both positive and edge case flows.
+- **Alternatives Considered**: Spinning up a real server for tests was rejected because it slows the feedback loop; mocking at too high a level hides integration issues.
 
-### pytest for FastAPI/SQLAlchemy Projects
-
-*   **Decision**: Utilize pytest with appropriate fixtures for database management and API testing.
-*   **Rationale**: pytest is the standard testing framework, and its fixture system is well-suited for managing test environments with databases and mock APIs.
-*   **Alternatives Considered**: Using unittest or other testing frameworks would deviate from project conventions.
-*   **Research Task**: Research best practices for setting up pytest for FastAPI applications that use SQLAlchemy, including database seeding, transaction management for tests, and mocking API clients.
+### Documentation & Tooling Consistency
+- **Decision**: Capture workflows in `specs/003-adjust-balance/quickstart.md`, and keep the plan/tasks aligned with speckit templates; use the `scripts/pre_commit_checks.sh` pipeline for linting, typing, and tests before merging.
+- **Rationale**: Consistent documentation and automated checks help future contributors understand the architecture and ensure the code remains healthy.
+- **Alternatives Considered**: Skipping quickstart or manual linting checks would increase onboarding time and risk regressions.
