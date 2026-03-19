@@ -81,12 +81,12 @@ These tasks cover initial project setup and environment configuration.
 
 These tasks address broader quality attributes and final checks.
 
-- [ ] T030 [P] Implement permissioning logic: disable adjustment control for users without rights, log audit entry. (Edge Case handling)
-- [ ] T031 [P] Refine performance of balance calculation and transaction creation if benchmarks exceed targets (refer to `research.md` for goals).
-- [ ] T032 [P] Implement comprehensive logging and tracing for adjustment and transaction creation flows.
-- [ ] T033 [P] Add detailed documentation (docstrings, README updates) for new modules and endpoints.
-- [ ] T034 [P] Conduct a final review against `GEMINI.md` (Constitution) and `TECHNICAL.md` (Coding Standards).
-- [ ] T035 [P] Prepare for database migration strategy from SQLite to PostgreSQL (refer to `research.md`).
+ - [x] T030 [P] Implement permissioning logic: disable adjustment control for users without rights, log audit entry. (Edge Case handling)
+ - [x] T031 [P] Refine performance of balance calculation and transaction creation if benchmarks exceed targets (refer to `research.md` for goals).
+ - [x] T032 [P] Implement comprehensive logging and tracing for adjustment and transaction creation flows.
+ - [x] T033 [P] Add detailed documentation (docstrings, README updates) for new modules and endpoints.
+ - [x] T034 [P] Conduct a final review against `GEMINI.md` (Constitution) and `TECHNICAL.md` (Coding Standards).
+ - [x] T035 [P] Prepare for database migration strategy from SQLite to PostgreSQL (refer to `research.md`).
 - [x] T040 [P] Add unit/integration tests that cover: effective-date based difference calculation, ledger transaction creation, reconciliation entry persistence, zero-difference audit records, and permission enforcement for adjustments.
 - [x] T041 [P] Ensure reconciliation API tests validate that the newly created reconciliation entries appear with the adjustment metadata (date, amount, `is_adjustment`, reconciled flag).
 - [x] T042 [P] Add tests that simulate unauthorized users attempting to adjust a balance so the disabled control and 403 behavior are validated alongside audit logging.

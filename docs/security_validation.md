@@ -26,3 +26,9 @@ This document records the end-to-end validation and security controls applied to
 
 - Structured logs are enabled through `src/sdd_cash_manager/lib/logging_config.py`, honoring `SDD_CASH_MANAGER_LOG_LEVEL`. Every request path logs context and outcomes, including validation failures and unexpected errors.
 - The benchmarking script (`scripts/benchmark_account_workflow.py`) exercises account creation, balance adjustments, and hierarchy queries. Running it before/after query tuning or schema changes shows whether latency targets remain acceptable.
+
+## Manual Adjustment Auditing & Tracing
+
+- The manual adjustment endpoint logs `SecurityEvent.SENSITIVE_DATA_ACCESS` (or `SecurityEvent.SYSTEM_ALERT` when errors occur) to `security.log`, capturing the requesting user, account ID, duration in milliseconds, and the difference between the submitted and running balances.
+- Adjustments trace the start-to-finish flow through `ManualBalanceAdjustmentService`, which records both zero-difference and completed adjustments before creating reconciliation entries, so auditors can see the full lineage without replaying double-entry rows.
+- Performance monitoring relies on the duration metadata emitted with each adjustment audit record; if sustained spikes appear, the service is instrumented to highlight the combination of validation, transaction posting, and reconciliation persistence that contribute to the latency budget.

@@ -23,6 +23,13 @@ logger = logging.getLogger(__name__) # Initialize logger
 # Mock data
 TEST_ACCOUNT_ID = UUID(int=1)
 
+# Automatically stub security logging for each adjustment test.
+@pytest.fixture(autouse=True)
+def mock_security_log(monkeypatch):
+    mock_logger = MagicMock()
+    monkeypatch.setattr("sdd_cash_manager.services.adjustment_service.log_security_event", mock_logger)
+    return mock_logger
+
 # Mock db session
 @pytest.fixture
 def mock_db_session() -> Session:

@@ -40,3 +40,25 @@ This research brief captures the resolved decisions and working practices that g
 - **Decision**: Capture workflows in `specs/003-adjust-balance/quickstart.md`, and keep the plan/tasks aligned with speckit templates; use the `scripts/pre_commit_checks.sh` pipeline for linting, typing, and tests before merging.
 - **Rationale**: Consistent documentation and automated checks help future contributors understand the architecture and ensure the code remains healthy.
 - **Alternatives Considered**: Skipping quickstart or manual linting checks would increase onboarding time and risk regressions.
+
+## Operational Observability & Tracing
+
+- **Decision**: Emit structured `SecurityEvent` entries for every manual adjustment, including milliseconds-to-complete metrics and audit metadata (user, account, target balance, difference, status). Zero-difference adjustments still produce `SecurityEvent.SENSITIVE_DATA_ACCESS` entries so downstream reporting and SIEM consumers recognize the intent even without ledger mutations.
+- **Rationale**: Having a single, structured log (and the `security.log` file) that couples security, performance, and reconciliation metadata keeps compliance reviewers focused while avoiding the complexity of full distributed tracing.
+- **Alternatives Considered**: Introducing OpenTelemetry or custom tracing libraries was rejected because they would add dependencies and increase the workload of audit defenders; the existing logging plus the new security-event payload meets the audited requirements.
+
+## Constitutional & Standards Review
+
+- **Decision**: Evaluate the implementation against the canonical guidance (`TECHNICAL.md`, `GEMINI.md`, `.specify/memory/constitution.md`, `NONFUNCTIONALS.md`, and `PROJECT_CONSTITUTION.md`) before closing the feature, ensuring every new behavior (security logging, RBAC enforcement, instrumentation, and test coverage) aligns with the documented standards.
+- **Rationale**: Documenting this review in the research brief provides the explicit traceability auditors expect and marks the feature as consistent with the project’s coding, security, and performance expectations.
+- **Alternatives Considered**: Leaving the review implicit risks leaving compliance gaps; the explicit mention ensures future maintainers know where the standard alignment was verified.
+
+## PostgreSQL Migration Strategy
+
+- **Decision**: Keep SQLite as the default for local development while allowing `SDD_CASH_MANAGER_DATABASE_URL` to point at PostgreSQL for production. Maintain Alembic scripts, test them against both engines, and avoid SQLite-only SQL expansions.
+- **Plan**:
+  1. Make schema changes via Alembic revisions and run the migration against Postgres in CI (`uv run alembic upgrade head --sql` for dry runs or `uv run alembic upgrade head` with a Postgres sandbox).
+  2. Validate that `Numeric(18, 2)` columns, UUID PKs, and foreign keys behave identically across SQLite and Postgres (adjust column defaults if Postgres requires explicit `server_default` clauses).
+  3. Run the adjustment + reconciliation integration suites (especially `tests/integration/test_adjustment_reconciliation_flow.py`) against a Postgres container or service to confirm concurrency, locking, and reconciliation entries persist as expected.
+  4. Update deployment docs so operations teams set `SDD_CASH_MANAGER_DATABASE_URL` to the targeted Postgres DSN and include `uv run alembic upgrade head` as part of deployments.
+- **Alternatives Considered**: Shipping the feature on SQLite only would simplify dev flows but leave production deployments underprepared for Postgres’s stricter constraints, so the hybrid approach is the safer compromise.

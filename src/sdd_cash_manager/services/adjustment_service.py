@@ -1,11 +1,13 @@
 import logging
 from datetime import datetime, time, timezone
 from decimal import Decimal
+from time import perf_counter
 from uuid import UUID
 
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from sdd_cash_manager.lib.security_events import SecurityEvent, log_security_event
 from sdd_cash_manager.lib.utils import quantize_currency
 from sdd_cash_manager.models.adjustment import AdjustmentTransaction, ManualBalanceAdjustment
 from sdd_cash_manager.models.enums import BankingProductType
@@ -30,6 +32,7 @@ class ManualBalanceAdjustmentService:
         self.transaction_service = TransactionService(db_session=db)
         self.transaction_service.set_account_service(self.account_service)
         self.reconciliation_service = ReconciliationService(db)
+        self._logger = logging.getLogger(f"{__name__}.audit")
 
     def create_adjustment(
         self,
@@ -40,9 +43,20 @@ class ManualBalanceAdjustmentService:
                     account_id, adjustment_data.target_balance)
 
         account_id_str = str(account_id)
+        operation_start = perf_counter()
+        operation_status = "FAILED"
+        difference = Decimal("0.00")
         account = self.account_service.get_account(account_id_str)
         if not account:
             logger.error("Account %s not found for manual adjustment.", account_id_str)
+            self._log_adjustment_event(
+                account_id_str,
+                adjustment_data,
+                difference,
+                "FAILED",
+                (perf_counter() - operation_start) * 1000,
+                error_message=f"Account {account_id} not found"
+            )
             raise ValueError(f"Account with id {account_id} not found")
 
         current_running_balance = self.account_service.calculate_running_balance_as_of(
@@ -74,6 +88,14 @@ class ManualBalanceAdjustmentService:
                 auto_commit=False,
             )
             self.db.commit()
+            operation_status = adjustment.status
+            self._log_adjustment_event(
+                account_id_str,
+                adjustment_data,
+                difference,
+                operation_status,
+                (perf_counter() - operation_start) * 1000,
+            )
             return adjustment
 
         try:
@@ -126,18 +148,84 @@ class ManualBalanceAdjustmentService:
             )
 
             self.db.commit()
-            logger.info("Manual adjustment %s completed for account %s", adjustment.id, account_id_str)
+            adjustment.status = "COMPLETED"
+            operation_status = "COMPLETED"
+            duration_ms = (perf_counter() - operation_start) * 1000
+            self._log_adjustment_event(
+                account_id_str,
+                adjustment_data,
+                difference,
+                operation_status,
+                duration_ms,
+            )
+            logger.info("Manual adjustment %s completed for account %s (duration=%0.2fms)", adjustment.id, account_id_str, duration_ms)
             return adjustment
         except SQLAlchemyError as exc:
             self.db.rollback()
             logger.error("SQLAlchemy error while creating adjustment for account %s: %s",
                          account_id_str, exc, exc_info=True)
+            duration_ms = (perf_counter() - operation_start) * 1000
+            self._log_adjustment_event(
+                account_id_str,
+                adjustment_data,
+                difference,
+                "FAILED",
+                duration_ms,
+                error_message=str(exc),
+            )
             raise RuntimeError("Failed to create adjustment transaction") from exc
         except Exception as exc:
             self.db.rollback()
             logger.error("Unexpected error while creating adjustment for account %s: %s",
                          account_id_str, exc, exc_info=True)
+            duration_ms = (perf_counter() - operation_start) * 1000
+            self._log_adjustment_event(
+                account_id_str,
+                adjustment_data,
+                difference,
+                "FAILED",
+                duration_ms,
+                error_message=str(exc),
+            )
             raise RuntimeError("An unexpected error occurred during adjustment creation") from exc
+
+    def _log_adjustment_event(
+        self,
+        account_id: str,
+        adjustment_data: ManualBalanceAdjustmentCreate,
+        difference: Decimal,
+        status: str,
+        duration_ms: float,
+        error_message: str | None = None,
+    ) -> None:
+        metadata = {
+            "target_balance": str(adjustment_data.target_balance),
+            "effective_date": adjustment_data.effective_date.isoformat(),
+            "difference": str(difference),
+            "status": status,
+            "duration_ms": round(duration_ms, 2),
+        }
+        if error_message:
+            metadata["error"] = error_message
+
+        success = status in {"COMPLETED", "ZERO_DIFFERENCE"}
+        event_type = SecurityEvent.SENSITIVE_DATA_ACCESS if success else SecurityEvent.SYSTEM_ALERT
+        level = logging.INFO if success else logging.WARNING
+        log_security_event(
+            event_type,
+            f"Manual balance adjustment {status}",
+            user_id=adjustment_data.submitted_by_user_id,
+            account_id=account_id,
+            metadata=metadata,
+            level=level,
+        )
+        self._logger.info(
+            "Adjustment audited account=%s user=%s status=%s duration=%.2fms",
+            account_id,
+            adjustment_data.submitted_by_user_id,
+            status,
+            duration_ms,
+        )
 
     @staticmethod
     def _transaction_type_for_difference(difference: Decimal) -> str:

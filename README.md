@@ -114,3 +114,15 @@ The API will be available at `http://127.0.0.1:8000`.
 ## Benchmarking
 
 Use `python scripts/benchmark_account_workflow.py` to gather average timings for account creation, balance adjustments, and hierarchy queries. The script runs against an in-memory SQLite database and prints the per-operation latency so you can compare before/after tuning.
+
+## Manual Balance Adjustments
+
+Manual balance adjustments live behind the `/accounts/{account_id}/adjust-balance` endpoint and always require the `operator` role (`require_role(Role.OPERATOR)` guards the route). The API writes a `ManualBalanceAdjustment` record even when the requested balance matches the ledger (zero-difference scenarios), and it routes approved adjustments through `TransactionService` to keep double-entry accounting intact.
+
+Every adjustment call is recorded via `log_security_event(SecurityEvent.SENSITIVE_DATA_ACCESS)` (look for JSON blobs in `security.log`) and traced with duration metadata so you can monitor the milliseconds spent computing balances and persisting transactions. Failures emit `SecurityEvent.SYSTEM_ALERT` entries, providing an audit trail for denied adjustments.
+
+To explore the feature manually:
+
+1. Start the app (`uvicorn src.sdd_cash_manager.main:app --reload`) and source a JWT for an operator (`Role.OPERATOR`).
+2. POST to `/accounts/{account_id}/adjust-balance` with `target_balance`, `effective_date`, and `submitted_by_user_id`.
+3. Check `/accounts/{account_id}/reconciliation` for the accompanying reconciliation entry and examine `security.log` for the structured audit record.
