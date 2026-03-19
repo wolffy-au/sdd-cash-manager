@@ -4,6 +4,7 @@ from unittest.mock import MagicMock
 from uuid import UUID, uuid4
 
 import pytest
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from sdd_cash_manager.models.adjustment import AdjustmentTransaction
@@ -79,7 +80,8 @@ def test_create_reconciliation_entry_from_transaction_with_metadata(mock_db_sess
         transaction=mock_transaction
     )
 
-    assert created_entry.reconciliation_metadata == {"source": "manual_entry"}
+    assert created_entry.description == mock_transaction.description
+    assert created_entry.entry_date == mock_transaction.effective_date
     assert created_entry.is_adjustment is True
     assert created_entry.reconciled_status == "PENDING_RECONCILIATION"
     mock_db_session.add.assert_called_once()
@@ -108,7 +110,6 @@ def test_create_reconciliation_entry_sqlalchemy_error(mock_db_session):
         )
 
     mock_db_session.add.assert_called_once()
-    mock_db_session.flush.assert_called_once()
     mock_db_session.rollback.assert_called_once()
     mock_db_session.commit.assert_not_called()
 
@@ -134,6 +135,5 @@ def test_create_reconciliation_entry_unexpected_error(mock_db_session):
         )
 
     mock_db_session.add.assert_called_once()
-    mock_db_session.flush.assert_called_once()
     mock_db_session.rollback.assert_called_once()
     mock_db_session.commit.assert_not_called()

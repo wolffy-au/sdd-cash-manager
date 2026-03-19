@@ -11,7 +11,8 @@ from sdd_cash_manager.database import Base
 
 if TYPE_CHECKING:
     from sdd_cash_manager.models.transaction import Entry
-from sdd_cash_manager.models.reconciliation import ReconciliationViewEntry  # Added import for type resolution
+    from sdd_cash_manager.models.reconciliation import ReconciliationViewEntry  # Added import for type resolution
+    from sdd_cash_manager.models.adjustment import ManualBalanceAdjustment, AdjustmentTransaction
 
 
 class Account(Base):
@@ -40,6 +41,8 @@ class Account(Base):
     # Relationships
     entries: Mapped[List["Entry"]] = relationship(back_populates="account")
     reconciliation_view_entries: Mapped[List[ReconciliationViewEntry]] = relationship(back_populates="account")
+    manual_balance_adjustments: Mapped[List["ManualBalanceAdjustment"]] = relationship(back_populates="account")
+    adjustment_transactions: Mapped[List["AdjustmentTransaction"]] = relationship(back_populates="account")
 
     def __init__(
         self,

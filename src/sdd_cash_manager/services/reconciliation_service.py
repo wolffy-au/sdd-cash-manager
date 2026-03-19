@@ -14,7 +14,8 @@ class ReconciliationService:
     def create_reconciliation_entry_from_transaction(
         self,
         account_id: UUID,
-        transaction: AdjustmentTransaction
+        transaction: AdjustmentTransaction,
+        auto_commit: bool = True
     ) -> ReconciliationViewEntry:
         """
         Creates a ReconciliationViewEntry from an AdjustmentTransaction.
@@ -34,7 +35,8 @@ class ReconciliationService:
             )
             self.db.add(reconciliation_entry)
             self.db.flush()
-            self.db.commit() # Commit immediately after creation for this entry
+            if auto_commit:
+                self.db.commit()
             return reconciliation_entry
 
         except SQLAlchemyError as e:

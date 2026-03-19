@@ -1,6 +1,6 @@
 import uuid
 from dataclasses import dataclass
-from datetime import datetime, timezone  # using timezone.utc for timezone-aware snapshots
+from datetime import date, datetime, time, timezone  # using timezone.utc for timezone-aware snapshots
 from decimal import Decimal
 from enum import Enum
 from typing import Any, Callable, TypeAlias
@@ -13,6 +13,8 @@ from sdd_cash_manager.lib.encryption import SensitiveDataCipher
 from sdd_cash_manager.lib.security_events import log_critical_application_error  # New import
 from sdd_cash_manager.lib.utils import quantize_currency
 from sdd_cash_manager.models.account import Account
+from sdd_cash_manager.models.enums import ReconciliationStatus
+from sdd_cash_manager.models.transaction import Entry, Transaction
 from sdd_cash_manager.models.enums import AccountingCategory, BankingProductType
 
 AccountFieldValue: TypeAlias = str | Decimal | float | bool | None
@@ -578,19 +580,59 @@ class AccountService:
             if should_close:
                 session.close()
 
-    def calculate_running_balance(self, account_id: str) -> Decimal:
-        """Return the quantized running balance for the account."""
-        account = self.get_account(account_id)
-        if account is None:
-            return Decimal("0.0")
-        return quantize_currency(account.available_balance)
+    def _aggregate_balance(
+        self,
+        account_id: str,
+        *,
+        effective_date: datetime | date | None = None,
+        reconciled_only: bool = False
+    ) -> Decimal:
+        """Return the net balance for the account filtered by criteria."""
+        session, should_close = self._acquire_session()
+        try:
+            stmt = (
+                select(
+                    func.coalesce(func.sum(Entry.debit_amount), Decimal("0.0")),
+                    func.coalesce(func.sum(Entry.credit_amount), Decimal("0.0")),
+                )
+                .join(Transaction, Entry.transaction)
+                .where(Entry.account_id == account_id)
+            )
 
-    def calculate_reconciled_balance(self, account_id: str) -> Decimal:
-        """Return the quantized reconciled balance for the account."""
-        account = self.get_account(account_id)
-        if account is None:
-            return Decimal("0.0")
-        return quantize_currency(account.available_balance)
+            if effective_date is not None:
+                effective_datetime = (
+                    effective_date
+                    if isinstance(effective_date, datetime)
+                    else datetime.combine(effective_date, time.max, tzinfo=timezone.utc)
+                )
+                stmt = stmt.where(Transaction.effective_date <= effective_datetime)
+
+            if reconciled_only:
+                stmt = stmt.where(Transaction.reconciliation_status == ReconciliationStatus.RECONCILED)
+
+            debit_total, credit_total = session.execute(stmt).one()
+            debit_total = debit_total or Decimal("0.0")
+            credit_total = credit_total or Decimal("0.0")
+            balance = debit_total - credit_total
+            return quantize_currency(balance)
+        except Exception as e:
+            log_critical_application_error(
+                f"Failed to aggregate balance for account {account_id}: {e}",
+                account_id=account_id,
+                metadata={"service": "AccountService"},
+            )
+            raise RuntimeError(f"Failed to calculate balance for account {account_id}") from e
+        finally:
+            if should_close and session is not None:
+                session.close()
+
+    def calculate_running_balance_as_of(self, account_id: str, effective_date: datetime | date) -> Decimal:
+        """Return the running balance as of the requested effective date."""
+        return self._aggregate_balance(account_id, effective_date=effective_date, reconciled_only=False)
+
+    def calculate_cleared_balance_as_of(self, account_id: str, effective_date: datetime | date) -> Decimal:
+        """Return the cleared (reconciled) balance as of the requested effective date."""
+        return self._aggregate_balance(account_id, effective_date=effective_date, reconciled_only=True)
 
     def get_account_hierarchy_balance(self, account_id: str) -> Decimal:
         """Return the aggregated balance for an account and its descendants.

@@ -15,7 +15,7 @@ class ManualBalanceAdjustmentBase(BaseModel):
     """
     target_balance: Decimal = Field(..., ge=0, description="The desired new balance for the account.")
     effective_date: date = Field(..., description="The date on which this adjustment should take effect.")
-    submitted_by_user_id: UUID = Field(..., description="The UUID of the user who initiated the adjustment.")
+    submitted_by_user_id: str = Field(..., description="Identifier of the user who initiated the adjustment.")
 
     # Update @validator to @field_validator for Pydantic V2 compatibility
     @field_validator("effective_date")
@@ -107,4 +107,3 @@ class AdjustmentTransaction(AdjustmentTransactionBase):
     # Update Config class to use model_config for Pydantic V2 compatibility
     # orm_mode is renamed to from_attributes
     model_config = ConfigDict(from_attributes=True)
-
