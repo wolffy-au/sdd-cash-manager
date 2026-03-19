@@ -9,6 +9,8 @@ from httpx import AsyncClient, Timeout
 
 from tests.api.jwt_utils import generate_access_token
 
+os.environ["SDD_CASH_MANAGER_SECURITY_ENABLED"] = "true"
+
 # Ensure fixtures defined in tests/api/fixtures.py are registered with pytest
 from .fixtures import *  # noqa: F401,F403
 

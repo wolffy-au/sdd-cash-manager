@@ -6,20 +6,21 @@ from sqlalchemy.exc import NoResultFound
 from sqlalchemy.orm import Session
 
 from sdd_cash_manager.database import get_db
-from sdd_cash_manager.models.reconciliation import ReconciliationViewEntry
+from sdd_cash_manager.models.reconciliation import ReconciliationViewEntry as ReconciliationViewEntryModel
+from sdd_cash_manager.schemas.reconciliation import ReconciliationViewEntry as ReconciliationViewEntrySchema
 
 router = APIRouter()
 _get_db_dependency = Depends(get_db)
 
 @router.get(
     "/accounts/{account_id}/reconciliation",
-    response_model=List[ReconciliationViewEntry], # Return a list of entries
+    response_model=List[ReconciliationViewEntrySchema],  # Return a list of entries
     summary="Get reconciliation view entries for an account",
 )
 async def get_reconciliation_view(
     account_id: UUID,
     db: Session = _get_db_dependency,
-) -> List[ReconciliationViewEntry]:
+) -> List[ReconciliationViewEntrySchema]:
     """
     Retrieve reconciliation entries for a specific account.
 
@@ -35,16 +36,17 @@ async def get_reconciliation_view(
         # reconciliation_service = ReconciliationService(db)
         # entries = reconciliation_service.get_reconciliation_entries(account_id)
 
-        # Simulating a query result for demonstration purposes
-        # Replace this with actual database query logic
-        reconciliation_entries = db.query(ReconciliationViewEntry).filter(
-            ReconciliationViewEntry.account_id == account_id
+        reconciliation_models = db.query(ReconciliationViewEntryModel).filter(
+            ReconciliationViewEntryModel.account_id == account_id
         ).all()
 
-        if not reconciliation_entries:
-            # Return empty list if no entries found, not necessarily an error
+        if not reconciliation_models:
             return []
 
+        reconciliation_entries = [
+            ReconciliationViewEntrySchema.model_validate(model)
+            for model in reconciliation_models
+        ]
         return reconciliation_entries
 
     except NoResultFound:

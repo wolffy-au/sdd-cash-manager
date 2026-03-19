@@ -4,6 +4,7 @@ from decimal import Decimal  # Add import for Decimal
 from unittest.mock import MagicMock
 from uuid import UUID  # Keep UUID for type hinting if needed
 
+import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
@@ -15,15 +16,23 @@ from sdd_cash_manager.models.reconciliation import ReconciliationViewEntry  # Im
 # Mock data
 TEST_ACCOUNT_ID = "a1b2c3d4-e5f6-7890-1234-567890abcdef"
 
-# Mock db session and services for integration tests
-def override_get_db():
-    # This mock session needs to be able to provide a query interface
-    # For simplicity, let's mock the entire query chain for the test
+def build_mock_db_session() -> Session:
     mock_session = MagicMock(spec=Session)
-    mock_session.query.return_value.filter.return_value.all.return_value = [] # Default empty list for .all()
+    mock_session.query.return_value.filter.return_value.all.return_value = []
     return mock_session
 
-app.dependency_overrides[get_db] = override_get_db
+@pytest.fixture(autouse=True)
+def override_get_db(mock_db_session):
+    def _override():
+        yield mock_db_session
+
+    app.dependency_overrides[get_db] = _override
+    yield
+    app.dependency_overrides.pop(get_db, None)
+
+@pytest.fixture
+def mock_db_session() -> Session:
+    return build_mock_db_session()
 
 client = TestClient(app)
 

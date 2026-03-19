@@ -3,7 +3,7 @@ from decimal import Decimal
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class ReconciliationViewEntryBase(BaseModel):
@@ -28,5 +28,4 @@ class ReconciliationViewEntry(ReconciliationViewEntryBase):
     entry_id: UUID
     original_transaction_id: Optional[UUID] = None
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
