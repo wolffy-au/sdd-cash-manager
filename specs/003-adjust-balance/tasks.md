@@ -56,6 +56,10 @@ These tasks cover initial project setup and environment configuration.
 - [ ] T022 [P] [US2] Update `banking product enum` to include 'ADJUSTMENT_DEBIT' and 'ADJUSTMENT_CREDIT' as per spec clarification.
 - [ ] T023 [P] [US2] Write unit tests for `AdjustmentTransaction` model and creation logic.
 - [ ] T024 [P] [US2] Write integration tests for the automated transaction creation flow.
+- [ ] T036 [P] [US2] Ensure `ManualBalanceAdjustmentService` determines the current running balance as of the submitted `effective_date` (using account history/ledger snapshots) rather than relying on a mutable `account.running_balance`.
+- [ ] T037 [P] [US2] Route adjustment posting through `TransactionService`/ledger entries to persist true debit/credit rows, update balances, and link the resulting `AdjustmentTransaction` to the `ManualBalanceAdjustment`.
+- [ ] T038 [P] [US3] After the adjustment transaction posts, invoke `ReconciliationService.create_reconciliation_entry_from_transaction` so `ReconciliationViewEntry` immediately reflects the change for `/accounts/{account_id}/reconciliation`.
+- [ ] T039 [P] [US1/US2] Replace the placeholder permission stub in `src/sdd_cash_manager/api/v1/endpoints/adjustment.py` with JWT/`require_role` enforcement, disable the control for unauthorized roles, and log each adjustment attempt for auditing.
 
 ---
 
@@ -83,6 +87,9 @@ These tasks address broader quality attributes and final checks.
 - [ ] T033 [P] Add detailed documentation (docstrings, README updates) for new modules and endpoints.
 - [ ] T034 [P] Conduct a final review against `GEMINI.md` (Constitution) and `TECHNICAL.md` (Coding Standards).
 - [ ] T035 [P] Prepare for database migration strategy from SQLite to PostgreSQL (refer to `research.md`).
+- [ ] T040 [P] Add unit/integration tests that cover: effective-date based difference calculation, ledger transaction creation, reconciliation entry persistence, zero-difference audit records, and permission enforcement for adjustments.
+- [ ] T041 [P] Ensure reconciliation API tests validate that the newly created reconciliation entries appear with the adjustment metadata (date, amount, `is_adjustment`, reconciled flag).
+- [ ] T042 [P] Add tests that simulate unauthorized users attempting to adjust a balance so the disabled control and 403 behavior are validated alongside audit logging.
 
 ---
 
