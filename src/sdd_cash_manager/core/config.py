@@ -53,7 +53,7 @@ class AppSettings:
         default_factory=lambda: os.environ.get("SDD_CASH_MANAGER_LOG_LEVEL", "INFO")
     )
     jwt_secret: str = field(
-        default_factory=lambda: os.environ.get("SDD_CASH_MANAGER_JWT_SECRET", "change-me-secret")
+        default_factory=lambda: os.environ.get("SDD_CASH_MANAGER_JWT_SECRET", "sdd-test-secret-32-bytes-long-tt")
     )
     jwt_algorithm: str = field(
         default_factory=lambda: os.environ.get("SDD_CASH_MANAGER_JWT_ALGORITHM", "HS256")

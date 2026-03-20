@@ -126,7 +126,7 @@ scripts/run_api_tests.sh    # Runs full suite with logging & XML output
 - FastAPI running (typically on `http://127.0.0.1:8000`)
 - Environment variables configured (see `tests/api/conftest.py`):
   - `SDD_CASH_MANAGER_SECURITY_ENABLED` (default: true)
-  - `SDD_CASH_MANAGER_JWT_SECRET` (default: test-secret)
+  - `SDD_CASH_MANAGER_JWT_SECRET` (default: sdd-test-secret-32-bytes-long-tt)
   - `SDD_CASH_MANAGER_JWT_ALGORITHM` (default: HS256)
 
 <!-- MANUAL ADDITIONS START -->

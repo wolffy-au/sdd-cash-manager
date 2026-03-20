@@ -3,7 +3,7 @@ set -euo pipefail
 
 # Ensure deterministic JWT/security configuration when invoking the suite manually.
 : "${SDD_CASH_MANAGER_SECURITY_ENABLED:=true}"
-: "${SDD_CASH_MANAGER_JWT_SECRET:=test-secret}"
+: "${SDD_CASH_MANAGER_JWT_SECRET:=sdd-test-secret-32-bytes-long-tt}"
 : "${SDD_CASH_MANAGER_JWT_ALGORITHM:=HS256}"
 
 echo "Running API regression suite (tests/api) with pytest..."

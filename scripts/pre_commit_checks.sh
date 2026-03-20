@@ -3,6 +3,10 @@
 # Exit immediately if a command exits with a non-zero status.
 set -euo pipefail
 
+echo "Starting pre-commit checks..."
+poetry lock
+uv sync --upgrade --all-groups
+
 echo "Running pre-commit checks..."
 
 # --- Linting and Formatting Check ---

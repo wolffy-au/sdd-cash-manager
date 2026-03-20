@@ -27,6 +27,12 @@ jobs:
           python-version: "3.12"
           cache: "pip"
 
+      - name: Install Poetry
+        run: pip install --upgrade poetry
+
+      - name: Sync dependencies
+        run: poetry lock
+
       - name: Install uv CLI
         run: pip install --upgrade uv
 
@@ -62,25 +68,14 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
+      - name: Install Snyk CLI
+        run: npm install -g snyk
+
+      - name: Authenticate Snyk
+        run: uv run snyk auth ${{ secrets.SNYK_TOKEN }}
+
       - name: Snyk Scan Test
-        uses: snyk/actions@9adf32b1121593767fc3c057af55b55db032dc04
-        with:
-          command: test
-          args: >
-            --package-manager=poetry
-            --severity-threshold=high
-            --org=wolffy-au
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: uv run snyk test --package-manager=poetry --severity-threshold=high --org=wolffy-au
 
       - name: Snyk Code Scan
-        uses: snyk/actions@9adf32b1121593767fc3c057af55b55db032dc04
-        with:
-          command: code test
-          args: >
-            --package-manager=poetry
-            --severity-threshold=high
-            --org=wolffy-au
-            --include-ignores
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: uv run snyk code test --package-manager=poetry --severity-threshold=high --org=wolffy-au --include-ignores
