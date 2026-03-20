@@ -62,9 +62,25 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
-      - name: Snyk Scan
+      - name: Snyk Scan Test
         uses: snyk/actions@9adf32b1121593767fc3c057af55b55db032dc04
         with:
-          args: test --command=python3 --severity-threshold=high
+          command: test
+          args: >
+            --package-manager=poetry
+            --severity-threshold=high
+            --org=wolffy-au
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+
+      - name: Snyk Code Scan
+        uses: snyk/actions@9adf32b1121593767fc3c057af55b55db032dc04
+        with:
+          command: code test
+          args: >
+            --package-manager=poetry
+            --severity-threshold=high
+            --org=wolffy-au
+            --include-ignores
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}

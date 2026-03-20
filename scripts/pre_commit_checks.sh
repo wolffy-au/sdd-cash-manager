@@ -34,7 +34,9 @@ uv run poetry lock --regenerate
 # --- Security Checks ---
 echo "Running snyk security checks..."
 # Runs snyk to check for vulnerabilities in the project dependencies. Assumes snyk is executable in the environment.
-uv run snyk test --command=python3 || true
+uv run snyk test --package-manager=poetry --org=wolffy-au
+uv run snyk code test  --package-manager=poetry --org=wolffy-au --include-ignores
+
 
 # --- BDD Testing ---
 echo "Running behave tests..."
