@@ -6,6 +6,8 @@ Use this document as background input when drafting new `/specs/[###-feature-nam
 
 This document outlines the key business features and input/output formats, the focus is on functionality from a user's perspective, with some architectural insights for context.
 
+**MVP Target:** Deliver a single-user, locally run application that supports the account- and transaction-management workflows described below without requiring multi-user or hosted infrastructure.
+
 ## 1. Account Management
 
 ### 1.1 Core Account Functionality

@@ -1,0 +1,123 @@
+openapi: 3.1.0
+info:
+  title: Transaction Management
+  version: 1.0.0
+paths:
+  /transactions:
+    post:
+      summary: Record a balanced double-entry transaction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [transfer_from, transfer_to, action, amount, currency, date]
+              properties:
+                transfer_from:
+                  type: string
+                  format: uuid
+                transfer_to:
+                  type: string
+                  format: uuid
+                action:
+                  type: string
+                  enum: [BUY, SELL, TRANSFER, ADJUSTMENT]
+                description:
+                  type: string
+                memo:
+                  type: string
+                amount:
+                  type: number
+                  format: decimal
+                currency:
+                  type: string
+                date:
+                  type: string
+                  format: date
+      responses:
+        201:
+          description: Transaction created and balances updated
+  /quickfill/suggestions:
+    get:
+      summary: Fetch QuickFill suggestions for the ledger entry form
+      parameters:
+        - name: action
+          in: query
+          schema:
+            type: string
+        - name: currency
+          in: query
+          schema:
+            type: string
+      responses:
+        200:
+          description: Ordered QuickFill templates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                    confidence:
+                      type: number
+                    debit_account_id:
+                      type: string
+                    credit_account_id:
+                      type: string
+                    amount_hint:
+                      type: number
+  /duplicates/scan:
+    post:
+      summary: Trigger duplicate detection
+      responses:
+        200:
+          description: Candidate duplicates queued for review
+  /duplicates/{candidate_id}:
+    post:
+      summary: Resolve a duplicate candidate
+      parameters:
+        - name: candidate_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                action:
+                  type: string
+                  enum: [MERGE, REJECT]
+      responses:
+        200:
+          description: Candidate resolved
+  /accounts/{account_id}/merge:
+    post:
+      summary: Merge one account into another
+      parameters:
+        - name: account_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [target_account_id]
+              properties:
+                target_account_id:
+                  type: string
+                reparent_strategy:
+                  type: string
+                  enum: [AUTO, MANUAL]
+      responses:
+        200:
+          description: Accounts merged with log entry
