@@ -9,18 +9,18 @@ description: "Task list for implementing transaction management"
 
 ## Phase 1: Setup (Shared Infrastructure)
 
-- [ ] T001 [P] Add QuickFill history and duplicate-scan settings (retention window, max batch size) to `src/sdd_cash_manager/core/config.py`
-- [ ] T002 [P] Extend `src/sdd_cash_manager/lib/security_events.py` with structured audit events for transaction creation, QuickFill suggestion approval, duplicate merges, and account merges
+- [x] T001 [P] Add QuickFill history and duplicate-scan settings (retention window, max batch size) to `src/sdd_cash_manager/core/config.py`
+- [X] T002 [P] Extend `src/sdd_cash_manager/lib/security_events.py` with structured audit events for transaction creation, QuickFill suggestion approval, duplicate merges, and account merges
 
 ---
 
 ## Phase 2: Foundational (Blocking Prerequisites)
 
-- [ ] T003 [P] Create `src/sdd_cash_manager/models/quickfill_template.py` with the SQLAlchemy entity that tracks action, currency, accounts, confidence_score, and timestamps
-- [ ] T004 [P] Create `src/sdd_cash_manager/models/duplicate_candidate.py` that stores matching transaction ids, account scope, amount, date, and suggested canonical entry
-- [ ] T005 [P] Create `src/sdd_cash_manager/models/account_merge_plan.py` to capture source/target accounts, reparenting map, status, and audit metadata
-- [ ] T006 [P] Expand `src/sdd_cash_manager/schemas/transaction_schema.py` with QuickFillTemplateResponse, DuplicateCandidateResponse, and AccountMergePlanRequest/Response DTOs matching the new models
-- [ ] T007 [P] Update `src/sdd_cash_manager/services/transaction_service.py` to include helper functions for ranking QuickFill candidates, scanning duplicate sets, and validating merges against the hierarchy depth constraint
+- [x] T003 [P] Create `src/sdd_cash_manager/models/quickfill_template.py` with the SQLAlchemy entity that tracks action, currency, accounts, confidence_score, and timestamps
+- [x] T004 [P] Create `src/sdd_cash_manager/models/duplicate_candidate.py` that stores matching transaction ids, account scope, amount, date, and suggested canonical entry
+- [x] T005 [P] Create `src/sdd_cash_manager/models/account_merge_plan.py` to capture source/target accounts, reparenting map, status, and audit metadata
+- [x] T006 [P] Expand `src/sdd_cash_manager/schemas/transaction_schema.py` with QuickFillTemplateResponse, DuplicateCandidateResponse, and AccountMergePlanRequest/Response DTOs matching the new models
+- [x] T007 [P] Update `src/sdd_cash_manager/services/transaction_service.py` to include helper functions for ranking QuickFill candidates, scanning duplicate sets, and validating merges against the hierarchy depth constraint
 
 ---
 

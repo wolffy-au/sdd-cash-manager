@@ -35,6 +35,15 @@ def _coerce_bool(env_key: str, default: bool) -> bool:
         return default
     return raw.strip().lower() in ("1", "true", "yes", "on")
 
+def _coerce_int(env_key: str, default: int) -> int:
+    raw = os.environ.get(env_key)
+    if raw is None:
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        return default
+
 
 _load_dotenv()
 
@@ -79,6 +88,15 @@ class AppSettings:
     )
     security_alerts_enabled: bool = field(
         default_factory=lambda: _coerce_bool("SDD_CASH_MANAGER_SECURITY_ALERTS_ENABLED", False)
+    )
+    quickfill_history_days: int = field(
+        default_factory=lambda: _coerce_int("SDD_CASH_MANAGER_QUICKFILL_HISTORY_DAYS", 30)
+    )
+    duplicate_scan_batch_size: int = field(
+        default_factory=lambda: _coerce_int("SDD_CASH_MANAGER_DUPLICATE_SCAN_BATCH_SIZE", 1000)
+    )
+    duplicate_scan_timeout_seconds: int = field(
+        default_factory=lambda: _coerce_int("SDD_CASH_MANAGER_DUPLICATE_SCAN_TIMEOUT_SECONDS", 3)
     )
 
 

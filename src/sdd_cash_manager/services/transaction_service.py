@@ -1,14 +1,20 @@
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal  # New import
 from typing import Callable
 
-from sqlalchemy import select  # New import
+from sqlalchemy import literal, select  # New import
 from sqlalchemy.orm import Session  # New import
 
 from sdd_cash_manager.lib.security_events import log_critical_application_error  # New import
+from sdd_cash_manager.models.account import Account
+from sdd_cash_manager.models.duplicate_candidate import DuplicateCandidate
 from sdd_cash_manager.models.enums import ProcessingStatus, ReconciliationStatus
+from sdd_cash_manager.models.quickfill_template import QuickFillTemplate
 from sdd_cash_manager.models.transaction import Entry, Transaction
 from sdd_cash_manager.services.account_service import AccountService
+
+MAX_HIERARCHY_DEPTH = 5
+DUPLICATE_SCAN_LIMIT = 1000
 
 BALANCING_ACCOUNT_ID = "balancing-account-id"
 FORBIDDEN_CHAR_PATTERN = r"[<>;]"
@@ -332,3 +338,238 @@ class TransactionService:
         except Exception as exc:
             log_critical_application_error(f"Failed to perform balance adjustment for account {account_id}: {exc}", account_id=account_id, metadata={"service": "TransactionService"})
             raise RuntimeError(f"Failed to perform balance adjustment for account {account_id} due to unexpected error.") from exc
+
+    def rank_quickfill_candidates(
+        self,
+        action_type: str,
+        currency: str,
+        query: str | None = None,
+        limit: int = 5
+    ) -> list[QuickFillTemplate]:
+        """Rank QuickFill templates by confidence for the given action/currency pair."""
+        if not self._use_db:
+            raise RuntimeError("QuickFill ranking requires a database session.")
+
+        if limit <= 0:
+            limit = 5
+
+        session, should_close = self._acquire_session()
+        try:
+            stmt = (
+                select(QuickFillTemplate)
+                .where(
+                    QuickFillTemplate.action == action_type.strip(),
+                    QuickFillTemplate.currency == currency.strip(),
+                    QuickFillTemplate.is_approved.is_(True)
+                )
+                .order_by(
+                    QuickFillTemplate.confidence_score.desc(),
+                    QuickFillTemplate.history_count.desc(),
+                    QuickFillTemplate.last_used_at.desc()
+                )
+            )
+            if query:
+                term = f"%{query.strip()}%"
+                stmt = stmt.where(QuickFillTemplate.memo.ilike(term))
+
+            if limit:
+                stmt = stmt.limit(limit)
+
+            return list(session.scalars(stmt).all())
+        except Exception as exc:
+            log_critical_application_error(
+                f"Failed to rank QuickFill templates for {action_type}/{currency}: {exc}",
+                metadata={"service": "TransactionService"}
+            )
+            raise RuntimeError("Failed to rank QuickFill templates due to unexpected error.") from exc
+        finally:
+            if should_close and session is not None:
+                session.close()
+
+    def scan_duplicate_candidates(  # noqa: C901
+        self,
+        *,
+        account_id: str,
+        scope: str = "account",
+        limit: int = 25
+    ) -> list[DuplicateCandidate]:
+        """Scan recent transactions and persist candidates for manual review (account scope only)."""
+        if scope not in {"account", "account_group"}:
+            raise ValueError("scope must be either 'account' or 'account_group'.")
+
+        if scope == "account_group":
+            raise NotImplementedError("Account group duplicate scanning is not supported yet.")
+
+        if scope == "account" and not account_id:
+            raise ValueError("account_id is required for account-scoped duplicate scans.")
+
+        if not self._use_db:
+            raise RuntimeError("Duplicate scanning requires an active database session.")
+
+        if limit <= 0:
+            limit = 25
+
+        session, should_close = self._acquire_session()
+        try:
+            txn_query = (
+                select(Transaction)
+                .where(
+                    (Transaction.debit_account_id == account_id) |
+                    (Transaction.credit_account_id == account_id)
+                )
+                .order_by(Transaction.effective_date.desc())
+                .limit(DUPLICATE_SCAN_LIMIT)
+            )
+            transactions = list(session.scalars(txn_query).all())
+
+            groups: dict[tuple[Decimal, date, str], list[Transaction]] = {}
+            for txn in transactions:
+                txn_date = txn.effective_date.date()
+                description = (txn.description or txn.notes or "").strip()
+                normalized_description = description[:255]
+                key = (txn.amount, txn_date, normalized_description)
+                groups.setdefault(key, []).append(txn)
+
+            candidates: list[DuplicateCandidate] = []
+            for (amount, txn_date, normalized_description), matches in groups.items():
+                if len(matches) < 2:
+                    continue
+
+                matches.sort(key=lambda t: t.effective_date, reverse=True)
+                txn_ids = [t.id for t in matches]
+                confidence = min(Decimal("1.0"), Decimal(len(matches)) / Decimal("5.0"))
+
+                existing = session.scalars(
+                    select(DuplicateCandidate)
+                    .where(
+                        DuplicateCandidate.account_id == account_id,
+                        DuplicateCandidate.scope == scope,
+                        DuplicateCandidate.amount == amount,
+                        DuplicateCandidate.date == txn_date,
+                        DuplicateCandidate.description == normalized_description
+                    )
+                ).one_or_none()
+
+                if existing:
+                    existing.matching_transaction_ids = txn_ids
+                    existing.confidence = confidence
+                    existing.touch()
+                    candidate = existing
+                else:
+                    candidate = DuplicateCandidate(
+                        account_id=account_id,
+                        scope=scope,
+                        matching_transaction_ids=txn_ids,
+                        amount=amount,
+                        date=txn_date,
+                        description=normalized_description or None,
+                        confidence=confidence,
+                        recommended_action="merge",
+                        status="review"
+                    )
+                    session.add(candidate)
+
+                candidates.append(candidate)
+
+            session.flush()
+
+            result_stmt = (
+                select(DuplicateCandidate)
+                .where(
+                    DuplicateCandidate.account_id == account_id,
+                    DuplicateCandidate.scope == scope
+                )
+                .order_by(DuplicateCandidate.confidence.desc(), DuplicateCandidate.updated_at.desc())
+                .limit(limit)
+            )
+            return list(session.scalars(result_stmt).all())
+        except Exception as exc:
+            log_critical_application_error(
+                f"Failed to scan duplicate candidates for account {account_id}: {exc}",
+                metadata={"service": "TransactionService"}
+            )
+            raise RuntimeError("Failed to scan duplicate candidates due to unexpected error.") from exc
+        finally:
+            if should_close and session is not None:
+                session.close()
+
+    def validate_merge_depth(
+        self,
+        source_account_id: str,
+        target_account_id: str
+    ) -> tuple[bool, str | None]:
+        """Ensure moving the source subtree under the target respects hierarchy depth limits."""
+        if not self._use_db:
+            raise RuntimeError("Account merge validation requires a database session.")
+
+        session, should_close = self._acquire_session()
+        try:
+            depth_map = self._account_depth_map(session)
+            source_depth = depth_map.get(source_account_id)
+            target_depth = depth_map.get(target_account_id)
+
+            if source_depth is None or target_depth is None:
+                raise ValueError("Source or target account not found.")
+
+            descendant_ids = self._collect_descendant_ids(session, source_account_id)
+            max_descendant_depth = max((depth_map.get(acc_id, source_depth) for acc_id in descendant_ids), default=source_depth)
+            delta = max_descendant_depth - source_depth
+            new_depth = target_depth + 1 + delta
+
+            if new_depth > MAX_HIERARCHY_DEPTH:
+                message = (
+                    f"Merge would place the deepest descendant at depth {new_depth}, "
+                    f"exceeding the allowed limit of {MAX_HIERARCHY_DEPTH}."
+                )
+                return False, message
+
+            return True, None
+        except (ValueError, RuntimeError):
+            raise
+        except Exception as exc:
+            log_critical_application_error(
+                f"Failed to validate merge depth between {source_account_id} and {target_account_id}: {exc}",
+                metadata={"service": "TransactionService"}
+            )
+            raise RuntimeError("Failed to validate merge depth due to unexpected error.") from exc
+        finally:
+            if should_close and session is not None:
+                session.close()
+
+    @staticmethod
+    def _account_depth_map(session: Session) -> dict[str, int]:
+        """Return a mapping of account IDs to their depth within the hierarchy."""
+        hierarchy_cte = (
+            select(
+                Account.id.label("account_id"),
+                literal(1).label("depth")
+            )
+            .where(Account.parent_account_id.is_(None))
+            .cte(name="account_depth", recursive=True)
+        )
+        hierarchy_cte = hierarchy_cte.union_all(
+            select(
+                Account.id,
+                (hierarchy_cte.c.depth + 1).label("depth")
+            )
+            .where(Account.parent_account_id == hierarchy_cte.c.account_id)
+        )
+        rows = session.execute(
+            select(hierarchy_cte.c.account_id, hierarchy_cte.c.depth)
+        ).all()
+        return {row.account_id: row.depth for row in rows}
+
+    @staticmethod
+    def _collect_descendant_ids(session: Session, root_account_id: str) -> set[str]:
+        """Return all account IDs in the subtree rooted at the provided account."""
+        descendant_cte = (
+            select(Account.id)
+            .where(Account.id == root_account_id)
+            .cte(name="merge_descendants", recursive=True)
+        )
+        descendant_cte = descendant_cte.union_all(
+            select(Account.id)
+            .where(Account.parent_account_id == descendant_cte.c.id)
+        )
+        rows = session.scalars(select(descendant_cte.c.id)).all()
+        return set(rows)
