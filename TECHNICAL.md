@@ -391,6 +391,15 @@ You can also query SonarCloud’s public API for the current critical issues lis
 https://sonarcloud.io/api/issues/search?componentKeys=wolffy-au_sdd-cash-manager&branch=main&ps=50&p=1&token=<token-from-.secrets>
 ```
 
+### SonarCloud Remediation Workflow
+When new SonarCloud issues appear on `main`, follow this sequence:
+
+1. Pull the latest `main` and request the open issues via the API (same URL as above); review the payload for every problem marked `OPEN`.
+2. Implement fixes in the repo so each rule is satisfied (document FastAPI exceptions, tighten validators, simplify routers, adjust services, etc.).
+3. Run the full pre-commit suite via `scripts/pre_commit_checks.sh` (this already executes markdown/ruff/pyright/mypy/snyk/behave/pytest).
+4. Stage the modified files and commit with a conventional summary such as `fix: resolve SonarCloud issues`.
+5. Push the updated commit to `origin/main` so SonarCloud can re-scan.
+
 ## Snyk
 
 To force a Snyk check, run:
