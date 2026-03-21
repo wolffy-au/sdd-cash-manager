@@ -1,4 +1,5 @@
 import logging
+from decimal import Decimal
 from unittest.mock import MagicMock
 
 import pytest
@@ -6,7 +7,11 @@ import pytest
 from sdd_cash_manager.core.config import AppSettings
 from sdd_cash_manager.lib.security_events import (
     SecurityEvent,
+    log_account_merge,
+    log_duplicate_merge,
+    log_quickfill_template_approved,
     log_security_event,
+    log_transaction_created,
     security_logger,
 )
 
@@ -186,3 +191,88 @@ def test_security_logger_configuration(monkeypatch):
     assert console_formatter is not None
     assert console_formatter._fmt == "%(levelname)s: %(message)s"
 
+
+def test_log_transaction_created_calls_log_security_event(monkeypatch, mock_send_alert, mock_security_logger):
+    mock_event = MagicMock()
+    monkeypatch.setattr(
+        "sdd_cash_manager.lib.security_events.log_security_event",
+        mock_event,
+    )
+
+    log_transaction_created(
+        transaction_id="txn-123",
+        debit_account_id="acct-1",
+        credit_account_id="acct-2",
+        amount=Decimal("123.45"),
+        currency="USD",
+        action="payment",
+        user_id="operator",
+        metadata={"source": "api"},
+    )
+
+    mock_event.assert_called_once()
+    args, kwargs = mock_event.call_args
+    assert args[0] == SecurityEvent.TRANSACTION_CREATED
+    assert args[1].startswith("Transaction txn-123 created")
+    assert kwargs["account_id"] == "acct-1"
+
+
+def test_log_quickfill_template_approved(monkeypatch):
+    mock_event = MagicMock()
+    monkeypatch.setattr(
+        "sdd_cash_manager.lib.security_events.log_security_event",
+        mock_event,
+    )
+
+    log_quickfill_template_approved(
+        template_id="template-1",
+        approved_by="admin",
+        action="transfer",
+        currency="USD",
+        transfer_from="acct-10",
+        transfer_to="acct-20",
+        confidence_score=0.95,
+        metadata={"approved_reason": "Test"},
+    )
+
+    mock_event.assert_called_once()
+    assert mock_event.call_args[0][0] == SecurityEvent.QUICKFILL_APPROVED
+
+
+def test_log_duplicate_merge_calls_log_security_event(monkeypatch):
+    mock_event = MagicMock()
+    monkeypatch.setattr(
+        "sdd_cash_manager.lib.security_events.log_security_event",
+        mock_event,
+    )
+
+    log_duplicate_merge(
+        candidate_id="dup-1",
+        merged_transaction_ids=["t1", "t2"],
+        account_scope="account",
+        merged_by="auditor",
+        preserve_audit=True,
+        metadata={"reason": "cleanup"},
+    )
+
+    assert mock_event.call_args[0][0] == SecurityEvent.DUPLICATE_MERGED
+
+
+def test_log_account_merge_invokes_log_security_event(monkeypatch):
+    mock_event = MagicMock()
+    monkeypatch.setattr(
+        "sdd_cash_manager.lib.security_events.log_security_event",
+        mock_event,
+    )
+
+    log_account_merge(
+        plan_id="plan-1",
+        source_account_id="src",
+        target_account_id="tgt",
+        executed_by="admin",
+        reparenting_map={"old": "new"},
+        affected_entries_count=5,
+        status="completed",
+    )
+
+    assert mock_event.call_args[0][0] == SecurityEvent.ACCOUNT_MERGED

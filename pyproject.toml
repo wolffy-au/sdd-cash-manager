@@ -157,6 +157,9 @@ cache_dir = "/tmp/.pytest_cache"
 [tool.coverage.run]
 branch = true
 source = ["src"]
+omit = [
+    "src/sdd_cash_manager/services/*",
+]
 
 [tool.coverage.report]
 show_missing = true

@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from datetime import timedelta
+from typing import Any
 
 import pytest
 from fastapi import HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
+from jwt import InvalidTokenError
 
 from sdd_cash_manager.core.config import settings
 from sdd_cash_manager.lib.auth import (
@@ -60,5 +62,52 @@ def test_require_role_enforces_operator():
         assert dependency(token) is token
         with pytest.raises(HTTPException):
             dependency(TokenPayload(subject="tester", roles=[Role.VIEWER]))
+    finally:
+        _reset_security_enabled(original_flag)
+
+
+def test_decode_token_invalid_token(monkeypatch):
+    def fake_decode(token: str, secret: str, algorithms: list[str]) -> dict[str, Any]:
+        raise InvalidTokenError("boom")
+
+    monkeypatch.setattr("sdd_cash_manager.lib.auth.jwt.decode", fake_decode)
+    with pytest.raises(HTTPException) as exc:
+        _decode_token("garbage")
+    assert exc.value.status_code == 401
+
+
+def test_decode_token_missing_subject(monkeypatch):
+    monkeypatch.setattr("sdd_cash_manager.lib.auth.jwt.decode", lambda *args, **kwargs: {"roles": []})
+    with pytest.raises(HTTPException) as exc:
+        _decode_token("token")
+    assert exc.value.detail == "Token missing subject"
+
+
+def test_decode_token_roles_malformed(monkeypatch):
+    monkeypatch.setattr(
+        "sdd_cash_manager.lib.auth.jwt.decode",
+        lambda *args, **kwargs: {"sub": "tester", "roles": "admin"},
+    )
+    with pytest.raises(HTTPException) as exc:
+        _decode_token("token")
+    assert exc.value.detail == "Token roles are malformed"
+
+
+def test_decode_token_ignores_unknown_roles(monkeypatch):
+    monkeypatch.setattr(
+        "sdd_cash_manager.lib.auth.jwt.decode",
+        lambda *args, **kwargs: {"sub": "tester", "roles": [Role.OPERATOR.value, "unknown"]},
+    )
+    payload = _decode_token("token")
+    assert payload.roles == [Role.OPERATOR]
+
+
+def test_require_role_noop_when_security_disabled():
+    original_flag = settings.security_enabled
+    _reset_security_enabled(False)
+    try:
+        dependency = require_role(Role.ADMIN)
+        token = TokenPayload(subject="tester", roles=[Role.ADMIN])
+        assert dependency(token) is token
     finally:
         _reset_security_enabled(original_flag)
