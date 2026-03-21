@@ -10,16 +10,18 @@ echo "Running API regression suite (tests/api) with pytest..."
 
 # Compose the base pytest command. Prefer `uv run` when available so `uv.lock` tooling is respected.
 if command -v uv >/dev/null 2>&1; then
-  PYTEST_CMD="uv run pytest"
+  PYTEST_BASE=("uv" "run" "pytest")
 else
-  PYTEST_CMD="pytest"
+  PYTEST_BASE=("pytest")
 fi
 
-RUN_CMD="${PYTEST_CMD} tests/api --maxfail=1 --log-cli-level=INFO --durations=5"
+PYTEST_ARGS=("tests/api" "--maxfail=1" "--log-cli-level=INFO" "--durations=5" "-o" "addopts=--verbose --junitxml=build/unit-tests.xml")
+
+RUN_CMD=("${PYTEST_BASE[@]}" "${PYTEST_ARGS[@]}")
 
 # Limit the suite runtime to 5 minutes to catch stuck requests early.
 if command -v timeout >/dev/null 2>&1; then
-  timeout 300 $RUN_CMD
+  timeout 300 "${RUN_CMD[@]}"
 else
-  $RUN_CMD
+  "${RUN_CMD[@]}"
 fi

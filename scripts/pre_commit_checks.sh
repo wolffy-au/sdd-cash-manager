@@ -30,8 +30,7 @@ uv run mypy
 
 # --- Code Quality Checks ---
 # The lockfiles were refreshed above; run any additional quality checks below.
-# uv run sonar-scanner -Dsonar.projectKey=sdd-cash-manager -Dsonar.sources=. -Dsonar.host.url=http://host.containers.internal:9000 -Dsonar.login=<toiken>
-# uv run pysonar --sonar-host-url=http://host.containers.internal:9000 --sonar-token=<token> --sonar-project-key=sdd-cash-manager || true
+# uv run pysonar --sonar-token=<token> || true
 
 # --- Security Checks ---
 echo "Running snyk security checks..."
@@ -48,7 +47,12 @@ uv run behave tests/features/ || true
 # --- Unit/Integration Testing ---
 echo "Running pytest..."
 # Runs pytest for unit and integration tests.
-uv run pytest --cov-fail-under=90 || true
+uv run pytest --cov-fail-under=90
+
+# --- API Testing ---
+echo "Running API tests..."
+# Runs API test script
+uv run scripts/run_api_tests.sh
 
 echo "Pre-commit checks passed successfully."
 exit 0

@@ -42,11 +42,11 @@ echo "✅ Done"
 
 # Installing Aider
 echo -e "\n🤖 Installing Aider CLI..."
-run_command "uv tool install aider-chat --from git+https://github.com/wolffy-au/aider-speckit.git@feat-spec-kit"
+run_command "uv tool install aider-chat --from git+https://github.com/Aider-AI/aider.git"
 echo "✅ Done"
 
 echo -e "\n🤖 Installing Specify CLI..."
-run_command "uv tool install specify-cli --from git+https://github.com/wolffy-au/spec-kit-aider.git@feat-speckit-aider"
+run_command "uv tool install specify-cli --from git+https://github.com/github/spec-kit.git"
 echo "✅ Done"
 
 # Installing commitizen

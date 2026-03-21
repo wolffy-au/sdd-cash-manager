@@ -5,7 +5,7 @@ from decimal import Decimal
 from enum import Enum
 from typing import Any, Callable, TypeAlias
 
-from sqlalchemy import Select, and_, func, select
+from sqlalchemy import Select, and_, delete, func, or_, select
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import ColumnElement
 
@@ -13,7 +13,9 @@ from sdd_cash_manager.lib.encryption import SensitiveDataCipher
 from sdd_cash_manager.lib.security_events import log_critical_application_error  # New import
 from sdd_cash_manager.lib.utils import quantize_currency
 from sdd_cash_manager.models.account import Account
+from sdd_cash_manager.models.adjustment import AdjustmentTransaction, ManualBalanceAdjustment
 from sdd_cash_manager.models.enums import AccountingCategory, BankingProductType, ReconciliationStatus
+from sdd_cash_manager.models.reconciliation import ReconciliationViewEntry
 from sdd_cash_manager.models.transaction import Entry, Transaction
 
 AccountFieldValue: TypeAlias = str | Decimal | float | bool | None
@@ -527,6 +529,7 @@ class AccountService:
             if placeholder_children_count:
                 raise ValueError("Cannot delete an account that still has placeholder child accounts.")
 
+            self._remove_account_dependents(session, account_id)
             session.delete(account)
             session.flush()
             self._invalidate_hierarchy_cache()
@@ -537,6 +540,40 @@ class AccountService:
         finally:
             if should_close:
                 session.close()
+
+    def _remove_account_dependents(self, session: Session, account_id: str) -> None:
+        """Remove records tied to the account before deleting the account itself."""
+        session.execute(
+            delete(ReconciliationViewEntry)
+            .where(ReconciliationViewEntry.account_id == account_id)
+        )
+        session.execute(
+            delete(ManualBalanceAdjustment)
+            .where(ManualBalanceAdjustment.account_id == account_id)
+        )
+        session.execute(
+            delete(AdjustmentTransaction)
+            .where(AdjustmentTransaction.account_id == account_id)
+        )
+        transaction_ids = session.scalars(
+            select(Transaction.id).where(
+                or_(
+                    Transaction.debit_account_id == account_id,
+                    Transaction.credit_account_id == account_id
+                )
+            )
+        ).all()
+
+        if transaction_ids:
+            session.execute(
+                delete(Entry)
+                .where(Entry.transaction_id.in_(transaction_ids))
+            )
+            session.execute(
+                delete(Transaction)
+                .where(Transaction.id.in_(transaction_ids))
+            )
+        session.flush()
 
     def search_accounts_by_name(
         self,
