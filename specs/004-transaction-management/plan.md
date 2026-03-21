@@ -1,65 +1,77 @@
 # Implementation Plan: Transaction Management
 
-**Branch**: `004-transaction-management` | **Date**: 2026-03-20 | **Spec**: [specs/004-transaction-management/spec.md](spec.md)
+**Branch**: `004-transaction-management` | **Date**: 2026-03-21 | **Spec**: `specs/004-transaction-management/spec.md`
 **Input**: Feature specification from `/specs/004-transaction-management/spec.md`
 
-**Note**: This template is filled in by the `/speckit.plan` command. See `.specify/templates/plan-template.md` for the execution workflow.
+**Note**: This template is maintained by the `/speckit.plan` workflow. See `.specify/templates/plan-template.md` for the execution process.
 
 ## Summary
 
-Implementation focuses on three pillars: (1) enforce double-entry transaction creation for the ledger, (2) surface QuickFill templates derived from the most recent action/currency combinations, and (3) provide cleanup tools for duplicate transactions and account merges so balances stay reliable. The plan reuses the existing FastAPI/SQLAlchemy stack, taps into the established account hierarchy services, and adds admin workflows for template approvals and candidate resolution.
+Deliver the transaction management capabilities outlined in the spec by enforcing double-entry persistence, modeling QuickFill templates from recent history, and adding duplicate-detection plus account-merge flows while building on the existing FastAPI/SQLAlchemy ledger stack.
 
 ## Technical Context
 
-**Language/Version**: Python 3.12  
-**Primary Dependencies**: FastAPI, SQLAlchemy, python-accounting, httpx, pytest, pytest-asyncio  
-**Storage**: SQLite (disk-backed locally, in-memory for tests)  
-**Testing**: `pytest tests/api` via httpx + pytest-asyncio, supplemented by `scripts/pre_commit_checks.sh` for lint/security gates  
-**Target Platform**: Linux-based API service (CLI-friendly)  
-**Project Type**: Web service / backend API  
-**Performance Goals**: 1000 transactions per minute (≈16.7 TPS) target; account queries and balance propagation should stay below 100 ms p95  
-**Constraints**: Maintain atomic double-entry, honor 5-level hierarchy max depth, and keep duplicate detection under ~3 seconds for datasets with 1k transactions  
-**Scale/Scope**: Single-tenant deployment anticipating up to 1k active accounts and 10k historical transactions per user in this iteration
+<!--
+  ACTION REQUIRED: Replace the content in this section with the technical details
+  for the project. The structure here is presented in advisory capacity to guide
+  the iteration process.
+-->
+
+**Language/Version**: Python 3.12 (project targets >=3.10,<3.13 and Ruff is configured for py312).  
+**Primary Dependencies**: FastAPI for the API surface, SQLAlchemy 2.0 for ORM/models, httpx/pytest/pytest-asyncio for testing, python-accounting utilities, and existing jwt/security helpers.  
+**Storage**: Ledger data persists via SQLAlchemy (SQLite for dev/tests, Postgres in production).  
+**Testing**: pytest suite for unit, integration, and API tests; httpx AsyncClient in `tests/api`.  
+**Target Platform**: Linux server/container hosting the FastAPI app.  
+**Project Type**: Web service/backend.  
+**Performance Goals**: Duplicate detection must scan 1,000 transactions within 3 seconds; QuickFill template lookup should respond within the interaction window (<200ms ideally while typing).  
+**Constraints**: Maintain double-entry atomicity, respect the 5-level hierarchy depth limit when reparenting accounts, and ensure any merge/cleanup operations leave reconciliation balances unchanged.  
+**Scale/Scope**: Operates on the existing ledger dataset (~1k historical transactions per scan) and reuses shared account hierarchy APIs from earlier specs.
 
 ## Constitution Check
 
-*GATE: All work must respect the SpecKit Constitution, especially:*  
-- **Financial Data Accuracy (VII)**: Double-entry enforcement, duplicate safeguards, and merge tooling keep balances trustworthy.  
-- **Security Practices (V)**: Admin-facing flows for template approvals and cleanup inherit the JWT-based RBAC guardrails and audit logs.  
-- **State Management (VI)**: Snapshot-based duplicate detection and merge workflows provide predictable state transitions and logging.  
+*GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-No constitution violations are introduced by this plan.
+- **Code Quality**: Align with the constitution’s emphasis on readability, modularity, and SOLID principles (use `TECHNICAL.md` conventions for structure and naming).  
+- **Testing Standards**: All new behavior must be covered by unit + integration tests (matching the constitution’s 100% coverage aim for core logic).  
+- **User Experience Consistency**: QuickFill and cleanup flows must provide clear, actionable responses and preserve the mental model already established by the FastAPI endpoints.  
+- **Performance**: Duplicate detection target (1k transactions in <3s) and QuickFill latency (<200ms) are directly derived from the specification.  
+- **Security**: Validate inputs, require proper auth (reuse existing JWT helpers), and log audit events for merges/cleanup operations.  
+- **State Management**: Double-entry enforcement, duplicate cleanup snapshots, and merge state transitions all must track entity lifecycles per constitution expectations.
 
 ## Project Structure
 
 ### Documentation (this feature)
 
 ```text
-specs/004-transaction-management/
-├── plan.md
-├── research.md
-├── data-model.md
-├── quickstart.md
-├── contracts/
-│   └── transaction-management.yaml
-└── tasks.md          # created later via /speckit.tasks
+specs/[###-feature]/
+├── plan.md              # This file (/speckit.plan command output)
+├── research.md          # Phase 0 output (/speckit.plan command)
+├── data-model.md        # Phase 1 output (/speckit.plan command)
+├── quickstart.md        # Phase 1 output (/speckit.plan command)
+├── contracts/           # Phase 1 output (/speckit.plan command)
+└── tasks.md             # Phase 2 output (/speckit.tasks command - NOT created by /speckit.plan)
 ```
 
 ### Source Code (repository root)
 
 ```text
 src/sdd_cash_manager/
-├── api/              # FastAPI endpoints (accounts, transactions)
-├── services/         # Business logic (account_service, transaction_service)
-├── models/           # SQLAlchemy entities
-├── schemas/          # Pydantic DTOs
-├── lib/              # Helpers (auth, encryption, logging)
-└── core/             # Config and startup
+├── api/                # FastAPI router endpoints (accounts, transactions)
+├── services/           # Business logic (account_service, transaction_service)
+├── models/             # SQLAlchemy entities and enums
+├── schemas/            # Pydantic DTOs (accounts, transactions)
+├── lib/                # Shared primitives (auth, encryption, logging)
+├── core/               # Config management
+└── database.py         # Session management
 
 tests/
-├── api/              # httpx-based integration tests
-├── integration/      # higher-level reconciliation flows
-└── unit/             # model/service unit tests
+├── unit/               # Legacy unit tests covering models/services
+├── api/                # httpx-backed integration tests
+└── (future) contract/   # contract-focused tests when needed
 ```
 
-**Structure Decision**: Continue leveraging the existing FastAPI + SQLAlchemy code under `src/sdd_cash_manager` and the API-focused test directories; no additional top-level projects are needed.
+**Structure Decision**: Continue leveraging the single backend project layout centered around `src/sdd_cash_manager`. Transactions, QuickFill, duplicate detection, and merge logic will extend `services/transaction_service.py` (and related helpers) while reusing existing models/schemas. Integration tests live under `tests/api` to cover the new endpoints, with `tests/unit` ensuring service invariants.
+
+## Complexity Tracking
+
+> No constitution violations were identified; all gates remain satisfied.

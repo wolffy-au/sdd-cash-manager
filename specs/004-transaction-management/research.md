@@ -1,13 +1,16 @@
-# Research Notes: Transaction Management
+# Research Notes: Transaction Management Planning
 
-## Decision: Enforce double-entry ledger for every user transaction
-- **Rationale:** Section 2 of `PROJECT_SPECIFICATION.md` treats double-entry accounting as mandatory, and our API already exposes debit/credit accounts; enforcing this at the API/service layer prevents invalid states downstream.
-- **Alternatives considered:** Allowing single-entry transactions as optional (per earlier note) was rejected because it would compromise reconciliation accuracy and duplicate detection consistency.
+## QuickFill matching & ranking
+**Decision:** Build QuickFill candidates from the most recent transactions filtered by matching `action` and `currency`, prioritizing higher confidence based on recency and frequency. Store metadata (accounts, amount range, memo fragments) so the suggestion engine can emit a single high-confidence template per typing session.
+**Rationale:** The spec demands QuickFill surface the best match for the current `action`/`currency` pair while allowing edits before persistence. Recency plus frequency gives an intuitive measure of confidence without complicated machine learning.
+**Alternatives considered:** Using similarity scoring on descriptions or NLP-based clustering was rejected because it introduces extra infrastructure and could violate the “manual confirmation” requirement.
 
-## Decision: QuickFill suggestions reuse recent transactions
-- **Rationale:** The feature improves speed for repeat entries without adding new persistence layers; deriving templates from the most recent successful entries keeps the matching scope bounded and performant.
-- **Alternatives considered:** Building a curated template store or machine-learning predictor was deemed overkill for the current iteration.
+## Duplicate detection scope & performance
+**Decision:** Run duplicate detection within account and account-group boundaries by comparing account IDs, amounts, dates (normalized to ISO date), and optional metadata (description, memo). Use deterministic snapshots (query current data into memory) to ensure consistent reporting, and limit scan batches to existing API query limits to meet the 3-second scanning target.
+**Rationale:** Exact matching minimizes false positives, respects the requirement not to auto-merge ambiguous metadata matches, and keeps the scan fast enough for 1,000 transactions.
+**Alternatives considered:** Fuzzy matching (similar amounts/dates) was dismissed because the specification explicitly requires “identical entries” and flagged transactions for manual review before consolidation.
 
-## Decision: Duplicate detection runs at account and group scope with manual confirmation
-- **Rationale:** The spec explicitly calls for both account-level and group-level consolidation; surfacing candidates for user review avoids accidentally merging semantically distinct entries.
-- **Alternatives considered:** Auto-merging detected duplicates was rejected to preserve trust and auditability.
+## Account merge depth validation
+**Decision:** When merging, traverse the hierarchy starting from the source account to compute new depth for each child relative to the target. Reject merges that would exceed the 5-level limit, or alternatively reparent children to intermediate nodes if safe (while documenting the reasoning in the audit log).
+**Rationale:** The spec explicitly mentions guarding against merges that would breach the hierarchy depth constraint. Early validation avoids inconsistent state by rejecting unsafe merges up front.
+**Alternatives considered:** Automatically flattening the hierarchy or collapsing nodes was rejected because it obscures existing structures and could contradict the requirement to preserve balances and logs.
