@@ -45,11 +45,11 @@ description: "Task list for implementing transaction management"
 **Independent Test**: Query `/quickfill/?action=...&currency=...` after seeding similar history and verify the high-confidence template plus acceptance path.
 
 ### Tests for User Story 2
-- [ ] T012 [US2] Add an integration test in `tests/api/test_quickfill.py` that creates matching transactions, retrieves a QuickFill suggestion, and confirms acceptance updates nothing until submission
+- [x] T012 [US2] Add an integration test in `tests/api/test_quickfill.py` that creates matching transactions, retrieves a QuickFill suggestion, and confirms acceptance updates nothing until submission
 
 ### Implementation for User Story 2
-- [ ] T013 [US2] Implement QuickFill candidate derivation, confidence scoring, and approval flag checks inside `src/sdd_cash_manager/services/transaction_service.py`
-- [ ] T014 [US2] Add QuickFill endpoints (`GET /quickfill/`, `POST /quickfill/templates/{template_id}/approve`) in `src/sdd_cash_manager/api/accounts.py`, leveraging the new schemas and logging approvals via `security_events`
+- [x] T013 [US2] Implement QuickFill candidate derivation, confidence scoring, and approval flag checks inside `src/sdd_cash_manager/services/transaction_service.py`
+- [x] T014 [US2] Add QuickFill endpoints (`GET /quickfill/`, `POST /quickfill/templates/{template_id}/approve`) in `src/sdd_cash_manager/api/accounts.py`, leveraging the new schemas and logging approvals via `security_events`
 
 ---
 
@@ -70,9 +70,9 @@ description: "Task list for implementing transaction management"
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [ ] T019 [P] Update `specs/004-transaction-management/quickstart.md` with any adjustments discovered during implementation and verify each step still describes a reproducible flow
-- [ ] T020 Review `docs/api-tests` (if exists) or add notes in `README.md` to reflect the new transaction, QuickFill, and duplicate endpoints so testers know how to exercise them
-- [ ] T021 [P] Run the full pytest suite (`pytest tests/api -v`) to confirm no regression and to capture coverage info for the new flows
+- [x] T019 [P] Update `specs/004-transaction-management/quickstart.md` with any adjustments discovered during implementation and verify each step still describes a reproducible flow
+- [x] T020 Review `docs/api-tests` (if exists) or add notes in `README.md` to reflect the new transaction, QuickFill, and duplicate endpoints so testers know how to exercise them
+- [x] T021 [P] Run the full pytest suite (`pytest tests/api -v`) to confirm no regression and to capture coverage info for the new flows
 
 ---
 
