@@ -1,11 +1,12 @@
 from datetime import date, datetime, timedelta, timezone
-from decimal import Decimal  # New import
+from decimal import Decimal
 from typing import Callable
 
-from sqlalchemy import delete, literal, select  # New import
-from sqlalchemy.orm import Session  # New import
+from sqlalchemy import delete, literal, or_, select
+from sqlalchemy.orm import Session, selectinload
 
 from sdd_cash_manager.core.config import settings
+from sdd_cash_manager.lib.logging_config import get_logger
 from sdd_cash_manager.lib.security_events import (
     log_critical_application_error,
     log_duplicate_merge,
@@ -19,6 +20,8 @@ from sdd_cash_manager.models.quickfill_template import QuickFillTemplate
 from sdd_cash_manager.models.transaction import Entry, Transaction
 from sdd_cash_manager.services.account_service import AccountService
 
+logger = get_logger(__name__)
+
 MAX_HIERARCHY_DEPTH = 5
 DUPLICATE_SCAN_LIMIT = 1000
 
@@ -30,16 +33,11 @@ class TransactionService:
     """Manage transaction creation and persistence."""
 
     def __init__(self, db_session: Session | None = None, session_factory: Callable[[], Session] | None = None):
-        """Initialize the transaction service with a database session or factory.
-
-        Args:
-            db_session: Optional SQLAlchemy session used for persistence.
-            session_factory: Optional factory for tests that need to open isolated sessions.
-        """
+        """Initialize the transaction service with a database session or factory."""
         self.db_session = db_session
         self.session_factory = session_factory
         self._use_db = bool(db_session or session_factory)
-        self.account_service: AccountService | None = None  # Reference to AccountService
+        self.account_service: AccountService | None = None
 
     def _acquire_session(self) -> tuple[Session, bool]:
         """Return a session plus a flag indicating whether the caller must close it."""
@@ -77,22 +75,15 @@ class TransactionService:
         credit_account.available_balance = credit_balance
 
     def set_account_service(self, account_service: AccountService) -> None:
-        """Attach an AccountService to enable account interactions.
-
-        Args:
-            account_service: Service managing account persistence.
-
-        Returns:
-            None: Stores the provided service for future adjustments.
-        """
+        """Attach an AccountService to enable account interactions."""
         self.account_service = account_service
 
     def _build_entry(
         self,
-        transaction_id: str | None, # transaction_id can be None before flush
+        transaction_id: str | None,
         account_id: str,
-        debit_amount: Decimal, # Changed from float to Decimal
-        credit_amount: Decimal, # Changed from float to Decimal
+        debit_amount: Decimal,
+        credit_amount: Decimal,
         notes: str | None = None
     ) -> Entry:
         """Create a single ledger entry for a transaction."""
@@ -109,7 +100,7 @@ class TransactionService:
         total_debits = sum((entry.debit_amount for entry in entries), start=Decimal("0"))
         total_credits = sum((entry.credit_amount for entry in entries), start=Decimal("0"))
         difference: Decimal = total_debits - total_credits
-        if difference.copy_abs() > Decimal("0.00001"): # Use Decimal for comparison
+        if difference.copy_abs() > Decimal("0.00001"):
             raise ValueError("Transaction entries must balance.")
 
     @staticmethod
@@ -119,9 +110,9 @@ class TransactionService:
         min_length: int = 1,
         max_length: int | None = None,
         allowed_chars_regex: str | None = None,
-        forbidden_chars_regex: str | None = FORBIDDEN_CHAR_PATTERN  # Default forbidden chars from spec
+        forbidden_chars_regex: str | None = FORBIDDEN_CHAR_PATTERN
     ) -> str:
-        import re  # Import regex
+        import re
 
         stripped_value = value.strip()
         if len(stripped_value) < min_length:
@@ -136,7 +127,6 @@ class TransactionService:
             raise ValueError(f"{field_name} contains invalid characters. Allowed pattern: {allowed_chars_regex}")
 
         return stripped_value
-
 
     def _validate_accounts_and_currency(
         self,
@@ -212,7 +202,7 @@ class TransactionService:
         effective_date: datetime,
         booking_date: datetime,
         description: str,
-        amount: Decimal,  # Changed from float to Decimal
+        amount: Decimal,
         debit_account_id: str,
         credit_account_id: str,
         action_type: str,
@@ -306,15 +296,7 @@ class TransactionService:
         ]
 
     def get_transaction(self, transaction_id: str, *, session: Session | None = None) -> Transaction | None:
-        """Retrieve a transaction by identifier from the database.
-
-        Args:
-            transaction_id: Identifier of the transaction to fetch.
-            session: Optional SQLAlchemy session to use.
-
-        Returns:
-            Transaction | None: The transaction if it exists, otherwise None.
-        """
+        """Retrieve a transaction by identifier from the database."""
         if not self._use_db:
             raise RuntimeError("TransactionService must be used with a database session to get transactions.")
 
@@ -324,18 +306,11 @@ class TransactionService:
         try:
             return active_session.get(Transaction, transaction_id)
         except Exception as e:
-            log_critical_application_error(f"Failed to retrieve transaction {transaction_id}: {e}", metadata={"service": "TransactionService"})
+            log_critical_application_error(f"Failed to retrieve transaction {transaction_id}: {e}", account_id=transaction_id, metadata={"service": "TransactionService"})
             raise RuntimeError(f"Failed to retrieve transaction {transaction_id} due to unexpected error.") from e
 
     def get_transactions_by_account(self, account_id: str) -> list[Transaction]:
-        """Return all transactions involving the given account from the database.
-
-        Args:
-            account_id: Identifier to filter transactions.
-
-        Returns:
-            list[Transaction]: Matching transactions.
-        """
+        """Return all transactions involving the given account from the database."""
         if not self._use_db:
             raise RuntimeError("TransactionService must be used with a database session to get transactions by account.")
 
@@ -359,28 +334,19 @@ class TransactionService:
         processing_status: ProcessingStatus | None = None,
         reconciliation_status: ReconciliationStatus | None = None
     ) -> Transaction | None:
-        """Update processing or reconciliation status for a transaction in the database.
-
-        Args:
-            transaction_id: Identifier of the transaction to update.
-            processing_status: Optional new processing status.
-            reconciliation_status: Optional new reconciliation status.
-
-        Returns:
-            Transaction | None: The updated transaction or None if not found.
-        """
+        """Update processing or reconciliation status for a transaction in the database."""
         if not self._use_db:
             raise RuntimeError("TransactionService must be used with a database session to update transaction status.")
 
         session, should_close = self._acquire_session()
         try:
-            transaction = self.get_transaction(transaction_id, session=session) # Use the same session
+            transaction = self.get_transaction(transaction_id, session=session)
             if transaction:
                 if processing_status:
                     transaction.processing_status = processing_status
                 if reconciliation_status:
                     transaction.reconciliation_status = reconciliation_status
-                session.flush() # Persist changes
+                session.flush()
             return transaction
         except Exception as e:
             log_critical_application_error(f"Failed to update status for transaction {transaction_id}: {e}", metadata={"service": "TransactionService"})
@@ -392,30 +358,14 @@ class TransactionService:
     def perform_balance_adjustment(
         self,
         account_id: str,
-        target_balance: Decimal, # Changed from float to Decimal
+        target_balance: Decimal,
         adjustment_date: datetime,
         description: str,
         action_type: str,
         notes: str | None = None
     ) -> Transaction | None:
-        """Adjust an account balance by creating a balancing transaction.
-
-        Args:
-            account_id: Identifier of the account to adjust.
-            target_balance: Desired balance after adjustment.
-            adjustment_date: Effective datetime for the adjustment.
-            description: Description used in the transaction.
-            action_type: Classification of the adjustment.
-            notes: Optional notes for the transaction.
-
-        Returns:
-            Transaction | None: Created adjustment transaction when a change occurred.
-
-        Raises:
-            RuntimeError: If AccountService has not been attached or unexpected database error.
-            ValueError: If the account cannot be found or validation fails.
-        """
-        try:  # Added outer try-except for critical errors
+        """Adjust an account balance by creating a balancing transaction."""
+        try:
             self._ensure_account_service()
             account_service = self.account_service
             assert account_service is not None
@@ -523,8 +473,10 @@ class TransactionService:
         )
 
     def _ensure_balancing_account(self, account_service: AccountService, currency: str) -> None:
+        logger.debug("Checking if balancing account %s exists", BALANCING_ACCOUNT_ID)
         balancing_account = account_service.get_account(BALANCING_ACCOUNT_ID)
         if balancing_account is None:
+            logger.info("Balancing account %s not found, creating it.", BALANCING_ACCOUNT_ID)
             account_service.create_account(
                 name="Balancing Account",
                 currency=currency,
@@ -532,6 +484,8 @@ class TransactionService:
                 available_balance=Decimal("0.0"),
                 id=BALANCING_ACCOUNT_ID
             )
+        else:
+            logger.debug("Balancing account %s already exists.", BALANCING_ACCOUNT_ID)
 
     def ensure_balancing_account_exists(self, currency: str) -> None:
         """Create the balancing account when it does not already exist."""
@@ -559,7 +513,7 @@ class TransactionService:
 
         session, should_close = self._acquire_session()
         try:
-            stmt = select(QuickFillTemplate).where(
+            stmt = select(QuickFillTemplate).options(selectinload(QuickFillTemplate.source_transaction)).where(
                 QuickFillTemplate.action == normalized_action,
                 QuickFillTemplate.currency == normalized_currency,
                 QuickFillTemplate.last_used_at >= recent_cutoff,
@@ -569,7 +523,12 @@ class TransactionService:
 
             if query:
                 term = f"%{query.strip()}%"
-                stmt = stmt.where(QuickFillTemplate.memo.ilike(term))
+                stmt = stmt.outerjoin(QuickFillTemplate.source_transaction).where(
+                    or_(
+                        QuickFillTemplate.memo.ilike(term),
+                        Transaction.description.ilike(term),
+                    )
+                )
 
             stmt = stmt.order_by(
                 QuickFillTemplate.confidence_score.desc(),
@@ -703,7 +662,7 @@ class TransactionService:
             recency_bonus = Decimal("0")
         return min(Decimal("1.0"), base_score + recency_bonus)
 
-    def scan_duplicate_candidates(  # noqa: C901
+    def scan_duplicate_candidates(
         self,
         *,
         account_id: str,
@@ -728,65 +687,9 @@ class TransactionService:
 
         session, should_close = self._acquire_session()
         try:
-            txn_query = (
-                select(Transaction)
-                .where(
-                    (Transaction.debit_account_id == account_id) |
-                    (Transaction.credit_account_id == account_id)
-                )
-                .order_by(Transaction.effective_date.desc())
-                .limit(DUPLICATE_SCAN_LIMIT)
-            )
-            transactions = list(session.scalars(txn_query).all())
-
-            groups: dict[tuple[Decimal, date, str], list[Transaction]] = {}
-            for txn in transactions:
-                txn_date = txn.effective_date.date()
-                description = (txn.description or txn.notes or "").strip()
-                normalized_description = description[:255]
-                key = (txn.amount, txn_date, normalized_description)
-                groups.setdefault(key, []).append(txn)
-
-            candidates: list[DuplicateCandidate] = []
-            for (amount, txn_date, normalized_description), matches in groups.items():
-                if len(matches) < 2:
-                    continue
-
-                matches.sort(key=lambda t: t.effective_date, reverse=True)
-                txn_ids = [t.id for t in matches]
-                confidence = min(Decimal("1.0"), Decimal(len(matches)) / Decimal("5.0"))
-
-                existing = session.scalars(
-                    select(DuplicateCandidate)
-                    .where(
-                        DuplicateCandidate.account_id == account_id,
-                        DuplicateCandidate.scope == scope,
-                        DuplicateCandidate.amount == amount,
-                        DuplicateCandidate.date == txn_date,
-                        DuplicateCandidate.description == normalized_description
-                    )
-                ).one_or_none()
-
-                if existing:
-                    existing.matching_transaction_ids = txn_ids
-                    existing.confidence = confidence
-                    existing.touch()
-                    candidate = existing
-                else:
-                    candidate = DuplicateCandidate(
-                        account_id=account_id,
-                        scope=scope,
-                        matching_transaction_ids=txn_ids,
-                        amount=amount,
-                        date=txn_date,
-                        description=normalized_description or None,
-                        confidence=confidence,
-                        recommended_action="merge",
-                        status="review"
-                    )
-                    session.add(candidate)
-
-            candidates.append(candidate)
+            transactions = self._fetch_recent_transactions(session, account_id)
+            groups = self._group_transactions(transactions)
+            self._persist_duplicate_candidates(session, groups, account_id, scope)
 
             session.flush()
             session.commit()
@@ -811,6 +714,79 @@ class TransactionService:
         finally:
             if should_close and session is not None:
                 session.close()
+
+    def _fetch_recent_transactions(self, session: Session, account_id: str) -> list[Transaction]:
+        txn_query = (
+            select(Transaction)
+            .where(
+                (Transaction.debit_account_id == account_id) |
+                (Transaction.credit_account_id == account_id)
+            )
+            .order_by(Transaction.effective_date.desc())
+            .limit(DUPLICATE_SCAN_LIMIT)
+        )
+        return list(session.scalars(txn_query).all())
+
+    @staticmethod
+    def _group_transactions(transactions: list[Transaction]) -> dict[tuple[Decimal, date, str], list[Transaction]]:
+        groups: dict[tuple[Decimal, date, str], list[Transaction]] = {}
+        for txn in transactions:
+            txn_date = txn.effective_date.date()
+            description = (txn.description or txn.notes or "").strip()
+            normalized_description = description[:255]
+            key = (txn.amount, txn_date, normalized_description)
+            groups.setdefault(key, []).append(txn)
+        return groups
+
+    def _persist_duplicate_candidates(
+        self,
+        session: Session,
+        groups: dict[tuple[Decimal, date, str], list[Transaction]],
+        account_id: str,
+        scope: str,
+    ) -> list[DuplicateCandidate]:
+        candidates: list[DuplicateCandidate] = []
+        for (amount, txn_date, normalized_description), matches in groups.items():
+            if len(matches) < 2:
+                continue
+
+            matches.sort(key=lambda t: t.effective_date, reverse=True)
+            txn_ids = [t.id for t in matches]
+            confidence = min(Decimal("1.0"), Decimal(len(matches)) / Decimal("5.0"))
+
+            existing = session.scalars(
+                select(DuplicateCandidate)
+                .where(
+                    DuplicateCandidate.account_id == account_id,
+                    DuplicateCandidate.scope == scope,
+                    DuplicateCandidate.amount == amount,
+                    DuplicateCandidate.date == txn_date,
+                    DuplicateCandidate.description == normalized_description
+                )
+            ).one_or_none()
+
+            if existing:
+                existing.matching_transaction_ids = txn_ids
+                existing.confidence = confidence
+                existing.touch()
+                candidate = existing
+            else:
+                candidate = DuplicateCandidate(
+                    account_id=account_id,
+                    scope=scope,
+                    matching_transaction_ids=txn_ids,
+                    amount=amount,
+                    date=txn_date,
+                    description=normalized_description or None,
+                    confidence=confidence,
+                    recommended_action="merge",
+                    status="review"
+                )
+                session.add(candidate)
+
+            candidates.append(candidate)
+
+        return candidates
 
     def list_duplicate_candidates(
         self,

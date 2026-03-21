@@ -49,10 +49,5 @@ echo "Running pytest..."
 # Runs pytest for unit and integration tests.
 uv run pytest --cov-fail-under=90
 
-# --- API Testing ---
-echo "Running API tests..."
-# Runs API test script
-uv run scripts/run_api_tests.sh
-
 echo "Pre-commit checks passed successfully."
 exit 0

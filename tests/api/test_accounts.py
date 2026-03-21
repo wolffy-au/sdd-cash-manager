@@ -74,3 +74,55 @@ async def test_list_accounts_filters(
     placeholder_entries = [entry for entry in payload if entry["placeholder"] is True]
     assert any(entry["id"] == hidden["id"] for entry in hidden_entries)
     assert any(entry["id"] == placeholder["id"] for entry in placeholder_entries)
+
+
+@pytest.mark.asyncio
+async def test_account_merge_reparents_entries(
+    api_client: AsyncClient,
+    authenticated_headers: dict[str, str],
+    seeded_accounts: dict[str, dict[str, object]],
+) -> None:
+    """Merge a child account into a visible target and verify the plan response."""
+    target = seeded_accounts["visible"]
+    balancing = seeded_accounts["balancing"]
+
+    child_payload = {
+        "name": "merge-child",
+        "currency": "USD",
+        "accounting_category": "ASSET",
+        "banking_product_type": "CHECKING",
+        "available_balance": "0.00",
+        "parent_account_id": target["id"],
+    }
+    child_resp = await api_client.post("/accounts", json=child_payload, headers=authenticated_headers)
+    assert_status(child_resp, 201)
+    child = child_resp.json()
+
+    transaction_payload = {
+        "transfer_from": child["id"],
+        "transfer_to": balancing["id"],
+        "action": "TRANSFER",
+        "amount": "25.00",
+        "currency": "USD",
+        "description": "Merge entry",
+    }
+    txn_response = await api_client.post("/transactions/", json=transaction_payload, headers=authenticated_headers)
+    assert_status(txn_response, 201)
+
+    merge_payload = {
+        "source_account_id": child["id"],
+        "target_account_id": target["id"],
+        "reparenting_map": {},
+        "audit_notes": "API merge test",
+        "initiated_by": "tests",
+        "metadata": {"reason": "cleanup"},
+    }
+    merge_response = await api_client.post("/accounts/merge", json=merge_payload, headers=authenticated_headers)
+    assert_status(merge_response, 200)
+    body = merge_response.json()
+    assert body["status"] == "executed"
+    assert body["affected_entries_count"] >= 1
+    assert body["target_account_id"] == target["id"]
+
+    # Cleanup the placeholder child after merging
+    await api_client.delete(f"/accounts/{child['id']}", headers=authenticated_headers)

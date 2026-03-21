@@ -40,6 +40,10 @@ echo -e "\n🤖 Installing Gemini CLI..."
 run_command "npm install -g @google/gemini-cli@latest"
 echo "✅ Done"
 
+# echo -e "\n🤖 Installing OpenCode CLI..."
+# run_command "npm install -g opencode-ai@latest"
+# echo "✅ Done"
+
 # Installing Aider
 echo -e "\n🤖 Installing Aider CLI..."
 run_command "uv tool install aider-chat --from git+https://github.com/Aider-AI/aider.git"

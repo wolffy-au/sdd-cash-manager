@@ -5,8 +5,7 @@
    - Expect HTTP 201 with both debit and credit entries created and the available balances for both accounts updated.
 
 2. **Use QuickFill suggestions**
-   - Begin entering a transaction using the same `action` and `currency` as a recent entry, e.g., start typing `description` that matches an existing memo.
-   - GET `/quickfill/?action=Transfer&currency=USD&query=Fund` to retrieve the top template; the response includes `transfer_from`, `transfer_to`, `amount`, and `memo`. Confirm the template with a single interaction before submitting the POST.
+   - Begin entering a transaction using the same `action` and `currency` as a recent entry. Admins can approve a template via `POST /quickfill/templates/{template_id}/approve`. Once approved, the template can be used to populate a new transaction via `POST /transactions/` using its details.
 
 3. **Review duplicate candidates**
    - GET `/duplicates/?scope=account&account_id={id}` to list identical entries flagged for manual consolidation.

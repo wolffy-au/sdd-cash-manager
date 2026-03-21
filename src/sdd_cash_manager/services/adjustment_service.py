@@ -99,6 +99,8 @@ class ManualBalanceAdjustmentService:
             return adjustment
 
         try:
+            currency = getattr(account, "currency", "USD")
+            self.transaction_service.ensure_balancing_account_exists(currency)
             transaction_description = f"Manual adjustment to {adjustment_data.target_balance}"
             effective_datetime = datetime.combine(
                 adjustment_data.effective_date,

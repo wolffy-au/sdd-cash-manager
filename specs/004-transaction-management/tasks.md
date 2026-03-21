@@ -30,12 +30,12 @@ description: "Task list for implementing transaction management"
 **Independent Test**: POST `/transactions/` and inspect both accounts plus reconciliation state to confirm double-entry persistence and updated balances.
 
 ### Tests for User Story 1
-- [ ] T008 [US1] Add an API integration test in `tests/api/test_transactions.py` that submits a transaction payload and verifies that both accounts store matching debit/credit entries and balances update atomically
+- [x] T008 [US1] Add an API integration test in `tests/api/test_transactions.py` that submits a transaction payload and verifies that both accounts store matching debit/credit entries and balances update atomically
 
 ### Implementation for User Story 1
-- [ ] T009 [US1] Implement transaction creation logic in `src/sdd_cash_manager/services/transaction_service.py`, enforcing double-entry atomicity, hierarchy validation, and reconciliation snapshot updates
-- [ ] T010 [US1] Expose `POST /transactions/` in `src/sdd_cash_manager/api/accounts.py`, wiring it to `TransactionService` and returning the new entries via `schemas.transaction_schema.TransactionResponse`
-- [ ] T011 [US1] Add request/response schema enhancements in `src/sdd_cash_manager/schemas/transaction_schema.py` to reflect the double-entry payload and response shape for the new endpoint
+- [x] T009 [US1] Implement transaction creation logic in `src/sdd_cash_manager/services/transaction_service.py`, enforcing double-entry atomicity, hierarchy validation, and reconciliation snapshot updates
+- [x] T010 [US1] Expose `POST /transactions/` in `src/sdd_cash_manager/api/accounts.py`, wiring it to `TransactionService` and returning the new entries via `schemas.transaction_schema.TransactionResponse`
+- [x] T011 [US1] Add request/response schema enhancements in `src/sdd_cash_manager/schemas/transaction_schema.py` to reflect the double-entry payload and response shape for the new endpoint
 
 ---
 
@@ -59,12 +59,12 @@ description: "Task list for implementing transaction management"
 **Independent Test**: Seed duplicates, call `/duplicates/merge`, and run `/accounts/merge`, verifying audit logs plus untouched totals.
 
 ### Tests for User Story 3
-- [ ] T015 [US3] Add `tests/api/test_duplicates.py` that exercises duplicate detection listing and merge approval while confirming reconciliation snapshots stay constant
-- [ ] T016 [US3] Extend `tests/api/test_accounts.py` to cover account merge validation (depth check) and audit logging
+- [x] T015 [US3] Add `tests/api/test_duplicates.py` that exercises duplicate detection listing and merge approval while confirming reconciliation snapshots stay constant
+- [x] T016 [US3] Extend `tests/api/test_accounts.py` to cover account merge validation (depth check) and audit logging
 
 ### Implementation for User Story 3
-- [ ] T017 [US3] Implement duplicate detection scan, merge consolidation logic, and account reparenting helpers in `src/sdd_cash_manager/services/transaction_service.py` and `src/sdd_cash_manager/services/account_service.py`
-- [ ] T018 [US3] Add duplicate/merge endpoints (`GET /duplicates/`, `POST /duplicates/merge`, `POST /accounts/merge`) in `src/sdd_cash_manager/api/accounts.py`, emitting structured responses plus audit events
+- [x] T017 [US3] Implement duplicate detection scan, merge consolidation logic, and account reparenting helpers in `src/sdd_cash_manager/services/transaction_service.py` and `src/sdd_cash_manager/services/account_service.py`
+- [x] T018 [US3] Add duplicate/merge endpoints (`GET /duplicates/`, `POST /duplicates/merge`, `POST /accounts/merge`) in `src/sdd_cash_manager/api/accounts.py`, emitting structured responses plus audit events
 
 ---
 

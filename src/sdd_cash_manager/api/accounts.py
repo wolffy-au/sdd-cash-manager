@@ -2,7 +2,7 @@ import re
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from enum import Enum
-from typing import Annotated, TypedDict
+from typing import Annotated, TypedDict, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -58,33 +58,22 @@ OptionalAccountNumberField = AccountNumberField | None
 OptionalBalanceField = BalanceField | None
 OptionalNotesField = NotesField | None
 
-
 class _AccountCreationPayload(TypedDict):
     name: str
     currency: str
     accounting_category: str
-    account_number: str | None
     banking_product_type: str
-    available_balance: Decimal
+    account_number: str | None
     credit_limit: Decimal | None
     notes: str | None
     parent_account_id: str | None
     hidden: bool
     placeholder: bool
     id: str | None
+    available_balance: Decimal
 
 def _validate_name_value(value: str) -> str:
-    """Validate that the provided account name contains only supported characters.
-
-    Args:
-        value: The raw account name from the request payload.
-
-    Returns:
-        The validated account name when validation passes.
-
-    Raises:
-        ValueError: When the name includes unsupported characters or invalid symbols.
-    """
+    """Validate that the provided account name contains only supported characters."""
     _assert_no_control_chars(value, "account name")
     if not NAME_ALLOWED_PATTERN.match(value):
         raise ValueError("account name contains unsupported characters")
@@ -93,40 +82,17 @@ def _validate_name_value(value: str) -> str:
     return value
 
 def _validate_currency_value(value: str) -> str:
-    """Validate that the currency is one of the allowed ISO 4217 codes.
-
-    Args:
-        value: The currency code provided in the request payload.
-
-    Returns:
-        The provided currency when it is allowed.
-
-    Raises:
-        ValueError: When the currency code is not in the allowed set.
-    """
+    """Validate that the currency is one of the allowed ISO 4217 codes."""
     if value not in ALLOWED_CURRENCIES:
         raise ValueError("unsupported currency")
     return value
 
 def _validate_text_field_no_special_chars(value: str, field_name: str, invalid_message: str) -> str:
-    """Ensure the specified text field does not contain control or disallowed characters.
-
-    Args:
-        value: The text value provided in the payload.
-        field_name: The human-readable field name used in error messages.
-        invalid_message: The message to raise when invalid characters are found.
-
-    Returns:
-        The validated text value when no disallowed characters remain.
-
-    Raises:
-        ValueError: When the text contains control characters or forbidden symbols.
-    """
+    """Ensure the specified text field does not contain control or disallowed characters."""
     _assert_no_control_chars(value, field_name)
     if any(ch in value for ch in "<>;"):
         raise ValueError(invalid_message)
     return value
-
 
 def _validate_account_number_value(value: str | None) -> str | None:
     """Ensure account numbers are alphanumeric with dashes only."""
@@ -147,15 +113,13 @@ class AccountingCategory(str, Enum):
     EXPENSE = "EXPENSE"
 
 class BankingProductType(str, Enum):
-    # Primary canonical product types used internally
     BANK = "BANK"
     CREDIT_CARD = "CREDIT_CARD"
     LOAN = "LOAN"
     CASH = "CASH"
     INVESTMENT = "INVESTMENT"
     OTHER = "OTHER"
-    # Legacy / alternate names accepted by the public API and mapped to canonical values
-    CHECKING = "BANK"  # Accept 'CHECKING' from older clients and treat as 'BANK'
+    CHECKING = "BANK"
 
 class ActionType(str, Enum):
     ADJUSTMENT = "ADJUSTMENT"
@@ -163,18 +127,7 @@ class ActionType(str, Enum):
     REVERSAL = "REVERSAL"
 
 def _assert_no_control_chars(value: str, field_name: str) -> str:
-    """Assert that the given value contains no Unicode control characters.
-
-    Args:
-        value: The string value to inspect.
-        field_name: The name of the field used for contextual error reporting.
-
-    Returns:
-        The original value if it does not contain control characters.
-
-    Raises:
-        ValueError: When the value contains control characters.
-    """
+    """Assert that the given value contains no Unicode control characters."""
     if CONTROL_CHAR_PATTERN.search(value):
         raise ValueError(f"{field_name} contains invalid characters")
     return value
@@ -183,7 +136,6 @@ class AccountCreatePayload(BaseModel):
     name: NameField
     currency: CurrencyField
     accounting_category: AccountingCategory
-    # Accept strings for legacy client values (e.g., "CHECKING") and validate later
     banking_product_type: str
     account_number: AccountNumberField | None = None
     credit_limit: BalanceField | None = None
@@ -230,8 +182,6 @@ class AccountUpdatePayload(BaseModel):
     def _validate_account_number(cls, value: str | None) -> str | None:
         return _validate_account_number_value(value)
 
-
-
 class BalanceAdjustmentPayload(BaseModel):
     target_balance: BalanceField
     adjustment_date: date
@@ -250,17 +200,7 @@ class BalanceAdjustmentPayload(BaseModel):
         return _validate_text_field_no_special_chars(value, "adjustment notes", "notes contain invalid characters")
 
 def _sanitize_search_term(search_term: str | None) -> str | None:
-    """Trim and validate an optional search term for account queries.
-
-    Args:
-        search_term: The raw search term provided by the client.
-
-    Returns:
-        The sanitized search term or None when no term was provided.
-
-    Raises:
-        HTTPException: When the term exceeds length limits or contains control characters.
-    """
+    """Trim and validate an optional search term for account queries."""
     if search_term is None:
         return None
     trimmed = search_term.strip()
@@ -271,18 +211,7 @@ def _sanitize_search_term(search_term: str | None) -> str | None:
     return trimmed
 
 def _ensure_parent_account_exists(account_service: AccountService, parent_account_id: UUID | None) -> str | None:
-    """Verify that a parent account exists when an ID is provided.
-
-    Args:
-        account_service: The service managing account data.
-        parent_account_id: The UUID of the parent account to validate.
-
-    Returns:
-        The parent account ID as a string when the parent exists, otherwise None.
-
-    Raises:
-        HTTPException: When the provided parent account ID cannot be found.
-    """
+    """Verify that a parent account exists when an ID is provided."""
     if parent_account_id is None:
         return None
     parent = account_service.get_account(str(parent_account_id))
@@ -291,16 +220,8 @@ def _ensure_parent_account_exists(account_service: AccountService, parent_accoun
     return str(parent_account_id)
 
 def _quantize_amount(value: Decimal) -> Decimal:
-    """Quantize amounts to two decimal places for API consistency.
-
-    Args:
-        value: The raw Decimal amount provided in the payload.
-
-    Returns:
-        The amount quantized to two decimal places.
-    """
+    """Quantize amounts to two decimal places for API consistency."""
     return value.quantize(Decimal("0.01"))
-
 
 def _normalize_banking_product_type(value: str | Enum) -> str:
     """Return the string representation of banking product type payloads."""
@@ -308,13 +229,11 @@ def _normalize_banking_product_type(value: str | Enum) -> str:
         return str(value.value)
     return value
 
-
 def _normalize_optional_balance(value: Decimal | None) -> Decimal | None:
     """Quantize optional balance fields when provided."""
     if value is None:
         return None
     return _quantize_amount(value)
-
 
 def _build_account_creation_kwargs(
     account_data: AccountCreatePayload,
@@ -336,7 +255,6 @@ def _build_account_creation_kwargs(
         "id": str(account_data.id) if account_data.id is not None else None,
     }
 
-
 def _account_response_from_model(account: Account, account_service: AccountService) -> AccountResponse:
     """Return an AccountResponse while decrypting sensitive fields."""
     payload = account.__dict__.copy()
@@ -355,8 +273,7 @@ def _account_response_from_model(account: Account, account_service: AccountServi
     payload["hierarchy_balance"] = float(hierarchy_balance)
     return AccountResponse(**payload)
 
-
-def _transaction_response_from_model(transaction: Transaction) -> TransactionResponse:
+def _transaction_response_from_model(transaction: Transaction, currency: str) -> TransactionResponse:
     """Build a TransactionResponse that includes all ledger entries."""
     entries = [
         TransactionEntryResponse(
@@ -374,25 +291,34 @@ def _transaction_response_from_model(transaction: Transaction) -> TransactionRes
         booking_date=transaction.booking_date,
         description=transaction.description,
         action_type=transaction.action_type,
-        amount=transaction.amount,
+        action=transaction.action_type,
+        amount=_quantize_amount(transaction.amount),
+        currency=currency,
+        transfer_from_account_id=transaction.debit_account_id,
+        transfer_to_account_id=transaction.credit_account_id,
         debit_account_id=transaction.debit_account_id,
         credit_account_id=transaction.credit_account_id,
         processing_status=str(transaction.processing_status),
         reconciliation_status=str(transaction.reconciliation_status),
         notes=transaction.notes,
+        memo=transaction.notes,
         entries=entries,
     )
 
-
 def _quickfill_template_response_from_model(template: QuickFillTemplate) -> QuickFillTemplateResponse:
     """Serialize a QuickFill template for API responses."""
+    description_value = getattr(template, "memo", None)
+    source_txn = getattr(template, "source_transaction", None)
+    if source_txn is not None and getattr(source_txn, "description", None):
+        description_value = source_txn.description
     return QuickFillTemplateResponse(
         id=template.id,
         action=template.action,
         currency=template.currency,
         transfer_from_account_id=template.transfer_from_account_id,
         transfer_to_account_id=template.transfer_to_account_id,
-        amount=template.amount,
+        amount=_quantize_amount(template.amount),
+        description=description_value,
         memo=template.memo,
         confidence_score=template.confidence_score,
         history_count=template.history_count,
@@ -434,8 +360,7 @@ def _create_transaction_response_from_payload(
         transaction.credit_account_id,
         current_user.subject,
     )
-    return _transaction_response_from_model(transaction)
-
+    return _transaction_response_from_model(transaction, payload.currency)
 
 def _handle_transaction_request(
     payload: TransactionRequest,
@@ -452,42 +377,31 @@ def _handle_transaction_request(
         logger.exception("Transaction creation failed for user=%s", current_user.subject)
         raise HTTPException(status_code=500, detail="Unable to create transaction at this time.") from exc
 
-
-def _resolve_current_user(user: TokenPayload | object) -> TokenPayload:
-    """Return the provided TokenPayload or fall back to a system user for direct calls."""
-    if isinstance(user, TokenPayload):
-        return user
-    return TokenPayload(subject="system", roles=[Role.ADMIN])
-
-# Helper functions for dependency implementation
-# These are NOT the FastAPI providers themselves, but the logic they use.
+# --- Helper functions for dependency injection ---
 def _get_account_service_impl(db: Session) -> AccountService:
-    """Instantiate the account service using the provided database session.
-
-    Args:
-        db: The current SQLAlchemy session.
-
-    Returns:
-        An AccountService bound to the provided session.
-    """
+    """Instantiate the account service using the provided database session."""
     return AccountService(db)
 
-# Module-level dependency instances (these ARE the FastAPI providers) - Defined early for use in other _get_..._impl functions
+# --- Authentication helpers ---
+_SYSTEM_TOKEN = TokenPayload(subject="system", roles=[Role.ADMIN])
+
+def _resolve_current_user(current_user: TokenPayload | object | None) -> TokenPayload:
+    """Ensure that dependency injection returned a valid token payload."""
+    if isinstance(current_user, TokenPayload):
+        return current_user
+    if current_user is None:
+        raise HTTPException(status_code=401, detail="Authentication required.")
+    if hasattr(current_user, "subject"):
+        return cast(TokenPayload, current_user)
+    return _SYSTEM_TOKEN
+
+# Module-level dependency instances (these ARE the FastAPI providers)
 db_dependency = Depends(get_db)
 account_service_dependency = Depends(lambda db=db_dependency: _get_account_service_impl(db=db))
 
-
 def _get_transaction_service_impl(db: Session = db_dependency, account_service: AccountService = account_service_dependency) -> TransactionService:
-    """Instantiate the transaction service and attach the account service.
-
-    Args:
-        db: The current SQLAlchemy session.
-        account_service: The account service used to load account data.
-
-    Returns:
-        A TransactionService configured with the account service.
-    """
-    ts = TransactionService(db_session=db) # Pass db_session here
+    """Instantiate the transaction service and attach the account service."""
+    ts = TransactionService(db_session=db)
     ts.set_account_service(account_service)
     return ts
 
@@ -510,7 +424,6 @@ def _duplicate_candidate_to_response(candidate: DuplicateCandidate) -> Duplicate
         status=candidate.status,
     )
 
-
 def _duplicate_merge_response(
     candidate: DuplicateCandidate,
     canonical_id: str,
@@ -526,7 +439,6 @@ def _duplicate_merge_response(
         after_balance=after_balance,
         status=candidate.status,
     )
-
 
 def _account_merge_plan_response(plan: AccountMergePlan) -> AccountMergePlanResponse:
     return AccountMergePlanResponse(
@@ -551,7 +463,6 @@ def _parse_bool_flag(value: str | None) -> bool | None:
         return None
     return str(value).strip().lower() in ("1", "true", "yes")
 
-
 def _resolve_visibility_filter(
     explicit_flag: bool | None,
     include_flag_value: str | None,
@@ -563,7 +474,6 @@ def _resolve_visibility_filter(
         return default_value
     include_flag = _parse_bool_flag(include_flag_value)
     return None if include_flag else False
-
 
 def _apply_account_filters(
     accounts: list[Account],
@@ -585,17 +495,12 @@ def _apply_account_filters(
 router = APIRouter(prefix="/accounts", tags=["Accounts"])
 transactions_router = APIRouter(tags=["Transactions"])
 quickfill_router = APIRouter(prefix="/quickfill", tags=["QuickFill"])
-quickfill_router = APIRouter(prefix="/quickfill", tags=["QuickFill"])
 
 @router.get("/health", status_code=200, tags=["Monitoring"])
 def health_check():
-    """
-    Health check endpoint to verify the API is running.
-    Returns a simple 200 OK status.
-    """
-    print("Health check endpoint hit!") # Debug print
+    """Health check endpoint."""
+    print("Health check endpoint hit!")
     return {"status": "ok"}
-
 
 def _handle_request_validation_error(request, exc):
     return JSONResponse(
@@ -604,7 +509,7 @@ def _handle_request_validation_error(request, exc):
     )
 
 _exception_handler = getattr(router, "add_exception_handler", None)
-if _exception_handler is not None:  # pragma: no branch - runtime routers have the method
+if _exception_handler is not None:
     _exception_handler(RequestValidationError, _handle_request_validation_error)
 
 # --- Account Endpoints ---
@@ -622,18 +527,7 @@ def create_account(
     account_service: AccountService = account_service_dependency,
     _current_user: TokenPayload = _operator_dependency
 ) -> AccountResponse:
-    """Create a new financial account.
-
-    Args:
-        account_data: The payload describing the account to create.
-        account_service: The service responsible for account lifecycle management.
-
-    Returns:
-        An AccountResponse describing the newly created account.
-
-    Raises:
-        HTTPException: On validation errors (400), missing parent account, or unexpected failures (500).
-    """
+    """Create a new financial account."""
     current_user = _resolve_current_user(_current_user)
     logger.info(
         "Create account request: name=%s parent=%s user=%s",
@@ -673,22 +567,7 @@ def get_accounts(
     account_service: AccountService = account_service_dependency,
     _current_user: TokenPayload = _viewer_dependency
 ) -> list[AccountResponse]:
-    """Retrieve a filtered list of accounts, respecting legacy query params.
-
-    Args:
-        search_term: Optional name-based filter for accounts.
-        hidden: Optional filter to include only hidden or visible accounts.
-        placeholder: Optional filter to include placeholder accounts.
-        include_hidden: Legacy flag indicating whether to include hidden accounts.
-        include_placeholder: Legacy flag indicating whether to include placeholder accounts.
-        account_service: Service that provides account lookup operations.
-
-    Returns:
-        A list of AccountResponse objects matching the provided filters.
-
-    Raises:
-        HTTPException: If an invalid search term is supplied.
-    """
+    """Retrieve a filtered list of accounts, respecting legacy query params."""
     hidden_filter = _resolve_visibility_filter(hidden, include_hidden, default_value=False)
     placeholder_filter = _resolve_visibility_filter(placeholder, include_placeholder, default_value=False)
 
@@ -721,18 +600,7 @@ def get_account_by_id(
     account_service: AccountService = account_service_dependency,
     _current_user: TokenPayload = _viewer_dependency
 ) -> AccountResponse:
-    """Retrieve a specific account by its identifier.
-
-    Args:
-        account_id: The UUID of the account to return.
-        account_service: Service used to retrieve the account.
-
-    Returns:
-        An AccountResponse representing the requested account.
-
-    Raises:
-        HTTPException: When the account does not exist (404).
-    """
+    """Retrieve a specific account by its identifier."""
     current_user = _resolve_current_user(_current_user)
     logger.debug("Retrieving account id=%s user=%s", account_id, current_user.subject)
     account = account_service.get_account(str(account_id))
@@ -755,20 +623,7 @@ def update_account(
     account_service: AccountService = account_service_dependency,
     _current_user: TokenPayload = _operator_dependency
 ) -> AccountResponse:
-    """Update an existing account.
-
-    Args:
-        account_id: The UUID of the account to update.
-        account_data: Payload containing the fields to update.
-        account_service: Service that persists account updates.
-
-    Returns:
-        The updated AccountResponse.
-
-    Raises:
-        HTTPException: When the account cannot be found (404) or when validation fails (400).
-    """
-    # Prepare data for update, excluding fields that should not be updated or have defaults
+    """Update an existing account."""
     current_user = _resolve_current_user(_current_user)
     update_kwargs = account_data.model_dump(exclude_unset=True)
     logger.info(
@@ -817,18 +672,7 @@ def delete_account(
     account_service: AccountService = account_service_dependency,
     _current_user: TokenPayload = _operator_dependency
 ) -> None:
-    """Delete an account by its ID.
-
-    Args:
-        account_id: The UUID of the account to delete.
-        account_service: Service responsible for account persistence.
-
-    Returns:
-        None when the account is successfully deleted.
-
-    Raises:
-        HTTPException: When the account cannot be found (404).
-    """
+    """Delete an account by its ID."""
     current_user = _resolve_current_user(_current_user)
     logger.info("Deleting account id=%s user=%s", account_id, current_user.subject)
     success = account_service.delete_account(str(account_id))
@@ -839,8 +683,6 @@ def delete_account(
             current_user.subject,
         )
         raise HTTPException(status_code=404, detail=ACCOUNT_NOT_FOUND_DETAIL)
-    # No content to return on successful deletion
-
 
 @router.post(
     "/transactions/",
@@ -860,7 +702,6 @@ def create_transaction(
     current_user = _resolve_current_user(_current_user)
     return _handle_transaction_request(payload, transaction_service, current_user)
 
-
 @transactions_router.post(
     "/transactions/",
     status_code=201,
@@ -879,6 +720,157 @@ def create_transaction_root(
     current_user = _resolve_current_user(_current_user)
     return _handle_transaction_request(payload, transaction_service, current_user)
 
+@router.post(
+    "/{account_id}/adjust_balance",
+    responses={
+        400: {"description": "Invalid adjustment payload or the target balance matches the current value."},
+        500: {"description": "Unexpected error while adjusting the account balance."},
+    },
+)
+def adjust_account_balance(
+    account_id: UUID,
+    request_data: BalanceAdjustmentPayload,
+    transaction_service: TransactionService = transaction_service_dependency,
+    _current_user: TokenPayload = _operator_dependency
+) -> BalanceAdjustmentResponse:
+    """Manually adjust an account's balance via a transaction."""
+    current_user = _resolve_current_user(_current_user)
+    logger.info(
+        "Balance adjustment request for account=%s target=%s user=%s",
+        account_id,
+        request_data.target_balance,
+        current_user.subject,
+    )
+    try:
+        target_balance_decimal = _quantize_amount(request_data.target_balance)
+        adjustment_datetime = datetime.combine(request_data.adjustment_date, datetime.min.time())
+        transaction = transaction_service.perform_balance_adjustment(
+            account_id=str(account_id),
+            target_balance=target_balance_decimal,
+            adjustment_date=adjustment_datetime,
+            description=request_data.description,
+            action_type=request_data.action_type.value,
+            notes=request_data.notes
+        )
+
+        if transaction is None:
+            logger.debug("No adjustment needed for account=%s (target equals current)", account_id)
+            raise HTTPException(status_code=400, detail="No adjustment needed as target balance matches current balance.")
+
+        transaction_data = transaction.__dict__.copy()
+        logger.info(
+            "Created balance adjustment transaction %s for account=%s user=%s",
+            transaction.id,
+            account_id,
+            current_user.subject,
+        )
+
+        return BalanceAdjustmentResponse(
+            transaction_id=transaction.id,
+            account_id=str(account_id),
+            new_balance=target_balance_decimal,
+            **transaction_data
+        )
+
+    except HTTPException as http_exc:
+        raise http_exc
+    except ValueError as e:
+        logger.warning("Invalid balance adjustment payload for account=%s: %s", account_id, e)
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except RuntimeError as e:
+        logger.exception("Runtime error during balance adjustment for account=%s", account_id)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+    except Exception:
+        logger.exception("Unhandled error while adjusting balance for account=%s", account_id)
+        raise HTTPException(status_code=500, detail="An unexpected error occurred during balance adjustment.") from None
+
+@router.post(
+    "/{account_id}/adjustment",
+    responses={
+        400: {"description": "Invalid adjustment payload or the target balance matches the current value."},
+        500: {"description": "Unexpected error while adjusting the account balance."},
+    },
+)
+def adjust_account_balance_alias(
+    account_id: UUID,
+    request_data: BalanceAdjustmentPayload,
+    transaction_service: TransactionService = transaction_service_dependency,
+    _current_user: TokenPayload = _operator_dependency
+) -> BalanceAdjustmentResponse:
+    return adjust_account_balance(
+        account_id=account_id,
+        request_data=request_data,
+        transaction_service=transaction_service,
+        _current_user=_current_user,
+    )
+
+@router.get(
+    "/duplicates/",
+    response_model=list[DuplicateCandidateResponse],
+    responses={400: {"description": "Missing required account_id or invalid scope."}},
+)
+def list_duplicate_candidates(
+    account_id: UUID,
+    limit: int = 25,
+    transaction_service: TransactionService = transaction_service_dependency,
+    _current_user: TokenPayload = _viewer_dependency,
+) -> list[DuplicateCandidateResponse]:
+    """List detected duplicates for a given account."""
+    try:
+        candidates = transaction_service.list_duplicate_candidates(account_id=str(account_id), limit=limit)
+        return [_duplicate_candidate_to_response(candidate) for candidate in candidates]
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+@router.post(
+    "/duplicates/merge",
+    response_model=DuplicateMergeResponse,
+    responses={400: {"description": "Invalid candidate or merge constraints violated."}},
+)
+def merge_duplicate_candidate(
+    payload: DuplicateMergeRequest,
+    transaction_service: TransactionService = transaction_service_dependency,
+    _current_user: TokenPayload = _operator_dependency,
+) -> DuplicateMergeResponse:
+    """Merge duplicate transactions into a single canonical entry."""
+    current_user = _resolve_current_user(_current_user)
+    try:
+        candidate, canonical_id, removed_ids, before_balance, after_balance = transaction_service.merge_duplicate_candidate(
+            payload.candidate_id,
+            preserve_audit=payload.preserve_audit,
+            merged_by=current_user.subject,
+        )
+        return _duplicate_merge_response(candidate, canonical_id, removed_ids, before_balance, after_balance)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+@router.post(
+    "/merge",
+    response_model=AccountMergePlanResponse,
+    responses={400: {"description": "Invalid merge plan or depth violation."}},
+)
+def merge_accounts(
+    payload: AccountMergePlanRequest,
+    account_service: AccountService = account_service_dependency,
+    transaction_service: TransactionService = transaction_service_dependency,
+    _current_user: TokenPayload = _operator_dependency,
+) -> AccountMergePlanResponse:
+    """Merge one account into another while preserving balances and hierarchy integrity."""
+    current_user = _resolve_current_user(_current_user)
+    try:
+        plan = account_service.merge_accounts(
+            payload,
+            transaction_service,
+            executed_by=current_user.subject,
+        )
+        return _account_merge_plan_response(plan)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+# --- QuickFill Endpoints ---
+# Ensure quickfill_router is correctly defined and routes are added to it.
+# The previous logs indicated redefinition warnings, so consolidating is key.
+# The definition below assumes this is the intended instance.
 
 @quickfill_router.get(
     "/",
@@ -919,7 +911,6 @@ def get_quickfill_templates(
 
     return [_quickfill_template_response_from_model(template) for template in candidates]
 
-
 @quickfill_router.post(
     "/templates/{template_id}/approve",
     response_model=QuickFillTemplateResponse,
@@ -949,170 +940,8 @@ def approve_quickfill_template(
         logger.exception("Failed to approve QuickFill template %s", template_id)
         raise HTTPException(status_code=500, detail="Unable to approve QuickFill template at this time.") from exc
 
-@router.post(
-    "/{account_id}/adjust_balance",
-    responses={
-        400: {"description": "Invalid adjustment payload or the target balance matches the current value."},
-        500: {"description": "Unexpected error while adjusting the account balance."},
-    },
-)
-def adjust_account_balance(
-    account_id: UUID,
-    request_data: BalanceAdjustmentPayload,
-    transaction_service: TransactionService = transaction_service_dependency,
-    _current_user: TokenPayload = _operator_dependency
-) -> BalanceAdjustmentResponse:
-    """Manually adjust an account's balance via a transaction.
-
-    Args:
-        account_id: Identifier of the account to adjust.
-        request_data: Payload containing the target balance and metadata.
-        transaction_service: Service used to perform the adjustment transaction.
-
-    Returns:
-        BalanceAdjustmentResponse summarizing the created transaction.
-
-    Raises:
-        HTTPException: When no adjustment is needed because the target matches the current balance (400)
-            or when validation/runtime errors occur (400/500).
-    """
-    current_user = _resolve_current_user(_current_user)
-    logger.info(
-        "Balance adjustment request for account=%s target=%s user=%s",
-        account_id,
-        request_data.target_balance,
-        current_user.subject,
-    )
-    try:
-        target_balance_decimal = _quantize_amount(request_data.target_balance)
-        adjustment_datetime = datetime.combine(request_data.adjustment_date, datetime.min.time())
-        transaction = transaction_service.perform_balance_adjustment(
-            account_id=str(account_id),
-            target_balance=target_balance_decimal,
-            adjustment_date=adjustment_datetime,
-            description=request_data.description,
-            action_type=request_data.action_type.value,
-            notes=request_data.notes
-        )
-
-        if transaction is None:
-            # This case happens if target_balance == current_balance, no adjustment needed.
-            # Depending on requirements, this could be a 200 OK with a message, or a 400 Bad Request.
-            # For now, let's raise a 400 if no adjustment was made.
-            # In a real app, consider if this should return a specific response.
-            logger.debug("No adjustment needed for account=%s (target equals current)", account_id)
-            raise HTTPException(status_code=400, detail="No adjustment needed as target balance matches current balance.")
-
-        transaction_data = transaction.__dict__.copy()
-        logger.info(
-            "Created balance adjustment transaction %s for account=%s user=%s",
-            transaction.id,
-            account_id,
-            current_user.subject,
-        )
-
-        return BalanceAdjustmentResponse(
-            transaction_id=transaction.id,
-            account_id=str(account_id),
-            new_balance=target_balance_decimal,
-            **transaction_data
-        )
-
-    except HTTPException as http_exc:
-        raise http_exc
-    except ValueError as e:
-        logger.warning("Invalid balance adjustment payload for account=%s: %s", account_id, e)
-        raise HTTPException(status_code=400, detail=str(e)) from e
-    except RuntimeError as e:
-        logger.exception("Runtime error during balance adjustment for account=%s", account_id)
-        raise HTTPException(status_code=500, detail=str(e)) from e # e.g., AccountService not set
-    except Exception:
-        logger.exception("Unhandled error while adjusting balance for account=%s", account_id)
-        raise HTTPException(status_code=500, detail="An unexpected error occurred during balance adjustment.") from None
-
-
-@router.post(
-    "/{account_id}/adjustment",
-    responses={
-        400: {"description": "Invalid adjustment payload or the target balance matches the current value."},
-        500: {"description": "Unexpected error while adjusting the account balance."},
-    },
-)
-def adjust_account_balance_alias(
-    account_id: UUID,
-    request_data: BalanceAdjustmentPayload,
-    transaction_service: TransactionService = transaction_service_dependency,
-    _current_user: TokenPayload = _operator_dependency
-) -> BalanceAdjustmentResponse:
-    return adjust_account_balance(
-        account_id=account_id,
-    request_data=request_data,
-    transaction_service=transaction_service,
-    _current_user=_current_user,
-)
-
-
-@router.get(
-    "/duplicates/",
-    response_model=list[DuplicateCandidateResponse],
-    responses={400: {"description": "Missing required account_id or invalid scope."}},
-)
-def list_duplicate_candidates(
-    account_id: UUID,
-    limit: int = 25,
-    transaction_service: TransactionService = transaction_service_dependency,
-    _current_user: TokenPayload = _viewer_dependency,
-) -> list[DuplicateCandidateResponse]:
-    """List detected duplicates for a given account."""
-    try:
-        candidates = transaction_service.list_duplicate_candidates(account_id=str(account_id), limit=limit)
-        return [_duplicate_candidate_to_response(candidate) for candidate in candidates]
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-
-@router.post(
-    "/duplicates/merge",
-    response_model=DuplicateMergeResponse,
-    responses={400: {"description": "Invalid candidate or merge constraints violated."}},
-)
-def merge_duplicate_candidate(
-    payload: DuplicateMergeRequest,
-    transaction_service: TransactionService = transaction_service_dependency,
-    _current_user: TokenPayload = _operator_dependency,
-) -> DuplicateMergeResponse:
-    """Merge duplicate transactions into a single canonical entry."""
-    current_user = _resolve_current_user(_current_user)
-    try:
-        candidate, canonical_id, removed_ids, before_balance, after_balance = transaction_service.merge_duplicate_candidate(
-            payload.candidate_id,
-            preserve_audit=payload.preserve_audit,
-            merged_by=current_user.subject,
-        )
-        return _duplicate_merge_response(candidate, canonical_id, removed_ids, before_balance, after_balance)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-
-@router.post(
-    "/merge",
-    response_model=AccountMergePlanResponse,
-    responses={400: {"description": "Invalid merge plan or depth violation."}},
-)
-def merge_accounts(
-    payload: AccountMergePlanRequest,
-    account_service: AccountService = account_service_dependency,
-    transaction_service: TransactionService = transaction_service_dependency,
-    _current_user: TokenPayload = _operator_dependency,
-) -> AccountMergePlanResponse:
-    """Merge one account into another while preserving balances and hierarchy integrity."""
-    current_user = _resolve_current_user(_current_user)
-    try:
-        plan = account_service.merge_accounts(
-            payload,
-            transaction_service,
-            executed_by=current_user.subject,
-        )
-        return _account_merge_plan_response(plan)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+# --- Mount the routers ---
+# Ensure all defined routers are included in the main router.
+# This section assumes 'router' is the main APIRouter for this file and
+# that 'quickfill_router' should be mounted under it.
+router.include_router(quickfill_router)

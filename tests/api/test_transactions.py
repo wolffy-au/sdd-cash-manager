@@ -91,3 +91,54 @@ async def test_balance_endpoint_reflects_adjustments(
     updated_balance = Decimal(str(account_body["available_balance"]))
     assert updated_balance == target_balance
     assert Decimal(str(account_body["hierarchy_balance"])) == target_balance
+
+
+@pytest.mark.asyncio
+async def test_record_transaction_updates_both_accounts(
+    api_client: AsyncClient,
+    authenticated_headers: dict[str, str],
+    seeded_accounts: dict[str, dict[str, object]],
+) -> None:
+    """POST /transactions/ should create balanced entries and refresh the affected balances."""
+    source_account = seeded_accounts["visible"]
+    target_account = seeded_accounts["balancing"]
+    amount = Decimal("125.50")
+
+    payload = {
+        "transfer_from": source_account["id"],
+        "transfer_to": target_account["id"],
+        "action": "Transfer",
+        "amount": str(amount),
+        "currency": "USD",
+        "description": "Test double-entry transaction",
+        "memo": "API quick entry",
+        "date": date.today().isoformat(),
+    }
+
+    response = await api_client.post("/transactions/", json=payload, headers=authenticated_headers)
+    assert_status(response, 201)
+    body = response.json()
+    assert_payload_keys(body, {"transaction_id", "amount", "entries", "processing_status", "reconciliation_status", "notes"})
+    assert Decimal(str(body["amount"])) == amount
+    assert body["processing_status"] == "Posted"
+    assert body["reconciliation_status"] == "Pending Reconciliation"
+    assert body["notes"] == "API quick entry"
+
+    entries = body["entries"]
+    assert len(entries) == 2
+    debit_entry = next(entry for entry in entries if entry["account_id"] == source_account["id"])
+    credit_entry = next(entry for entry in entries if entry["account_id"] == target_account["id"])
+    assert Decimal(str(debit_entry["debit_amount"])) == amount
+    assert Decimal(str(debit_entry["credit_amount"])) == Decimal("0")
+    assert Decimal(str(credit_entry["credit_amount"])) == amount
+    assert Decimal(str(credit_entry["debit_amount"])) == Decimal("0")
+
+    source_resp = await api_client.get(f"/accounts/{source_account['id']}", headers=authenticated_headers)
+    assert_status(source_resp, 200)
+    new_source_balance = Decimal(str(source_resp.json()["available_balance"]))
+    assert new_source_balance == Decimal(str(source_account["available_balance"])) - amount
+
+    target_resp = await api_client.get(f"/accounts/{target_account['id']}", headers=authenticated_headers)
+    assert_status(target_resp, 200)
+    new_target_balance = Decimal(str(target_resp.json()["available_balance"]))
+    assert new_target_balance == Decimal(str(target_account["available_balance"])) + amount

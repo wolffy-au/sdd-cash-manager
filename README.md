@@ -91,11 +91,17 @@ The dedicated API regression suite lives under `tests/api` and exercises the Fas
 
    These tests seed deterministic accounts, rely on JWT-authenticated requests, and clean up after each scenario. Failures indicate regressions in account creation, listings, adjustments, or validation behavior.
 
-4. **Interpret results**
+4. **Key API endpoints covered by tests:**
+   - Transaction management: `POST /transactions/` (tested in `tests/api/test_transactions.py`)
+   - QuickFill suggestions and approvals: `GET /quickfill/`, `POST /quickfill/templates/{template_id}/approve` (tested in `tests/api/test_quickfill.py`)
+   - Duplicate detection and merging: `GET /duplicates/`, `POST /duplicates/merge` (tested in `tests/api/test_duplicates.py`)
+   - Account merging: `POST /accounts/merge` (tested in `tests/api/test_accounts.py`)
+
+5. **Interpret results**
    - Passing suite: all acceptance criteria (account creation, hierarchy balances, validation errors, authentication guards) are satisfied.
    - Failing test: inspect the HTTP response payload logged by pytest; it pinpoints the endpoint or fixture needing attention.
 
-5. **Optional workflows**
+6. **Optional workflows**
    - Run individual tests for faster iteration: `pytest tests/api/test_accounts.py::test_create_and_get_account`.
    - Use `-k` filters (e.g., `pytest tests/api -k balance`) to scope the suite.
 
@@ -126,3 +132,22 @@ To explore the feature manually:
 1. Start the app (`uvicorn src.sdd_cash_manager.main:app --reload`) and source a JWT for an operator (`Role.OPERATOR`).
 2. POST to `/accounts/{account_id}/adjust-balance` with `target_balance`, `effective_date`, and `submitted_by_user_id`.
 3. Check `/accounts/{account_id}/reconciliation` for the accompanying reconciliation entry and examine `security.log` for the structured audit record.
+
+## Notes on API Tests
+
+The API regression suite is located under `tests/api/` and utilizes `pytest` to exercise the FastAPI endpoints via `httpx` clients.
+
+To run these tests:
+1. Ensure your virtual environment is active and project dependencies are installed (e.g., `uv sync --all-groups`).
+2. Set the required environment variables: `SDD_CASH_MANAGER_SECURITY_ENABLED=true`, `SDD_CASH_MANAGER_JWT_SECRET`, and `SDD_CASH_MANAGER_JWT_ALGORITHM=HS256`.
+3. Execute `pytest tests/api` in your project's root directory.
+
+Key API endpoints covered by tests include:
+- Transaction management (`POST /transactions/`)
+- QuickFill suggestions and approvals (`GET /quickfill/`, `POST /quickfill/templates/{template_id}/approve`)
+- Duplicate detection and merging (`GET /duplicates/`, `POST /duplicates/merge`)
+- Account merging (`POST /accounts/merge`)
+
+These tests seed deterministic accounts, rely on JWT-authenticated requests, and perform cleanup. Failures indicate regressions and should be investigated by inspecting the logged HTTP response payload. For more advanced filtering or running individual tests, refer to the `pytest` documentation or use its `-k` flag (e.g., `pytest tests/api -k balance`).
+
+Further context can be found in `specs/002-add-api-pytests/quickstart.md`.

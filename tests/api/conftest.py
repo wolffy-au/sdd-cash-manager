@@ -7,6 +7,7 @@ from typing import AsyncGenerator, Generator
 import pytest
 from httpx import AsyncClient, Timeout
 
+from sdd_cash_manager.database import create_tables, engine
 from tests.api.jwt_utils import generate_access_token
 
 os.environ["SDD_CASH_MANAGER_SECURITY_ENABLED"] = "true"
@@ -64,12 +65,17 @@ async def authenticated_headers(api_security_enabled: bool) -> dict[str, str]:
         headers["Authorization"] = f"Bearer {token}"
     return headers
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="function", autouse=True)
 def cleanup_sqlite_db_file() -> Generator[None, None, None]:
-    """Ensure the disk-backed SQLite database gets removed after the API suite runs."""
+    """Ensure the disk-backed SQLite database is recreated before each API test."""
+    db_path = Path("sdd_cash_manager.db")
+    engine.dispose()
+    if db_path.exists():
+        db_path.unlink()
+    create_tables()
     try:
         yield
     finally:
-        db_path = Path("sdd_cash_manager.db")
+        engine.dispose()
         if db_path.exists():
             db_path.unlink()
