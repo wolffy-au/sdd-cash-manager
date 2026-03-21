@@ -382,16 +382,13 @@ To force a SonarQube check, run:
 
 ```bash
 sudo apt-get update && sudo apt-get install -y default-jre
-pysonar \
-  --sonar-host-url=http://host.containers.internal:9000 \
-  --sonar-token=squ_bff548115b3d2f68cc3813af626f133ac498f836 \
-  --sonar-project-key=sdd-cash-manager
+pysonar --sonar-token=<token-from-.secrets>
 ```
 
 You can also query SonarCloud’s public API for the current critical issues list; the token value is stored in the project `.secrets` directory (look for the Sonar token key there) and should not be committed.
 
 ```
-https://sonarcloud.io/api/issues/search?componentKeys=wolffy-au_sdd-cash-manager&branch=main&severities=CRITICAL&ps=50&p=1&token=<token-from-.secrets>
+https://sonarcloud.io/api/issues/search?componentKeys=wolffy-au_sdd-cash-manager&branch=main&ps=50&p=1&token=<token-from-.secrets>
 ```
 
 ## Snyk

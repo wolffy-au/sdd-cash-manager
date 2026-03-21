@@ -191,7 +191,7 @@ class AccountService:
             if normalized_value_fold == member_name.casefold():
                 return str(member.value)
 
-        for member in enum_cls:
+        for member in enum_cls.__members__.values():
             if normalized_value_fold == str(member.value).casefold():
                 return str(member.value)
 
@@ -431,7 +431,7 @@ class AccountService:
 
         session, should_close = self._acquire_session()
         try:
-            query = self._build_account_query(session, criteria)
+            query = self._build_account_query(criteria)
             return list(session.scalars(query).all())
         except Exception as e:
             log_critical_application_error(f"Failed to retrieve all accounts: {e}", metadata={"service": "AccountService"})
@@ -440,7 +440,7 @@ class AccountService:
             if should_close and session is not None:
                 session.close()
 
-    def _build_account_query(self, session: Session, criteria: AccountQueryCriteria) -> Select[Any]:
+    def _build_account_query(self, criteria: AccountQueryCriteria) -> Select[Any]:
         """Compose an optimized query based on the supplied criteria."""
         query = select(Account).order_by(Account.name)
         filters = criteria.build_filters()

@@ -25,12 +25,13 @@ ALLOWED_CURRENCIES = {
 }
 CONTROL_CHAR_PATTERN = re.compile(r"[\x00-\x1F\x7F]")
 NAME_ALLOWED_PATTERN = re.compile(r"^[A-Za-z0-9\s\.\,\-\_\(\)\&']+$")
+ACCOUNT_NUMBER_PATTERN = re.compile(r"^[A-Za-z0-9-]+$")
 MAX_SEARCH_TERM_LENGTH = 100
 ACCOUNT_NOT_FOUND_DETAIL = "Account not found"
 
 NameField = Annotated[str, constr(strip_whitespace=True, min_length=1, max_length=100)]
-CurrencyField = Annotated[str, constr(pattern=r"^[A-Z]{3}$")]
-AccountNumberField = Annotated[str, constr(strip_whitespace=True, max_length=50, pattern=r"^[A-Za-z0-9-]+$")]
+CurrencyField = Annotated[str, constr(min_length=3, max_length=3)]
+AccountNumberField = Annotated[str, constr(strip_whitespace=True, max_length=50)]
 BalanceField = Annotated[Decimal, condecimal(max_digits=18, decimal_places=2, ge=Decimal("0"))]
 NotesField = Annotated[str, constr(strip_whitespace=True, max_length=500)]
 DescriptionField = Annotated[str, constr(strip_whitespace=True, min_length=1, max_length=255)]
@@ -109,6 +110,18 @@ def _validate_text_field_no_special_chars(value: str, field_name: str, invalid_m
         raise ValueError(invalid_message)
     return value
 
+
+def _validate_account_number_value(value: str | None) -> str | None:
+    """Ensure account numbers are alphanumeric with dashes only."""
+    if value is None:
+        return None
+    normalized = value.strip()
+    if not normalized:
+        raise ValueError("account number cannot be empty.")
+    if not ACCOUNT_NUMBER_PATTERN.fullmatch(normalized):
+        raise ValueError("account number contains invalid characters.")
+    return normalized
+
 class AccountingCategory(str, Enum):
     ASSET = "ASSET"
     LIABILITY = "LIABILITY"
@@ -177,6 +190,10 @@ class AccountCreatePayload(BaseModel):
             return value
         return _validate_text_field_no_special_chars(value, "notes", "notes contain invalid characters")
 
+    @field_validator("account_number")
+    def _validate_account_number(cls, value: str | None) -> str | None:
+        return _validate_account_number_value(value)
+
 class AccountUpdatePayload(BaseModel):
     model_config = ConfigDict(extra="allow")
     name: NameField | None = None
@@ -190,6 +207,10 @@ class AccountUpdatePayload(BaseModel):
     parent_account_id: UUID | None = None
     hidden: bool | None = None
     placeholder: bool | None = None
+
+    @field_validator("account_number")
+    def _validate_account_number(cls, value: str | None) -> str | None:
+        return _validate_account_number_value(value)
 
 
 
@@ -359,11 +380,47 @@ _operator_dependency = Depends(require_role(Role.OPERATOR))
 _viewer_dependency = Depends(require_role(Role.VIEWER))
 logger = get_logger(__name__)
 
+# --- Helper Utilities for Filters ---
+def _parse_bool_flag(value: str | None) -> bool | None:
+    if value is None:
+        return None
+    return str(value).strip().lower() in ("1", "true", "yes")
+
+
+def _resolve_visibility_filter(
+    explicit_flag: bool | None,
+    include_flag_value: str | None,
+    default_value: bool,
+) -> bool | None:
+    if explicit_flag is not None:
+        return explicit_flag
+    if include_flag_value is None:
+        return default_value
+    include_flag = _parse_bool_flag(include_flag_value)
+    return None if include_flag else False
+
+
+def _apply_account_filters(
+    accounts: list[Account],
+    hidden_filter: bool | None,
+    placeholder_filter: bool | None,
+    search_term: str | None,
+) -> list[Account]:
+    filtered = accounts
+    if hidden_filter is not None:
+        filtered = [acc for acc in filtered if acc.hidden == hidden_filter]
+    if placeholder_filter is not None:
+        filtered = [acc for acc in filtered if acc.placeholder == placeholder_filter]
+    if search_term:
+        term = search_term.lower()
+        filtered = [acc for acc in filtered if term in acc.name.lower()]
+    return filtered
+
 # --- API Router ---
 router = APIRouter(prefix="/accounts", tags=["Accounts"])
 
 @router.get("/health", status_code=200, tags=["Monitoring"])
-async def health_check():
+def health_check():
     """
     Health check endpoint to verify the API is running.
     Returns a simple 200 OK status.
@@ -372,7 +429,7 @@ async def health_check():
     return {"status": "ok"}
 
 
-async def _handle_request_validation_error(request, exc):
+def _handle_request_validation_error(request, exc):
     return JSONResponse(
         status_code=400,
         content={"detail": exc.errors()},
@@ -384,7 +441,14 @@ if _exception_handler is not None:  # pragma: no branch - runtime routers have t
 
 # --- Account Endpoints ---
 
-@router.post("/", response_model=AccountResponse, status_code=201)
+@router.post(
+    "/",
+    status_code=201,
+    responses={
+        400: {"description": "Invalid account details or missing/invalid parent account reference."},
+        500: {"description": "Unexpected error while creating the account."},
+    },
+)
 def create_account(
     account_data: AccountCreatePayload,
     account_service: AccountService = account_service_dependency,
@@ -428,7 +492,10 @@ def create_account(
         logger.exception("Unexpected failure while creating account")
         raise HTTPException(status_code=500, detail="An unexpected error occurred while creating the account.") from None
 
-@router.get("/", response_model=list[AccountResponse])
+@router.get(
+    "/",
+    responses={400: {"description": "Search term exceeds the allowed length or contains invalid characters."}},
+)
 def get_accounts(
     search_term: str | None = None,
     hidden: bool | None = None,
@@ -438,37 +505,14 @@ def get_accounts(
     account_service: AccountService = account_service_dependency,
     _current_user: TokenPayload = _viewer_dependency
 ) -> list[AccountResponse]:
-    # Map legacy `include_hidden`/`include_placeholder` query params (strings) to boolean flags
-    def _to_bool(value: str | None) -> bool | None:
-        if value is None:
-            return None
-        return str(value).strip().lower() in ("1", "true", "yes")
-
-    # Determine effective behavior for hidden/placeholder filtering:
-    # - If `hidden` / `placeholder` is explicitly provided, treat as strict filter (only show matching entries).
-    # - If not provided, `include_hidden` / `include_placeholder` indicate whether hidden/placeholder entries
-    #   should be INCLUDED in the results (True => include both visible and hidden; False => exclude hidden).
-    if hidden is None:
-        if include_hidden is None:
-            # default: exclude hidden accounts
-            hidden = False
-        else:
-            # include_hidden True => do not restrict by hidden (allow both); False => exclude hidden
-            hidden = None if _to_bool(include_hidden) else False
-
-    if placeholder is None:
-        if include_placeholder is None:
-            # default: exclude placeholder accounts
-            placeholder = False
-        else:
-            placeholder = None if _to_bool(include_placeholder) else False
-
-    """Retrieve a filtered list of accounts.
+    """Retrieve a filtered list of accounts, respecting legacy query params.
 
     Args:
         search_term: Optional name-based filter for accounts.
         hidden: Optional filter to include only hidden or visible accounts.
         placeholder: Optional filter to include placeholder accounts.
+        include_hidden: Legacy flag indicating whether to include hidden accounts.
+        include_placeholder: Legacy flag indicating whether to include placeholder accounts.
         account_service: Service that provides account lookup operations.
 
     Returns:
@@ -477,33 +521,33 @@ def get_accounts(
     Raises:
         HTTPException: If an invalid search term is supplied.
     """
-    all_accounts = account_service.get_all_accounts()
+    hidden_filter = _resolve_visibility_filter(hidden, include_hidden, default_value=False)
+    placeholder_filter = _resolve_visibility_filter(placeholder, include_placeholder, default_value=False)
 
     sanitized_search = _sanitize_search_term(search_term)
+    all_accounts = account_service.get_all_accounts()
     current_user = _resolve_current_user(_current_user)
     logger.debug(
         "Listing accounts hidden=%s placeholder=%s search=%s user=%s",
-        hidden,
-        placeholder,
+        hidden_filter,
+        placeholder_filter,
         sanitized_search,
         current_user.subject,
     )
 
-    # Apply filters
-    filtered_accounts = all_accounts
-    if sanitized_search:
-        filtered_accounts = [
-            acc for acc in filtered_accounts
-            if sanitized_search.lower() in acc.name.lower()
-        ]
-    if hidden is not None:
-        filtered_accounts = [acc for acc in filtered_accounts if acc.hidden == hidden]
-    if placeholder is not None:
-        filtered_accounts = [acc for acc in filtered_accounts if acc.placeholder == placeholder]
+    filtered_accounts = _apply_account_filters(
+        all_accounts,
+        hidden_filter,
+        placeholder_filter,
+        sanitized_search,
+    )
 
     return [_account_response_from_model(acc, account_service) for acc in filtered_accounts]
 
-@router.get("/{account_id}", response_model=AccountResponse)
+@router.get(
+    "/{account_id}",
+    responses={404: {"description": ACCOUNT_NOT_FOUND_DETAIL}},
+)
 def get_account_by_id(
     account_id: UUID,
     account_service: AccountService = account_service_dependency,
@@ -529,7 +573,14 @@ def get_account_by_id(
         raise HTTPException(status_code=404, detail=ACCOUNT_NOT_FOUND_DETAIL)
     return _account_response_from_model(account, account_service)
 
-@router.put("/{account_id}", response_model=AccountResponse)
+@router.put(
+    "/{account_id}",
+    responses={
+        400: {"description": "Invalid update payload or missing/invalid parent reference."},
+        404: {"description": ACCOUNT_NOT_FOUND_DETAIL},
+        500: {"description": "Unexpected error while updating the account."},
+    },
+)
 def update_account(
     account_id: UUID,
     account_data: AccountUpdatePayload,
@@ -588,7 +639,11 @@ def update_account(
 
     return _account_response_from_model(updated_account, account_service)
 
-@router.delete("/{account_id}", status_code=204)
+@router.delete(
+    "/{account_id}",
+    status_code=204,
+    responses={404: {"description": ACCOUNT_NOT_FOUND_DETAIL}},
+)
 def delete_account(
     account_id: UUID,
     account_service: AccountService = account_service_dependency,
@@ -617,11 +672,16 @@ def delete_account(
         )
         raise HTTPException(status_code=404, detail=ACCOUNT_NOT_FOUND_DETAIL)
     # No content to return on successful deletion
-    return
 
 # --- Balance Adjustment Endpoint ---
 
-@router.post("/{account_id}/adjust_balance", response_model=BalanceAdjustmentResponse)
+@router.post(
+    "/{account_id}/adjust_balance",
+    responses={
+        400: {"description": "Invalid adjustment payload or the target balance matches the current value."},
+        500: {"description": "Unexpected error while adjusting the account balance."},
+    },
+)
 def adjust_account_balance(
     account_id: UUID,
     request_data: BalanceAdjustmentPayload,
@@ -697,7 +757,13 @@ def adjust_account_balance(
         raise HTTPException(status_code=500, detail="An unexpected error occurred during balance adjustment.") from None
 
 
-@router.post("/{account_id}/adjustment", response_model=BalanceAdjustmentResponse)
+@router.post(
+    "/{account_id}/adjustment",
+    responses={
+        400: {"description": "Invalid adjustment payload or the target balance matches the current value."},
+        500: {"description": "Unexpected error while adjusting the account balance."},
+    },
+)
 def adjust_account_balance_alias(
     account_id: UUID,
     request_data: BalanceAdjustmentPayload,

@@ -13,7 +13,6 @@ _get_db_dependency = Depends(get_db)
 
 @router.get(
     "/accounts/{account_id}/reconciliation",
-    response_model=List[ReconciliationViewEntrySchema],  # Return a list of entries
     summary="Get reconciliation view entries for an account",
 )
 async def get_reconciliation_view(
