@@ -1,5 +1,9 @@
 # Feature Specification: Transaction Management
 
+## Clarifications
+### Session 2026-03-21
+- Q: What benchmark defines SC-002’s QuickFill edit reduction target? → A: Run an automated entry script over 1,000 repeat transactions with the same action/currency and compare manual edits before and after QuickFill confirmation (measure form fields unchanged edits to prove the 40% reduction).
+
 **Feature Branch**: `feature/004-transaction-management`  
 **Created**: 2026-03-20  
 **Status**: Draft  
@@ -90,5 +94,6 @@ During a data-cleanup session, an admin runs the duplicate detector which lists 
 
 - **SC-001**: 100% of transaction submissions that pass validation create matching debit and credit rows; any unbalanced payload is rejected before persistence.
 - **SC-002**: QuickFill suggestion acceptance requires at most two clicks and reduces manual field edits for repeat entries by at least 40% in benchmark scenarios.
+- Benchmark note: measure SC-002 by running an automated entry script over 1,000 repeat transactions with the same action/currency and comparing the number of manual edits before vs after using QuickFill so the 40% reduction is demonstrable.
 - **SC-003**: Duplicate detection scans datasets of 1,000 transactions in under 3 seconds and reports only exact matches for manual review.
 - **SC-004**: Account merges either succeed with audit logging or leave the source/target untouched, with aggregate balances verifying unchanged totals after the operation.

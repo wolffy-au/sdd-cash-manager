@@ -24,6 +24,7 @@ cd src [ONLY COMMANDS FOR ACTIVE TECHNOLOGIES][ONLY COMMANDS FOR ACTIVE TECHNOLO
 Python 3.12: Follow standard conventions
 
 ## Recent Changes
+- 004-transaction-management: Added [if applicable, e.g., PostgreSQL, CoreData, files or N/A]
 - 004-transaction-management: Added Python 3.12 (project targets >=3.10,<3.13 and Ruff is configured for py312). + FastAPI for the API surface, SQLAlchemy 2.0 for ORM/models, httpx/pytest/pytest-asyncio for testing, python-accounting utilities, and existing jwt/security helpers.
 
 - 004-transaction-management: Added Python 3.12 + FastAPI, SQLAlchemy, python-accounting, httpx, pytest, pytest-asyncio
