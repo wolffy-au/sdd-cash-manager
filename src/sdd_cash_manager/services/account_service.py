@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, time, timezone  # using timezone.utc for timezone-aware snapshots
 from decimal import Decimal
 from enum import Enum
-from typing import Any, Callable, TypeAlias
+from typing import Any, Callable
 
 from sqlalchemy import Select, and_, delete, func, or_, select
 from sqlalchemy.orm import Session
@@ -18,7 +18,7 @@ from sdd_cash_manager.models.enums import AccountingCategory, BankingProductType
 from sdd_cash_manager.models.reconciliation import ReconciliationViewEntry
 from sdd_cash_manager.models.transaction import Entry, Transaction
 
-AccountFieldValue: TypeAlias = str | Decimal | float | bool | None
+type AccountFieldValue = str | Decimal | float | bool | None
 
 
 @dataclass
