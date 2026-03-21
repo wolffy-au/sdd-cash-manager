@@ -11,6 +11,7 @@ from sdd_cash_manager.models.transaction import Entry, Transaction
 from sdd_cash_manager.services.account_service import AccountService
 
 BALANCING_ACCOUNT_ID = "balancing-account-id"
+FORBIDDEN_CHAR_PATTERN = r"[<>;]"
 
 
 class TransactionService:
@@ -83,7 +84,7 @@ class TransactionService:
         min_length: int = 1,
         max_length: int | None = None,
         allowed_chars_regex: str | None = None,
-        forbidden_chars_regex: str | None = r"[<>;]" # Default forbidden chars from spec
+        forbidden_chars_regex: str | None = FORBIDDEN_CHAR_PATTERN  # Default forbidden chars from spec
     ) -> str:
         import re  # Import regex
 
@@ -117,12 +118,12 @@ class TransactionService:
         """Create a new transaction record backed by ledger entries and persist it."""
         # --- Validation Block ---
         # Validate description
-        validated_description = self._validate_string_field(description, "description", max_length=255, forbidden_chars_regex=r"[<>;]")
+        validated_description = self._validate_string_field(description, "description", max_length=255, forbidden_chars_regex=FORBIDDEN_CHAR_PATTERN)
 
         # Validate notes if present
         validated_notes = None
         if notes is not None:
-            validated_notes = self._validate_string_field(notes, "notes", max_length=500, forbidden_chars_regex=r"[<>;]")
+            validated_notes = self._validate_string_field(notes, "notes", max_length=500, forbidden_chars_regex=FORBIDDEN_CHAR_PATTERN)
 
         if not debit_account_id or not credit_account_id or not action_type:
             raise ValueError("Debit account ID, credit account ID, and action type are required.")

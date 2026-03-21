@@ -388,6 +388,12 @@ pysonar \
   --sonar-project-key=sdd-cash-manager
 ```
 
+You can also query SonarCloud’s public API for the current critical issues list; the token value is stored in the project `.secrets` directory (look for the Sonar token key there) and should not be committed.
+
+```
+https://sonarcloud.io/api/issues/search?componentKeys=wolffy-au_sdd-cash-manager&branch=main&severities=CRITICAL&ps=50&p=1&token=<token-from-.secrets>
+```
+
 ## Snyk
 
 To force a Snyk check, run:

@@ -4,7 +4,8 @@
 set -euo pipefail
 
 echo "Starting pre-commit checks..."
-poetry lock
+echo "Updating dependency locks to the latest compatible versions..."
+uv run poetry update
 uv sync --upgrade --all-groups
 
 echo "Running pre-commit checks..."
@@ -28,10 +29,7 @@ echo "Running mypy..."
 uv run mypy
 
 # --- Code Quality Checks ---
-echo "Running code quality checks..."
-# Runs SonarQube for code quality checks
-uv sync --upgrade --all-groups
-uv run poetry lock --regenerate
+# The lockfiles were refreshed above; run any additional quality checks below.
 # uv run sonar-scanner -Dsonar.projectKey=sdd-cash-manager -Dsonar.sources=. -Dsonar.host.url=http://host.containers.internal:9000 -Dsonar.login=<toiken>
 # uv run pysonar --sonar-host-url=http://host.containers.internal:9000 --sonar-token=<token> --sonar-project-key=sdd-cash-manager || true
 

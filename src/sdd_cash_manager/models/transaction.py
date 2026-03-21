@@ -15,6 +15,12 @@ from sdd_cash_manager.models.enums import (
     ReconciliationStatus,
 )
 
+ACCOUNTS_ID_FOREIGN_KEY = "accounts.id"
+
+def _current_utc_time() -> datetime:
+    """Return the current UTC time with timezone awareness."""
+    return datetime.now(timezone.utc)
+
 
 def _coerce_decimal_value(value: Any, *, allow_none: bool = False) -> Decimal:
     if value is None:
@@ -36,13 +42,13 @@ class Entry(Base):
     id: Mapped[str] = mapped_column(
         String, primary_key=True, default=lambda: str(uuid.uuid4()))
     transaction_id: Mapped[str] = mapped_column(ForeignKey("transactions.id"))
-    account_id: Mapped[str] = mapped_column(ForeignKey("accounts.id"))
+    account_id: Mapped[str] = mapped_column(ForeignKey(ACCOUNTS_ID_FOREIGN_KEY))
     debit_amount: Mapped[Decimal] = mapped_column(
         nullable=False, default=Decimal(0.0))
     credit_amount: Mapped[Decimal] = mapped_column(
         nullable=False, default=Decimal(0.0))
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+        DateTime(timezone=True), default=_current_utc_time)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     def __init__(self, **kwargs: Any):
@@ -80,8 +86,8 @@ class Transaction(Base):
     description: Mapped[str] = mapped_column(String(255), nullable=False)
     # The amount of the transaction.
     amount: Mapped[Decimal] = mapped_column(nullable=False)
-    debit_account_id: Mapped[str] = mapped_column(ForeignKey("accounts.id"))
-    credit_account_id: Mapped[str] = mapped_column(ForeignKey("accounts.id"))
+    debit_account_id: Mapped[str] = mapped_column(ForeignKey(ACCOUNTS_ID_FOREIGN_KEY))
+    credit_account_id: Mapped[str] = mapped_column(ForeignKey(ACCOUNTS_ID_FOREIGN_KEY))
     # e.g., "Manual Adjustment", "Payment"
     action_type: Mapped[str] = mapped_column(String(50), nullable=False)
     processing_status: Mapped[ProcessingStatus] = mapped_column(
@@ -90,9 +96,12 @@ class Transaction(Base):
         String(50), default=ReconciliationStatus.PENDING_RECONCILIATION)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-    updated_at: Mapped[datetime] = mapped_column(DateTime(
-        timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
+        DateTime(timezone=True), default=_current_utc_time)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=_current_utc_time,
+        onupdate=_current_utc_time,
+    )
 
     # Relationships
     entries: Mapped[List["Entry"]] = relationship(

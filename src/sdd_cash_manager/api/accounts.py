@@ -2,7 +2,7 @@ import re
 from datetime import date, datetime
 from decimal import Decimal
 from enum import Enum
-from typing import Annotated
+from typing import Annotated, TypedDict
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -26,6 +26,7 @@ ALLOWED_CURRENCIES = {
 CONTROL_CHAR_PATTERN = re.compile(r"[\x00-\x1F\x7F]")
 NAME_ALLOWED_PATTERN = re.compile(r"^[A-Za-z0-9\s\.\,\-\_\(\)\&']+$")
 MAX_SEARCH_TERM_LENGTH = 100
+ACCOUNT_NOT_FOUND_DETAIL = "Account not found"
 
 NameField = Annotated[str, constr(strip_whitespace=True, min_length=1, max_length=100)]
 CurrencyField = Annotated[str, constr(pattern=r"^[A-Z]{3}$")]
@@ -39,6 +40,20 @@ OptionalCurrencyField = CurrencyField | None
 OptionalAccountNumberField = AccountNumberField | None
 OptionalBalanceField = BalanceField | None
 OptionalNotesField = NotesField | None
+
+
+class _AccountCreationPayload(TypedDict):
+    name: str
+    currency: str
+    accounting_category: str
+    account_number: str | None
+    banking_product_type: str
+    available_balance: Decimal
+    credit_limit: Decimal | None
+    notes: str | None
+    parent_account_id: str | None
+    hidden: bool
+    placeholder: bool
 
 def _validate_name_value(value: str) -> str:
     """Validate that the provided account name contains only supported characters.
@@ -248,6 +263,40 @@ def _quantize_amount(value: Decimal) -> Decimal:
     return value.quantize(Decimal("0.01"))
 
 
+def _normalize_banking_product_type(value: str | Enum) -> str:
+    """Return the string representation of banking product type payloads."""
+    if isinstance(value, Enum):
+        return str(value.value)
+    return value
+
+
+def _normalize_optional_balance(value: Decimal | None) -> Decimal | None:
+    """Quantize optional balance fields when provided."""
+    if value is None:
+        return None
+    return _quantize_amount(value)
+
+
+def _build_account_creation_kwargs(
+    account_data: AccountCreatePayload,
+    parent_account_id: str | None,
+) -> _AccountCreationPayload:
+    """Assemble consistent kwargs when creating a new account."""
+    return {
+        "name": account_data.name,
+        "currency": account_data.currency,
+        "accounting_category": account_data.accounting_category.value,
+        "account_number": account_data.account_number,
+        "banking_product_type": _normalize_banking_product_type(account_data.banking_product_type),
+        "available_balance": _quantize_amount(account_data.available_balance),
+        "credit_limit": _normalize_optional_balance(account_data.credit_limit),
+        "notes": account_data.notes,
+        "parent_account_id": parent_account_id,
+        "hidden": account_data.hidden,
+        "placeholder": account_data.placeholder,
+    }
+
+
 def _account_response_from_model(account: Account, account_service: AccountService) -> AccountResponse:
     """Return an AccountResponse while decrypting sensitive fields."""
     payload = account.__dict__.copy()
@@ -361,34 +410,10 @@ def create_account(
         current_user.subject,
     )
     parent_account_id = _ensure_parent_account_exists(account_service, account_data.parent_account_id)
-    available_balance_decimal = _quantize_amount(account_data.available_balance)
-    credit_limit_decimal = (
-        _quantize_amount(account_data.credit_limit)
-        if account_data.credit_limit is not None
-        else None
-    )
+    creation_kwargs = _build_account_creation_kwargs(account_data, parent_account_id)
 
     try:
-        # Normalize banking_product_type to a plain string (accept Enum or str)
-        banking_product_type_value = getattr(
-            account_data.banking_product_type,
-            "value",
-            account_data.banking_product_type,
-        )
-
-        new_account = account_service.create_account(
-            name=account_data.name,
-            currency=account_data.currency,
-            accounting_category=account_data.accounting_category.value,
-            account_number=account_data.account_number,
-            banking_product_type=banking_product_type_value,
-            available_balance=available_balance_decimal,
-            credit_limit=credit_limit_decimal,
-            notes=account_data.notes,
-            parent_account_id=parent_account_id,
-            hidden=account_data.hidden,
-            placeholder=account_data.placeholder
-        )
+        new_account = account_service.create_account(**creation_kwargs)
         logger.info(
             "Account created: id=%s name=%s user=%s",
             new_account.id,
@@ -501,7 +526,7 @@ def get_account_by_id(
     account = account_service.get_account(str(account_id))
     if account is None:
         logger.warning("Account id=%s not found", account_id)
-        raise HTTPException(status_code=404, detail="Account not found")
+        raise HTTPException(status_code=404, detail=ACCOUNT_NOT_FOUND_DETAIL)
     return _account_response_from_model(account, account_service)
 
 @router.put("/{account_id}", response_model=AccountResponse)
@@ -559,7 +584,7 @@ def update_account(
         raise HTTPException(status_code=500, detail="An unexpected error occurred while updating the account.") from None
 
     if updated_account is None:
-        raise HTTPException(status_code=404, detail="Account not found")
+        raise HTTPException(status_code=404, detail=ACCOUNT_NOT_FOUND_DETAIL)
 
     return _account_response_from_model(updated_account, account_service)
 
@@ -590,7 +615,7 @@ def delete_account(
             account_id,
             current_user.subject,
         )
-        raise HTTPException(status_code=404, detail="Account not found")
+        raise HTTPException(status_code=404, detail=ACCOUNT_NOT_FOUND_DETAIL)
     # No content to return on successful deletion
     return
 
