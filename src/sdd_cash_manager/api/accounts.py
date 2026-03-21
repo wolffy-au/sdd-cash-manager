@@ -1,5 +1,5 @@
 import re
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from enum import Enum
 from typing import Annotated, TypedDict
@@ -15,8 +15,24 @@ from sdd_cash_manager.database import get_db
 from sdd_cash_manager.lib.auth import Role, TokenPayload, require_role
 from sdd_cash_manager.lib.logging_config import get_logger
 from sdd_cash_manager.models.account import Account
+from sdd_cash_manager.models.account_merge_plan import AccountMergePlan
+from sdd_cash_manager.models.duplicate_candidate import DuplicateCandidate
+from sdd_cash_manager.models.quickfill_template import QuickFillTemplate
+from sdd_cash_manager.models.transaction import Transaction
 from sdd_cash_manager.schemas.account_schema import AccountResponse
-from sdd_cash_manager.schemas.transaction_schema import BalanceAdjustmentResponse
+from sdd_cash_manager.schemas.transaction_schema import (
+    AccountMergePlanRequest,
+    AccountMergePlanResponse,
+    ActionField,
+    BalanceAdjustmentResponse,
+    DuplicateCandidateResponse,
+    DuplicateMergeRequest,
+    DuplicateMergeResponse,
+    QuickFillTemplateResponse,
+    TransactionEntryResponse,
+    TransactionRequest,
+    TransactionResponse,
+)
 from sdd_cash_manager.services.account_service import AccountService
 from sdd_cash_manager.services.transaction_service import TransactionService
 
@@ -55,6 +71,7 @@ class _AccountCreationPayload(TypedDict):
     parent_account_id: str | None
     hidden: bool
     placeholder: bool
+    id: str | None
 
 def _validate_name_value(value: str) -> str:
     """Validate that the provided account name contains only supported characters.
@@ -172,6 +189,7 @@ class AccountCreatePayload(BaseModel):
     credit_limit: BalanceField | None = None
     notes: NotesField | None = None
     parent_account_id: UUID | None = None
+    id: str | None = None
     hidden: bool = False
     placeholder: bool = False
     available_balance: BalanceField = Decimal("0.0")
@@ -315,6 +333,7 @@ def _build_account_creation_kwargs(
         "parent_account_id": parent_account_id,
         "hidden": account_data.hidden,
         "placeholder": account_data.placeholder,
+        "id": str(account_data.id) if account_data.id is not None else None,
     }
 
 
@@ -335,6 +354,103 @@ def _account_response_from_model(account: Account, account_service: AccountServi
     hierarchy_balance = account_service.get_account_hierarchy_balance(account.id)
     payload["hierarchy_balance"] = float(hierarchy_balance)
     return AccountResponse(**payload)
+
+
+def _transaction_response_from_model(transaction: Transaction) -> TransactionResponse:
+    """Build a TransactionResponse that includes all ledger entries."""
+    entries = [
+        TransactionEntryResponse(
+            entry_id=entry.id,
+            account_id=entry.account_id,
+            debit_amount=entry.debit_amount,
+            credit_amount=entry.credit_amount,
+            notes=entry.notes,
+        )
+        for entry in transaction.entries
+    ]
+    return TransactionResponse(
+        transaction_id=transaction.id,
+        effective_date=transaction.effective_date,
+        booking_date=transaction.booking_date,
+        description=transaction.description,
+        action_type=transaction.action_type,
+        amount=transaction.amount,
+        debit_account_id=transaction.debit_account_id,
+        credit_account_id=transaction.credit_account_id,
+        processing_status=str(transaction.processing_status),
+        reconciliation_status=str(transaction.reconciliation_status),
+        notes=transaction.notes,
+        entries=entries,
+    )
+
+
+def _quickfill_template_response_from_model(template: QuickFillTemplate) -> QuickFillTemplateResponse:
+    """Serialize a QuickFill template for API responses."""
+    return QuickFillTemplateResponse(
+        id=template.id,
+        action=template.action,
+        currency=template.currency,
+        transfer_from_account_id=template.transfer_from_account_id,
+        transfer_to_account_id=template.transfer_to_account_id,
+        amount=template.amount,
+        memo=template.memo,
+        confidence_score=template.confidence_score,
+        history_count=template.history_count,
+        last_used_at=template.last_used_at,
+        is_approved=template.is_approved,
+        approved_at=template.approved_at,
+    )
+
+def _create_transaction_response_from_payload(
+    payload: TransactionRequest,
+    transaction_service: TransactionService,
+    current_user: TokenPayload,
+) -> TransactionResponse:
+    """Persist a transaction request and return the serialized response."""
+    description = payload.description or payload.action
+    description = _validate_text_field_no_special_chars(description, "description", "description contains invalid characters")
+    memo = payload.memo
+    if memo is not None:
+        memo = _validate_text_field_no_special_chars(memo, "memo", "memo contains invalid characters")
+
+    effective_date = datetime.combine(payload.date or date.today(), datetime.min.time(), tzinfo=timezone.utc)
+    booking_date = datetime.now(timezone.utc)
+
+    transaction = transaction_service.create_transaction(
+        effective_date=effective_date,
+        booking_date=booking_date,
+        description=description,
+        amount=payload.amount,
+        debit_account_id=str(payload.transfer_from),
+        credit_account_id=str(payload.transfer_to),
+        action_type=payload.action,
+        notes=memo,
+        currency=payload.currency,
+    )
+    logger.info(
+        "Transaction created txn=%s from=%s to=%s user=%s",
+        transaction.id,
+        transaction.debit_account_id,
+        transaction.credit_account_id,
+        current_user.subject,
+    )
+    return _transaction_response_from_model(transaction)
+
+
+def _handle_transaction_request(
+    payload: TransactionRequest,
+    transaction_service: TransactionService,
+    current_user: TokenPayload,
+) -> TransactionResponse:
+    """Wrap the transaction creation flow with HTTP-friendly error handling."""
+    try:
+        return _create_transaction_response_from_payload(payload, transaction_service, current_user)
+    except ValueError as exc:
+        logger.warning("Rejected transaction request: %s", exc)
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        logger.exception("Transaction creation failed for user=%s", current_user.subject)
+        raise HTTPException(status_code=500, detail="Unable to create transaction at this time.") from exc
 
 
 def _resolve_current_user(user: TokenPayload | object) -> TokenPayload:
@@ -378,7 +494,56 @@ def _get_transaction_service_impl(db: Session = db_dependency, account_service: 
 transaction_service_dependency = Depends(_get_transaction_service_impl)
 _operator_dependency = Depends(require_role(Role.OPERATOR))
 _viewer_dependency = Depends(require_role(Role.VIEWER))
+_admin_dependency = Depends(require_role(Role.ADMIN))
 logger = get_logger(__name__)
+
+def _duplicate_candidate_to_response(candidate: DuplicateCandidate) -> DuplicateCandidateResponse:
+    return DuplicateCandidateResponse(
+        candidate_id=candidate.id,
+        account_id=candidate.account_id,
+        scope=candidate.scope,
+        matching_transaction_ids=candidate.matching_transaction_ids,
+        amount=candidate.amount,
+        date=candidate.date,
+        description=candidate.description,
+        confidence=candidate.confidence,
+        status=candidate.status,
+    )
+
+
+def _duplicate_merge_response(
+    candidate: DuplicateCandidate,
+    canonical_id: str,
+    removed_transaction_ids: list[str],
+    before_balance: Decimal,
+    after_balance: Decimal,
+) -> DuplicateMergeResponse:
+    return DuplicateMergeResponse(
+        candidate_id=candidate.id,
+        canonical_transaction_id=canonical_id,
+        removed_transaction_ids=removed_transaction_ids,
+        before_balance=before_balance,
+        after_balance=after_balance,
+        status=candidate.status,
+    )
+
+
+def _account_merge_plan_response(plan: AccountMergePlan) -> AccountMergePlanResponse:
+    return AccountMergePlanResponse(
+        plan_id=plan.plan_id,
+        source_account_id=plan.source_account_id,
+        target_account_id=plan.target_account_id,
+        reparenting_map=plan.reparenting_map,
+        affected_entries_count=plan.affected_entries_count,
+        status=plan.status,
+        depth_validation_error=plan.depth_validation_error,
+        audit_notes=plan.audit_notes,
+        initiated_by=plan.initiated_by,
+        metadata=plan.plan_metadata,
+        created_at=plan.created_at,
+        updated_at=plan.updated_at,
+        executed_at=plan.executed_at,
+    )
 
 # --- Helper Utilities for Filters ---
 def _parse_bool_flag(value: str | None) -> bool | None:
@@ -418,6 +583,9 @@ def _apply_account_filters(
 
 # --- API Router ---
 router = APIRouter(prefix="/accounts", tags=["Accounts"])
+transactions_router = APIRouter(tags=["Transactions"])
+quickfill_router = APIRouter(prefix="/quickfill", tags=["QuickFill"])
+quickfill_router = APIRouter(prefix="/quickfill", tags=["QuickFill"])
 
 @router.get("/health", status_code=200, tags=["Monitoring"])
 def health_check():
@@ -673,7 +841,113 @@ def delete_account(
         raise HTTPException(status_code=404, detail=ACCOUNT_NOT_FOUND_DETAIL)
     # No content to return on successful deletion
 
-# --- Balance Adjustment Endpoint ---
+
+@router.post(
+    "/transactions/",
+    status_code=201,
+    response_model=TransactionResponse,
+    responses={
+        400: {"description": "Invalid transaction payload or account constraints violated."},
+        500: {"description": "Unexpected error while persisting the transaction."},
+    },
+)
+def create_transaction(
+    payload: TransactionRequest,
+    transaction_service: TransactionService = transaction_service_dependency,
+    _current_user: TokenPayload = _operator_dependency
+) -> TransactionResponse:
+    """Create a balanced debit/credit transaction and update account balances atomically."""
+    current_user = _resolve_current_user(_current_user)
+    return _handle_transaction_request(payload, transaction_service, current_user)
+
+
+@transactions_router.post(
+    "/transactions/",
+    status_code=201,
+    response_model=TransactionResponse,
+    responses={
+        400: {"description": "Invalid transaction payload or account constraints violated."},
+        500: {"description": "Unexpected error while persisting the transaction."},
+    },
+)
+def create_transaction_root(
+    payload: TransactionRequest,
+    transaction_service: TransactionService = transaction_service_dependency,
+    _current_user: TokenPayload = _operator_dependency
+) -> TransactionResponse:
+    """Create a balanced debit/credit transaction via the root-level contract endpoint."""
+    current_user = _resolve_current_user(_current_user)
+    return _handle_transaction_request(payload, transaction_service, current_user)
+
+
+@quickfill_router.get(
+    "/",
+    response_model=list[QuickFillTemplateResponse],
+    responses={
+        400: {"description": "Missing or invalid QuickFill filters."},
+        403: {"description": "Insufficient privileges to view pending templates."},
+        500: {"description": "Unable to compute QuickFill suggestions at this time."},
+    },
+)
+def get_quickfill_templates(
+    action: ActionField,
+    currency: CurrencyField,
+    query: str | None = None,
+    limit: int | None = 1,
+    include_unapproved: bool = False,
+    transaction_service: TransactionService = transaction_service_dependency,
+    _current_user: TokenPayload = _viewer_dependency,
+) -> list[QuickFillTemplateResponse]:
+    """Return QuickFill templates filtered by action/currency + optional memo query."""
+    current_user = _resolve_current_user(_current_user)
+    if include_unapproved and Role.ADMIN not in current_user.roles:
+        raise HTTPException(status_code=403, detail="Only administrators can inspect pending templates.")
+
+    normalized_limit = max(1, min(limit or 1, 25))
+
+    try:
+        candidates = transaction_service.rank_quickfill_candidates(
+            action_type=action,
+            currency=currency,
+            query=query,
+            limit=normalized_limit,
+            include_unapproved=include_unapproved,
+        )
+    except RuntimeError as exc:
+        logger.exception("QuickFill lookup failed for action=%s currency=%s", action, currency)
+        raise HTTPException(status_code=500, detail="Unable to fetch QuickFill suggestions at this time.") from exc
+
+    return [_quickfill_template_response_from_model(template) for template in candidates]
+
+
+@quickfill_router.post(
+    "/templates/{template_id}/approve",
+    response_model=QuickFillTemplateResponse,
+    responses={
+        400: {"description": "Invalid template identifier."},
+        404: {"description": "QuickFill template not found."},
+        500: {"description": "Approval workflow failed."},
+    },
+)
+def approve_quickfill_template(
+    template_id: str,
+    transaction_service: TransactionService = transaction_service_dependency,
+    _current_user: TokenPayload = _admin_dependency,
+) -> QuickFillTemplateResponse:
+    """Approve a QuickFill template for production use."""
+    current_user = _resolve_current_user(_current_user)
+    try:
+        template = transaction_service.approve_quickfill_template(
+            template_id,
+            approved_by=current_user.subject,
+        )
+        logger.info("QuickFill template %s approved by %s", template_id, current_user.subject)
+        return _quickfill_template_response_from_model(template)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        logger.exception("Failed to approve QuickFill template %s", template_id)
+        raise HTTPException(status_code=500, detail="Unable to approve QuickFill template at this time.") from exc
 
 @router.post(
     "/{account_id}/adjust_balance",
@@ -772,7 +1046,73 @@ def adjust_account_balance_alias(
 ) -> BalanceAdjustmentResponse:
     return adjust_account_balance(
         account_id=account_id,
-        request_data=request_data,
-        transaction_service=transaction_service,
-        _current_user=_current_user,
-    )
+    request_data=request_data,
+    transaction_service=transaction_service,
+    _current_user=_current_user,
+)
+
+
+@router.get(
+    "/duplicates/",
+    response_model=list[DuplicateCandidateResponse],
+    responses={400: {"description": "Missing required account_id or invalid scope."}},
+)
+def list_duplicate_candidates(
+    account_id: UUID,
+    limit: int = 25,
+    transaction_service: TransactionService = transaction_service_dependency,
+    _current_user: TokenPayload = _viewer_dependency,
+) -> list[DuplicateCandidateResponse]:
+    """List detected duplicates for a given account."""
+    try:
+        candidates = transaction_service.list_duplicate_candidates(account_id=str(account_id), limit=limit)
+        return [_duplicate_candidate_to_response(candidate) for candidate in candidates]
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post(
+    "/duplicates/merge",
+    response_model=DuplicateMergeResponse,
+    responses={400: {"description": "Invalid candidate or merge constraints violated."}},
+)
+def merge_duplicate_candidate(
+    payload: DuplicateMergeRequest,
+    transaction_service: TransactionService = transaction_service_dependency,
+    _current_user: TokenPayload = _operator_dependency,
+) -> DuplicateMergeResponse:
+    """Merge duplicate transactions into a single canonical entry."""
+    current_user = _resolve_current_user(_current_user)
+    try:
+        candidate, canonical_id, removed_ids, before_balance, after_balance = transaction_service.merge_duplicate_candidate(
+            payload.candidate_id,
+            preserve_audit=payload.preserve_audit,
+            merged_by=current_user.subject,
+        )
+        return _duplicate_merge_response(candidate, canonical_id, removed_ids, before_balance, after_balance)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post(
+    "/merge",
+    response_model=AccountMergePlanResponse,
+    responses={400: {"description": "Invalid merge plan or depth violation."}},
+)
+def merge_accounts(
+    payload: AccountMergePlanRequest,
+    account_service: AccountService = account_service_dependency,
+    transaction_service: TransactionService = transaction_service_dependency,
+    _current_user: TokenPayload = _operator_dependency,
+) -> AccountMergePlanResponse:
+    """Merge one account into another while preserving balances and hierarchy integrity."""
+    current_user = _resolve_current_user(_current_user)
+    try:
+        plan = account_service.merge_accounts(
+            payload,
+            transaction_service,
+            executed_by=current_user.subject,
+        )
+        return _account_merge_plan_response(plan)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc

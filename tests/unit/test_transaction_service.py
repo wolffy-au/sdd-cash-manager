@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from sdd_cash_manager.models.account import Account
 from sdd_cash_manager.models.base import Base
 from sdd_cash_manager.models.enums import AccountingCategory, ProcessingStatus, ReconciliationStatus
+from sdd_cash_manager.models.quickfill_template import QuickFillTemplate
 from sdd_cash_manager.models.transaction import Entry, Transaction
 from sdd_cash_manager.services.account_service import AccountService
 from sdd_cash_manager.services.transaction_service import BALANCING_ACCOUNT_ID, TransactionService
@@ -94,6 +95,7 @@ def setup_accounts(db_session, account_service):
         available_balance=Decimal("500.00")
     )
     # Create a balancing account for adjustments
+    account_service.delete_account(BALANCING_ACCOUNT_ID)
     balancing_acc = account_service.create_account(
         name="Balancing Account",
         currency="USD",
@@ -642,3 +644,53 @@ def test_perform_balance_adjustment_unexpected_error(transaction_service, accoun
             action_type="Adjust"
         )
     db_session.rollback()
+
+
+def test_quickfill_candidate_created_after_transaction(transaction_service, db_session, setup_accounts):
+    acc1, acc2, _ = setup_accounts
+    now = datetime.now(timezone.utc)
+
+    transaction_service.create_transaction(
+        effective_date=now,
+        booking_date=now,
+        description="QuickFill seed entry",
+        amount=Decimal("75.00"),
+        debit_account_id=acc1.id,
+        credit_account_id=acc2.id,
+        action_type="Repeat",
+        currency="USD",
+        notes="memo quickfill",
+    )
+    db_session.commit()
+
+    template = db_session.scalars(select(QuickFillTemplate)).one()
+    assert template.action == "Repeat"
+    assert template.history_count == 1
+    assert template.source_transaction_id is not None
+    assert not template.is_approved
+
+
+def test_quickfill_history_increments_and_can_be_approved(transaction_service, db_session, setup_accounts):
+    acc1, acc2, _ = setup_accounts
+    now = datetime.now(timezone.utc)
+
+    for offset in range(2):
+        transaction_service.create_transaction(
+            effective_date=now,
+            booking_date=now,
+            description=f"QuickFill repetition {offset}",
+            amount=Decimal("80.00"),
+            debit_account_id=acc1.id,
+            credit_account_id=acc2.id,
+            action_type="Batch",
+            currency="USD",
+            notes="memo quickfill",
+        )
+    db_session.commit()
+
+    template = db_session.scalars(select(QuickFillTemplate)).one()
+    assert template.history_count == 2
+    approved_template = transaction_service.approve_quickfill_template(template.id, approved_by="tester")
+    assert approved_template.is_approved
+    assert approved_template.approved_at is not None
+    assert approved_template.confidence_score > Decimal("0")

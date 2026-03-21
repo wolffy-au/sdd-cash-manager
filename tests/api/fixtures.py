@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import asyncio
 import uuid
-from typing import AsyncGenerator
+from typing import AsyncGenerator, cast
 
 import pytest
-from httpx import AsyncClient
+from httpx import AsyncClient, HTTPStatusError
 
 from sdd_cash_manager.services.transaction_service import BALANCING_ACCOUNT_ID
 
@@ -42,13 +42,21 @@ async def _cleanup_accounts(client: AsyncClient, headers: dict[str, str], accoun
 
 
 async def _seed_balancing_account(client: AsyncClient, headers: dict[str, str]) -> dict[str, object]:
-    return await _create_account(
-        client,
-        headers,
-        name="balancing-account",
-        id=BALANCING_ACCOUNT_ID,
-        available_balance="0.00",
-    )
+    await client.delete(f"/accounts/{BALANCING_ACCOUNT_ID}", headers=headers)
+    try:
+        return await _create_account(
+            client,
+            headers,
+            name="balancing-account",
+            id=BALANCING_ACCOUNT_ID,
+            available_balance="0.00",
+        )
+    except HTTPStatusError as exc:
+        if exc.response.status_code == 500:
+            existing_response = await client.get(f"/accounts/{BALANCING_ACCOUNT_ID}", headers=headers)
+            existing_response.raise_for_status()
+            return cast(dict[str, object], existing_response.json())
+        raise
 
 
 async def _seed_hidden_account(client: AsyncClient, headers: dict[str, str]) -> dict[str, object]:

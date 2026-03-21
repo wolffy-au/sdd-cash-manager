@@ -3,20 +3,25 @@ from dataclasses import dataclass
 from datetime import date, datetime, time, timezone  # using timezone.utc for timezone-aware snapshots
 from decimal import Decimal
 from enum import Enum
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any, Callable
 
-from sqlalchemy import Select, and_, delete, func, or_, select
+from sqlalchemy import Select, and_, delete, func, or_, select, update
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import ColumnElement
 
 from sdd_cash_manager.lib.encryption import SensitiveDataCipher
-from sdd_cash_manager.lib.security_events import log_critical_application_error  # New import
+from sdd_cash_manager.lib.security_events import log_account_merge, log_critical_application_error  # New import
 from sdd_cash_manager.lib.utils import quantize_currency
 from sdd_cash_manager.models.account import Account
+from sdd_cash_manager.models.account_merge_plan import AccountMergePlan
 from sdd_cash_manager.models.adjustment import AdjustmentTransaction, ManualBalanceAdjustment
 from sdd_cash_manager.models.enums import AccountingCategory, BankingProductType, ReconciliationStatus
 from sdd_cash_manager.models.reconciliation import ReconciliationViewEntry
 from sdd_cash_manager.models.transaction import Entry, Transaction
+from sdd_cash_manager.schemas.transaction_schema import AccountMergePlanRequest
+
+if TYPE_CHECKING:
+    from sdd_cash_manager.services.transaction_service import TransactionService
 
 type AccountFieldValue = str | Decimal | float | bool | None
 
@@ -574,6 +579,110 @@ class AccountService:
                 .where(Transaction.id.in_(transaction_ids))
             )
         session.flush()
+
+    def merge_accounts(  # noqa: C901
+        self,
+        plan_request: AccountMergePlanRequest,
+        transaction_service: "TransactionService",
+        *,
+        executed_by: str | None = None,
+        session: Session | None = None
+    ) -> AccountMergePlan:
+        """Reparent accounts and reassign entries/transactions during a planned merge."""
+        if not self._use_db:
+            raise RuntimeError("Account merges require database persistence.")
+
+        active_session, close_session = (session, False) if session else self._acquire_session()
+        try:
+            source = active_session.get(Account, plan_request.source_account_id)
+            target = active_session.get(Account, plan_request.target_account_id)
+            if source is None or target is None:
+                raise ValueError("Source or target account not found.")
+
+            plan = AccountMergePlan(
+                source_account_id=source.id,
+                target_account_id=target.id,
+                reparenting_map=plan_request.reparenting_map or {},
+                audit_notes=plan_request.audit_notes,
+                initiated_by=plan_request.initiated_by,
+                metadata=plan_request.metadata,
+            )
+            active_session.add(plan)
+            active_session.flush()
+
+            valid, message = transaction_service.validate_merge_depth(source.id, target.id)
+            if not valid:
+                plan.depth_validation_error = message
+                plan.status = "rejected"
+                active_session.flush()
+                raise ValueError(message)
+
+            explicit_children: set[str] = set()
+            for child_id, new_parent in (plan_request.reparenting_map or {}).items():
+                child = active_session.get(Account, child_id)
+                if child is None:
+                    raise ValueError(f"Child account {child_id} not found.")
+                if new_parent not in (child.parent_account_id, target.id, source.id):
+                    parent = active_session.get(Account, new_parent)
+                    if parent is None:
+                        raise ValueError(f"Reparent target {new_parent} not found.")
+                child.parent_account_id = new_parent
+                explicit_children.add(child_id)
+
+            direct_children = active_session.scalars(
+                select(Account).where(Account.parent_account_id == source.id)
+            ).all()
+            for child in direct_children:
+                if child.id in explicit_children:
+                    continue
+                child.parent_account_id = target.id
+
+            entry_count = active_session.scalar(
+                select(func.count()).where(Entry.account_id == source.id)
+            ) or 0
+
+            active_session.execute(
+                update(Entry).where(Entry.account_id == source.id).values(account_id=target.id)
+            )
+            active_session.execute(
+                update(Transaction).where(Transaction.debit_account_id == source.id).values(debit_account_id=target.id)
+            )
+            active_session.execute(
+                update(Transaction).where(Transaction.credit_account_id == source.id).values(credit_account_id=target.id)
+            )
+
+            source.hidden = True
+            source.placeholder = True
+            source.parent_account_id = target.id
+
+            plan.affected_entries_count = int(entry_count)
+            plan.status = "executed"
+            plan.executed_at = datetime.now(timezone.utc)
+            active_session.flush()
+
+            log_account_merge(
+                plan.plan_id,
+                source.id,
+                target.id,
+                executed_by=executed_by or plan_request.initiated_by,
+                reparenting_map=plan_request.reparenting_map,
+                affected_entries_count=plan.affected_entries_count,
+                status=plan.status,
+            )
+
+            self._invalidate_hierarchy_cache()
+            return plan
+        except (ValueError, RuntimeError):
+            raise
+        except Exception as exc:
+            log_critical_application_error(
+                f"Failed to merge accounts {plan_request.source_account_id} -> {plan_request.target_account_id}: {exc}",
+                metadata={"service": "AccountService"},
+            )
+            raise RuntimeError("Account merge failed due to unexpected error.") from exc
+        finally:
+            if close_session and active_session is not None:
+                active_session.close()
 
     def search_accounts_by_name(
         self,

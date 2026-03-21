@@ -3,6 +3,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from sdd_cash_manager.api.accounts import quickfill_router, transactions_router
 from sdd_cash_manager.api.accounts import router as accounts_router
 from sdd_cash_manager.database import create_tables
 
@@ -27,6 +28,8 @@ app.add_middleware(
 # Include routers
 # routers already define their own prefixes
 app.include_router(accounts_router)
+app.include_router(transactions_router)
+app.include_router(quickfill_router)
 
 
 @app.get("/health")
