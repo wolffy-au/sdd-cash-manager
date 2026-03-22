@@ -519,6 +519,7 @@ if _exception_handler is not None:
     status_code=201,
     responses={
         400: {"description": "Invalid account details or missing/invalid parent account reference."},
+        401: {"description": "Authentication required."},
         500: {"description": "Unexpected error while creating the account."},
     },
 )
@@ -556,7 +557,10 @@ def create_account(
 
 @router.get(
     "/",
-    responses={400: {"description": "Search term exceeds the allowed length or contains invalid characters."}},
+    responses={
+        400: {"description": "Search term exceeds the allowed length or contains invalid characters."},
+        401: {"description": "Authentication required."},
+    },
 )
 def get_accounts(
     search_term: str | None = None,
@@ -593,7 +597,10 @@ def get_accounts(
 
 @router.get(
     "/{account_id}",
-    responses={404: {"description": ACCOUNT_NOT_FOUND_DETAIL}},
+    responses={
+        401: {"description": "Authentication required."},
+        404: {"description": ACCOUNT_NOT_FOUND_DETAIL},
+    },
 )
 def get_account_by_id(
     account_id: UUID,
@@ -615,6 +622,7 @@ def get_account_by_id(
         400: {"description": "Invalid update payload or missing/invalid parent reference."},
         404: {"description": ACCOUNT_NOT_FOUND_DETAIL},
         500: {"description": "Unexpected error while updating the account."},
+        401: {"description": "Authentication required."},
     },
 )
 def update_account(
@@ -665,7 +673,10 @@ def update_account(
 @router.delete(
     "/{account_id}",
     status_code=204,
-    responses={404: {"description": ACCOUNT_NOT_FOUND_DETAIL}},
+    responses={
+        401: {"description": "Authentication required."},
+        404: {"description": ACCOUNT_NOT_FOUND_DETAIL},
+    },
 )
 def delete_account(
     account_id: UUID,
@@ -687,9 +698,9 @@ def delete_account(
 @router.post(
     "/transactions/",
     status_code=201,
-    response_model=TransactionResponse,
     responses={
         400: {"description": "Invalid transaction payload or account constraints violated."},
+        401: {"description": "Authentication required."},
         500: {"description": "Unexpected error while persisting the transaction."},
     },
 )
@@ -705,9 +716,9 @@ def create_transaction(
 @transactions_router.post(
     "/transactions/",
     status_code=201,
-    response_model=TransactionResponse,
     responses={
         400: {"description": "Invalid transaction payload or account constraints violated."},
+        401: {"description": "Authentication required."},
         500: {"description": "Unexpected error while persisting the transaction."},
     },
 )
@@ -724,6 +735,7 @@ def create_transaction_root(
     "/{account_id}/adjust_balance",
     responses={
         400: {"description": "Invalid adjustment payload or the target balance matches the current value."},
+        401: {"description": "Authentication required."},
         500: {"description": "Unexpected error while adjusting the account balance."},
     },
 )
@@ -788,6 +800,7 @@ def adjust_account_balance(
     "/{account_id}/adjustment",
     responses={
         400: {"description": "Invalid adjustment payload or the target balance matches the current value."},
+        401: {"description": "Authentication required."},
         500: {"description": "Unexpected error while adjusting the account balance."},
     },
 )
@@ -806,8 +819,10 @@ def adjust_account_balance_alias(
 
 @router.get(
     "/duplicates/",
-    response_model=list[DuplicateCandidateResponse],
-    responses={400: {"description": "Missing required account_id or invalid scope."}},
+    responses={
+        400: {"description": "Missing required account_id or invalid scope."},
+        401: {"description": "Authentication required."},
+    },
 )
 def list_duplicate_candidates(
     account_id: UUID,
@@ -824,8 +839,10 @@ def list_duplicate_candidates(
 
 @router.post(
     "/duplicates/merge",
-    response_model=DuplicateMergeResponse,
-    responses={400: {"description": "Invalid candidate or merge constraints violated."}},
+    responses={
+        400: {"description": "Invalid candidate or merge constraints violated."},
+        401: {"description": "Authentication required."},
+    },
 )
 def merge_duplicate_candidate(
     payload: DuplicateMergeRequest,
@@ -846,8 +863,10 @@ def merge_duplicate_candidate(
 
 @router.post(
     "/merge",
-    response_model=AccountMergePlanResponse,
-    responses={400: {"description": "Invalid merge plan or depth violation."}},
+    responses={
+        400: {"description": "Invalid merge plan or depth violation."},
+        401: {"description": "Authentication required."},
+    },
 )
 def merge_accounts(
     payload: AccountMergePlanRequest,
@@ -874,9 +893,9 @@ def merge_accounts(
 
 @quickfill_router.get(
     "/",
-    response_model=list[QuickFillTemplateResponse],
     responses={
         400: {"description": "Missing or invalid QuickFill filters."},
+        401: {"description": "Authentication required."},
         403: {"description": "Insufficient privileges to view pending templates."},
         500: {"description": "Unable to compute QuickFill suggestions at this time."},
     },
@@ -913,9 +932,9 @@ def get_quickfill_templates(
 
 @quickfill_router.post(
     "/templates/{template_id}/approve",
-    response_model=QuickFillTemplateResponse,
     responses={
         400: {"description": "Invalid template identifier."},
+        401: {"description": "Authentication required."},
         404: {"description": "QuickFill template not found."},
         500: {"description": "Approval workflow failed."},
     },
@@ -932,12 +951,12 @@ def approve_quickfill_template(
             template_id,
             approved_by=current_user.subject,
         )
-        logger.info("QuickFill template %s approved by %s", template_id, current_user.subject)
+        logger.info("QuickFill template approval recorded via API")
         return _quickfill_template_response_from_model(template)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except RuntimeError as exc:
-        logger.exception("Failed to approve QuickFill template %s", template_id)
+        logger.exception("Failed to approve QuickFill template")
         raise HTTPException(status_code=500, detail="Unable to approve QuickFill template at this time.") from exc
 
 # --- Mount the routers ---

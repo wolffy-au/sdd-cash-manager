@@ -77,7 +77,9 @@ def _send_security_alert(event_type: SecurityEvent, message: str, event_data: di
     # In a real system, this would integrate with an alerting platform
     # For now, just log a critical message that an alert *would* be sent.
     security_logger.critical(
-        f"!!! SECURITY ALERT !!! Type: {event_type.value}, Message: {message}, Data: {event_data}"
+        "!!! SECURITY ALERT !!! Type: %s",
+        event_type.value,
+        extra={"alert_message": message, "alert_data": event_data},
     )
     # Further actions could include:
     # - Sending email to security team
@@ -233,7 +235,11 @@ def log_critical_application_error(
         "account_id": account_id,
         "metadata": metadata or {}
     }
-    security_logger.error(event_data, exc_info=exc_info)
+    security_logger.error(
+        "Critical application error recorded",
+        exc_info=exc_info,
+        extra={"event_data": event_data, "event_message": message},
+    )
 
     if settings.security_alerts_enabled:
         _send_security_alert(event_type, message, event_data)

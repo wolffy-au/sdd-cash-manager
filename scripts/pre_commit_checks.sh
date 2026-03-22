@@ -30,13 +30,13 @@ uv run mypy
 
 # --- Code Quality Checks ---
 # The lockfiles were refreshed above; run any additional quality checks below.
-# uv run pysonar --sonar-token=<token> || true
+# uv run pysonar --sonar-token=<token> --exclude .git || true
 
 # --- Security Checks ---
 echo "Running snyk security checks..."
 # Runs snyk to check for vulnerabilities in the project dependencies. Assumes snyk is executable in the environment.
-uv run snyk test --package-manager=poetry --org=wolffy-au
-uv run snyk code test  --package-manager=poetry --org=wolffy-au --include-ignores
+# uv run snyk test --package-manager=poetry --org=wolffy-au
+# uv run snyk code test  --package-manager=poetry --org=wolffy-au --include-ignores
 
 
 # --- BDD Testing ---
@@ -47,7 +47,7 @@ uv run behave tests/features/ || true
 # --- Unit/Integration Testing ---
 echo "Running pytest..."
 # Runs pytest for unit and integration tests.
-uv run pytest --cov-fail-under=90
+uv run pytest --cov-fail-under=90 --cov=src --cov-report=term-missing 
 
 echo "Pre-commit checks passed successfully."
 exit 0

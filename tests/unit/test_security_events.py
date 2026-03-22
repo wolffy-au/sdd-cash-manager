@@ -145,8 +145,9 @@ def test_log_critical_application_error(mock_security_logger, mock_send_alert, m
 
     mock_security_logger.error.assert_called_once()
     args, kwargs = mock_security_logger.error.call_args
-    assert args[0]["event_type"] == SecurityEvent.SYSTEM_ALERT.value
-    assert args[0]["message"] == "An unexpected error occurred in service"
+    assert args[0] == "Critical application error recorded"
+    assert kwargs["extra"]["event_data"]["event_type"] == SecurityEvent.SYSTEM_ALERT.value
+    assert kwargs["extra"]["event_data"]["message"] == "An unexpected error occurred in service"
     assert kwargs["exc_info"] is True
 
     mock_send_alert.assert_called_once()

@@ -599,10 +599,12 @@ class AccountService:
             if source is None or target is None:
                 raise ValueError("Source or target account not found.")
 
+            reparent_map = plan_request.reparenting_map or {}
+
             plan = AccountMergePlan(
                 source_account_id=source.id,
                 target_account_id=target.id,
-                reparenting_map=plan_request.reparenting_map or {},
+                reparenting_map=reparent_map,
                 audit_notes=plan_request.audit_notes,
                 initiated_by=plan_request.initiated_by,
                 metadata=plan_request.metadata,
@@ -617,45 +619,29 @@ class AccountService:
                 active_session.flush()
                 raise ValueError(message)
 
-            explicit_children: set[str] = set()
-            for child_id, new_parent in (plan_request.reparenting_map or {}).items():
-                child = active_session.get(Account, child_id)
-                if child is None:
-                    raise ValueError(f"Child account {child_id} not found.")
-                if new_parent not in (child.parent_account_id, target.id, source.id):
-                    parent = active_session.get(Account, new_parent)
-                    if parent is None:
-                        raise ValueError(f"Reparent target {new_parent} not found.")
-                child.parent_account_id = new_parent
-                explicit_children.add(child_id)
-
-            direct_children = active_session.scalars(
-                select(Account).where(Account.parent_account_id == source.id)
-            ).all()
-            for child in direct_children:
-                if child.id in explicit_children:
-                    continue
-                child.parent_account_id = target.id
-
-            entry_count = active_session.scalar(
-                select(func.count()).where(Entry.account_id == source.id)
-            ) or 0
-
-            active_session.execute(
-                update(Entry).where(Entry.account_id == source.id).values(account_id=target.id)
+            explicit_children = self._reparent_explicit_children(
+                active_session,
+                reparent_map,
+                source.id,
+                target.id,
             )
-            active_session.execute(
-                update(Transaction).where(Transaction.debit_account_id == source.id).values(debit_account_id=target.id)
+            self._reparent_remaining_children(
+                active_session,
+                source.id,
+                target.id,
+                explicit_children,
             )
-            active_session.execute(
-                update(Transaction).where(Transaction.credit_account_id == source.id).values(credit_account_id=target.id)
+            entry_count = self._transfer_entries_and_transactions(
+                active_session,
+                source.id,
+                target.id,
             )
 
             source.hidden = True
             source.placeholder = True
             source.parent_account_id = target.id
 
-            plan.affected_entries_count = int(entry_count)
+            plan.affected_entries_count = entry_count
             plan.status = "executed"
             plan.executed_at = datetime.now(timezone.utc)
             active_session.flush()
@@ -665,7 +651,7 @@ class AccountService:
                 source.id,
                 target.id,
                 executed_by=executed_by or plan_request.initiated_by,
-                reparenting_map=plan_request.reparenting_map,
+                reparenting_map=reparent_map,
                 affected_entries_count=plan.affected_entries_count,
                 status=plan.status,
             )
@@ -683,6 +669,62 @@ class AccountService:
         finally:
             if close_session and active_session is not None:
                 active_session.close()
+
+    def _reparent_explicit_children(
+        self,
+        session: Session,
+        reparenting_map: dict[str, str],
+        source_id: str,
+        target_id: str,
+    ) -> set[str]:
+        explicit_children: set[str] = set()
+        for child_id, new_parent in reparenting_map.items():
+            child = session.get(Account, child_id)
+            if child is None:
+                raise ValueError(f"Child account {child_id} not found.")
+            if new_parent not in (child.parent_account_id, target_id, source_id):
+                parent = session.get(Account, new_parent)
+                if parent is None:
+                    raise ValueError(f"Reparent target {new_parent} not found.")
+            child.parent_account_id = new_parent
+            explicit_children.add(child_id)
+        return explicit_children
+
+    def _reparent_remaining_children(
+        self,
+        session: Session,
+        source_id: str,
+        target_id: str,
+        excluded_children: set[str],
+    ) -> None:
+        direct_children = session.scalars(
+            select(Account).where(Account.parent_account_id == source_id)
+        ).all()
+        for child in direct_children:
+            if child.id in excluded_children:
+                continue
+            child.parent_account_id = target_id
+
+    def _transfer_entries_and_transactions(
+        self,
+        session: Session,
+        source_id: str,
+        target_id: str,
+    ) -> int:
+        entry_count = session.scalar(
+            select(func.count()).where(Entry.account_id == source_id)
+        ) or 0
+
+        session.execute(
+            update(Entry).where(Entry.account_id == source_id).values(account_id=target_id)
+        )
+        session.execute(
+            update(Transaction).where(Transaction.debit_account_id == source_id).values(debit_account_id=target_id)
+        )
+        session.execute(
+            update(Transaction).where(Transaction.credit_account_id == source_id).values(credit_account_id=target_id)
+        )
+        return int(entry_count)
 
     def search_accounts_by_name(
         self,
