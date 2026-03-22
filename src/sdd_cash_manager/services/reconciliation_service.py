@@ -1,8 +1,9 @@
 from datetime import date, timedelta
 from decimal import Decimal
+from typing import Any
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -129,6 +130,7 @@ class ReconciliationService:
         )
         session.add(session_obj)
         session.flush()
+        session.commit()
         return session_obj
 
     def add_transactions_to_session(
@@ -136,7 +138,7 @@ class ReconciliationService:
         session: Session,
         reconciliation_session_id: str,
         transaction_ids: list[str],
-    ) -> ReconciliationSession:
+    ) -> tuple[ReconciliationSession, dict[str, Any]]:
         session_obj = session.get(ReconciliationSession, reconciliation_session_id)
         if session_obj is None:
             raise ValueError(f"ReconciliationSession {reconciliation_session_id} not found")
@@ -156,9 +158,20 @@ class ReconciliationService:
         new_difference = self._recalculate_difference(session_obj)
         if new_difference == Decimal("0"):
             session_obj.state = ReconciliationSessionState.COMPLETED
+            for txn in transactions:
+                txn.reconciliation_status = ReconciliationStatus.RECONCILED
+                session.add(txn)
 
         session.flush()
-        return session_obj
+        remaining = self._count_remaining_uncleared(session)
+        payload = {
+            "difference": new_difference,
+            "difference_status": self._difference_status(new_difference),
+            "remaining_uncleared": remaining,
+            "guidance": self._guidance_message(new_difference),
+        }
+        session.commit()
+        return session_obj, payload
 
     def get_unreconciled_transactions(
         self,
@@ -167,10 +180,15 @@ class ReconciliationService:
     ) -> list[Transaction]:
         stmt = select(Transaction).where(
             Transaction.processing_status.in_(
-                [ProcessingStatus.PENDING, ProcessingStatus.COMPLETED]
+                [
+                    ProcessingStatus.PENDING,
+                    ProcessingStatus.COMPLETED,
+                    ProcessingStatus.POSTED,
+                ]
             ),
             Transaction.reconciliation_status.in_(
                 [
+                    ReconciliationStatus.PENDING_RECONCILIATION,
                     ReconciliationStatus.UNCLEARED,
                     ReconciliationStatus.CLEARED,
                 ]
@@ -203,3 +221,24 @@ class ReconciliationService:
         stmt = select(BankStatementSnapshot).order_by(BankStatementSnapshot.closing_date.desc())
         snapshot = session.scalars(stmt).first()
         return snapshot.transaction_cutoff if snapshot else None
+
+    def _difference_status(self, value: Decimal) -> str:
+        if value == Decimal("0"):
+            return "balanced"
+        if value > Decimal("0"):
+            return "positive"
+        return "negative"
+
+    def _guidance_message(self, difference: Decimal) -> str | None:
+        if difference == Decimal("0"):
+            return "All selected transactions have been reconciled."
+        if difference > Decimal("0"):
+            return "Review missing transactions or adjust the ending balance downward."
+        return "Verify you have not overselected transactions or adjust the statement balance upward."
+
+    def _count_remaining_uncleared(self, session: Session) -> int:
+        stmt = select(func.count()).select_from(Transaction).where(
+            Transaction.reconciliation_status == ReconciliationStatus.UNCLEARED
+        )
+        result = session.scalar(stmt)
+        return int(result or 0)
