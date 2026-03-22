@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Any, List
+from typing import TYPE_CHECKING, Any, List
 
 from sqlalchemy import DateTime, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -14,6 +14,9 @@ from sdd_cash_manager.models.enums import (
     ProcessingStatus,
     ReconciliationStatus,
 )
+
+if TYPE_CHECKING:
+    from sdd_cash_manager.models.reconciliation_session import ReconciliationSession
 
 ACCOUNTS_ID_FOREIGN_KEY = "accounts.id"
 
@@ -110,6 +113,12 @@ class Transaction(Base):
                                                     debit_account_id], post_update=True)  # Explicit foreign_keys, string literal
     credit_account: Mapped["Account"] = relationship("Account", foreign_keys=[
                                                      credit_account_id], post_update=True)  # Explicit foreign_keys, string literal
+    reconciliation_sessions: Mapped[List["ReconciliationSession"]] = relationship(
+        "ReconciliationSession",
+        secondary="reconciliation_session_transactions",
+        back_populates="transactions",
+        lazy="selectin",
+    )
 
     def __init__(self, **kw: Any):
         entries = kw.pop("entries", None)

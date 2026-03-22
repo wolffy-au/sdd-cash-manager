@@ -44,6 +44,7 @@ class ProcessingStatus(str, Enum):
     Enum for the processing status of financial operations.
     """
     PENDING = "Pending"
+    COMPLETED = "Completed"
     POSTED = "Posted"
     FAILED = "Failed"
     CANCELLED = "Cancelled"
@@ -55,4 +56,6 @@ class ReconciliationStatus(str, Enum):
     PENDING_RECONCILIATION = "Pending Reconciliation"
     RECONCILED = "Reconciled"
     UNRECONCILED = "Unreconciled"
+    UNCLEARED = "Uncleared"
+    CLEARED = "Cleared"
     ZERO_DIFFERENCE = "ZERO_DIFFERENCE"

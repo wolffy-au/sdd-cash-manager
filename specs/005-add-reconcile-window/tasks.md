@@ -21,11 +21,11 @@ description: "Task list for implementing the Reconcile Window feature"
 
 **Purpose**: Build the data and service foundation that every user story relies on.
 
-- [ ] T004 Create `src/sdd_cash_manager/models/reconciliation_session.py` to persist statement metadata, ending balance, difference, and lifecycle state for each reconciliation attempt (models directory).
-- [ ] T005 Export `ReconciliationSession` and the new `BankStatementSnapshot` models from `src/sdd_cash_manager/models/__init__.py` so other modules can import them consistently (models/__init__.py).
-- [ ] T006 Extend `src/sdd_cash_manager/models/enums.py` with `ProcessingStatus.COMPLETED`, `ReconciliationStatus.UNCLEARED`, `ReconciliationStatus.CLEARED`, and helper functions so the service layer can filter status values matching the feature spec (models/enums.py).
-- [ ] T007 Add `src/sdd_cash_manager/models/bank_statement_snapshot.py` with fields for `closing_date`, `closing_balance`, `statement_id`, and `transaction_cutoff` to capture the horizon of each statement window (models directory).
-- [ ] T008 Expand `src/sdd_cash_manager/services/reconciliation_service.py` with helper methods that query `Transaction` rows filtered by the new statuses, persist `ReconciliationSession` records, and recalculate the Difference as selections are applied (services/reconciliation_service.py).
+- [x] T004 Create `src/sdd_cash_manager/models/reconciliation_session.py` to persist statement metadata, ending balance, difference, and lifecycle state for each reconciliation attempt (models directory).
+- [x] T005 Export `ReconciliationSession` and the new `BankStatementSnapshot` models from `src/sdd_cash_manager/models/__init__.py` so other modules can import them consistently (models/__init__.py).
+- [x] T006 Extend `src/sdd_cash_manager/models/enums.py` with `ProcessingStatus.COMPLETED`, `ReconciliationStatus.UNCLEARED`, `ReconciliationStatus.CLEARED`, and helper functions so the service layer can filter status values matching the feature spec (models/enums.py).
+- [x] T007 Add `src/sdd_cash_manager/models/bank_statement_snapshot.py` with fields for `closing_date`, `closing_balance`, `statement_id`, and `transaction_cutoff` to capture the horizon of each statement window (models directory).
+- [x] T008 Expand `src/sdd_cash_manager/services/reconciliation_service.py` with helper methods that query `Transaction` rows filtered by the new statuses, persist `ReconciliationSession` records, and recalculate the Difference as selections are applied (services/reconciliation_service.py).
 
 ---
 

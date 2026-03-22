@@ -1,12 +1,21 @@
+from datetime import date, timedelta
 from decimal import Decimal
 from uuid import UUID
 
+from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from sdd_cash_manager.lib.utils import quantize_currency
 from sdd_cash_manager.models.adjustment import AdjustmentTransaction, ManualBalanceAdjustment
-from sdd_cash_manager.models.enums import ReconciliationStatus
+from sdd_cash_manager.models.enums import ProcessingStatus, ReconciliationStatus
 from sdd_cash_manager.models.reconciliation import ReconciliationViewEntry
+from sdd_cash_manager.models.reconciliation_session import (
+    BankStatementSnapshot,
+    ReconciliationSession,
+    ReconciliationSessionState,
+)
+from sdd_cash_manager.models.transaction import Transaction
 
 
 class ReconciliationService:
@@ -96,4 +105,101 @@ class ReconciliationService:
             .filter(ReconciliationViewEntry.account_id == account_id_value)
             .all()
         )
-    # Add other methods for fetching, updating reconciliation entries if needed
+
+    def _recalculate_difference(self, session_obj: ReconciliationSession) -> Decimal:
+        total = sum((transaction.amount for transaction in session_obj.transactions), Decimal("0"))
+        new_difference = quantize_currency(session_obj.ending_balance - total)
+        session_obj.difference = new_difference
+        return new_difference
+
+    def create_reconciliation_session(
+        self,
+        session: Session,
+        statement_date: date,
+        ending_balance: Decimal,
+        created_by: str | None = None,
+    ) -> ReconciliationSession:
+        quantized_balance = quantize_currency(ending_balance)
+        session_obj = ReconciliationSession(
+            statement_date=statement_date,
+            ending_balance=quantized_balance,
+            difference=quantized_balance,
+            created_by=created_by,
+            state=ReconciliationSessionState.IN_PROGRESS,
+        )
+        session.add(session_obj)
+        session.flush()
+        return session_obj
+
+    def add_transactions_to_session(
+        self,
+        session: Session,
+        reconciliation_session_id: str,
+        transaction_ids: list[str],
+    ) -> ReconciliationSession:
+        session_obj = session.get(ReconciliationSession, reconciliation_session_id)
+        if session_obj is None:
+            raise ValueError(f"ReconciliationSession {reconciliation_session_id} not found")
+
+        transactions = (
+            session.query(Transaction)
+            .filter(Transaction.id.in_(transaction_ids))
+            .all()
+        )
+        for transaction in transactions:
+            if transaction not in session_obj.transactions:
+                session_obj.transactions.append(transaction)
+            if transaction.reconciliation_status == ReconciliationStatus.UNCLEARED:
+                transaction.reconciliation_status = ReconciliationStatus.CLEARED
+            session.add(transaction)
+
+        new_difference = self._recalculate_difference(session_obj)
+        if new_difference == Decimal("0"):
+            session_obj.state = ReconciliationSessionState.COMPLETED
+
+        session.flush()
+        return session_obj
+
+    def get_unreconciled_transactions(
+        self,
+        session: Session,
+        cutoff_date: date | None = None,
+    ) -> list[Transaction]:
+        stmt = select(Transaction).where(
+            Transaction.processing_status.in_(
+                [ProcessingStatus.PENDING, ProcessingStatus.COMPLETED]
+            ),
+            Transaction.reconciliation_status.in_(
+                [
+                    ReconciliationStatus.UNCLEARED,
+                    ReconciliationStatus.CLEARED,
+                ]
+            ),
+        )
+        if cutoff_date:
+            stmt = stmt.where(Transaction.effective_date <= cutoff_date)
+        stmt = stmt.order_by(Transaction.effective_date)
+        return list(session.scalars(stmt))
+
+    def create_bank_statement_snapshot(
+        self,
+        session: Session,
+        closing_date: date,
+        closing_balance: Decimal,
+        statement_id: str | None = None,
+    ) -> BankStatementSnapshot:
+        quantized_balance = quantize_currency(closing_balance)
+        snapshot = BankStatementSnapshot(
+            closing_date=closing_date,
+            closing_balance=quantized_balance,
+            statement_id=statement_id,
+            transaction_cutoff=closing_date + timedelta(days=1),
+        )
+        session.add(snapshot)
+        session.flush()
+        return snapshot
+
+    def get_latest_statement_cutoff(self, session: Session) -> date | None:
+        stmt = select(BankStatementSnapshot).order_by(BankStatementSnapshot.closing_date.desc())
+        snapshot = session.scalars(stmt).first()
+        return snapshot.transaction_cutoff if snapshot else None
