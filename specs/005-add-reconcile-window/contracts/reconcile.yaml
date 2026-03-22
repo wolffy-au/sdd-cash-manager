@@ -1,0 +1,128 @@
+openapi: 3.1.0
+info:
+  title: Reconcile Window
+  version: 0.1.0
+  description: API surface for the reconciliation workflow defined in the feature spec.
+paths:
+  /reconciliation/sessions/unreconciled:
+    get:
+      summary: List unreconciled transactions since the last statement.
+      responses:
+        '200':
+          description: Eligible transactions for selection.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  transactions:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TransactionSummary'
+  /reconciliation/sessions:
+    post:
+      summary: Start or refresh a reconciliation session.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                statement_date:
+                  type: string
+                  format: date
+                ending_balance:
+                  type: number
+                  format: decimal
+              required:
+                - statement_date
+                - ending_balance
+      responses:
+        '201':
+          description: Session created with initial difference.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReconciliationSession'
+  /reconciliation/sessions/{session_id}/transactions:
+    post:
+      summary: Mark transactions as cleared/reconciled and update the difference.
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                transaction_ids:
+                  type: array
+                  items:
+                    type: string
+                ending_balance:
+                  type: number
+                  format: decimal
+              required:
+                - transaction_ids
+      responses:
+        '200':
+          description: Difference updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DifferenceResponse'
+components:
+  schemas:
+    TransactionSummary:
+      type: object
+      properties:
+        id:
+          type: string
+        amount:
+          type: number
+          format: decimal
+        date:
+          type: string
+          format: date
+        description:
+          type: string
+        processing_status:
+          type: string
+          enum: [PENDING, COMPLETED, FAILED]
+        reconciliation_status:
+          type: string
+          enum: [UNCLEARED, CLEARED, RECONCILED]
+    ReconciliationSession:
+      type: object
+      properties:
+        id:
+          type: string
+        statement_date:
+          type: string
+          format: date
+        ending_balance:
+          type: number
+          format: decimal
+        difference:
+          type: number
+          format: decimal
+        state:
+          type: string
+          enum: [IN_PROGRESS, COMPLETED, DISPUTED]
+    DifferenceResponse:
+      type: object
+      properties:
+        difference:
+          type: number
+          format: decimal
+        remaining_uncleared:
+          type: integer
+        difference_status:
+          type: string
+          description: Whether the difference is balanced, positive, or negative.

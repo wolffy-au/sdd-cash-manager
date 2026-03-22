@@ -34,6 +34,7 @@ echo "✅ Done"
 
 echo -e "\n🤖 Installing Codex CLI..."
 run_command "npm install -g @openai/codex@latest"
+run_command "cp -rv /workspaces/sdd-cash-manager/.codex/prompts/ ~/.codex/"
 echo "✅ Done"
 
 echo -e "\n🤖 Installing Gemini CLI..."

@@ -3,6 +3,8 @@
 Auto-generated from all feature plans. Last updated: 2026-03-14
 
 ## Active Technologies
+- Python 3.12 + FastAPI, SQLAlchemy, python-accounting helpers, pytest/httpx for integration tests, jose- or JWT-backed auth utilities already in `lib` (005-add-reconcile-window)
+- SQLite (development/tests) via SQLAlchemy sessions; existing models (Account, Transaction) persist the reconciled state and can be extended to store statement metadata. (005-add-reconcile-window)
 
 - Python 3.12 + FastAPI (existing API surface), SQLAlchemy (models), httpx (tests), pytest (runner), python-accounting helpers. (002-add-api-pytests)
 - SQLite (development defaults; tests use in-memory or sqlite file nodes when necessary). (002-add-api-pytests)
@@ -62,9 +64,10 @@ tests/
 Python 3.12 (from .python-version): Follow standard conventions. See TECHNICAL.md for architecture guidance.
 
 ## Recent Changes
+- 005-add-reconcile-window: Added Python 3.12 + FastAPI, SQLAlchemy, python-accounting helpers, pytest/httpx for integration tests, jose- or JWT-backed auth utilities already in `lib`
+- 005-add-reconcile-window: Added Python 3.12 + FastAPI, SQLAlchemy, python-accounting helpers, pytest/httpx for integration tests, jose- or JWT-backed auth utilities already in `lib`
 
 - 002-add-api-pytests: Added Python 3.12 + FastAPI (existing API surface), SQLAlchemy (models), httpx (tests), pytest (runner), python-accounting helpers.
-- 002-add-api-pytests: Added httpx-based integration testing for API contracts, fixtures for seeded test data, JWT token helpers, and validation/auth error testing.
 
 ## API Test Suite (002-add-api-pytests)
 
