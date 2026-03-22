@@ -1,3 +1,21 @@
+## v0.4.0 (2026-03-21)
+
+### Feat
+
+- finalize transaction management workflows
+- add quickfill suggestions and approval
+- add transaction schema dtos
+- extend security logging and coverage
+- add transaction management spec
+
+### Fix
+
+- cleanup dependents before deleting account
+- resolve SonarCloud issues
+- sonarqube issues
+- fixed snyk test in ci.yml
+- sonarqube coverage
+
 ## v0.3.0 (2026-03-19)
 
 ### Feat
