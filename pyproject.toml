@@ -63,7 +63,7 @@ lint = [
 ]
 
 [tool.poetry]
-version = "0.4.0"
+version = "0.4.1"
 
 [tool.commitizen]
 name = "cz_conventional_commits"

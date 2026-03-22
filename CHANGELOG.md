@@ -1,3 +1,9 @@
+## v0.4.1 (2026-03-22)
+
+### Fix
+
+- sanitize critical logging
+
 ## v0.4.0 (2026-03-21)
 
 ### Feat
