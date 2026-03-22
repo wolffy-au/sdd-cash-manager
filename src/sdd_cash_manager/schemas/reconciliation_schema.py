@@ -44,3 +44,9 @@ class TransactionSummary(BaseModel):
     description: str | None = None
     processing_status: str
     reconciliation_status: str
+
+
+class UnreconciledTransactionsResponse(BaseModel):
+    transactions: List[TransactionSummary]
+
+    model_config = ConfigDict(extra="forbid")

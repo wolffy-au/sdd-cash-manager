@@ -1,12 +1,15 @@
 """HTTP tests covering transaction and hierarchy behaviors (User Story 2)."""
 
 import logging
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 
 import pytest
 from httpx import AsyncClient
 
+from sdd_cash_manager.database import SessionLocal
+from sdd_cash_manager.models.enums import ProcessingStatus, ReconciliationStatus
+from sdd_cash_manager.models.transaction import Transaction
 from tests.api.helpers import assert_payload_keys, assert_status
 
 logger = logging.getLogger(__name__)  # Initialize logger
@@ -171,6 +174,14 @@ async def test_reconcile_window_zero_difference_flow(
     transaction = creation_resp.json()
     transaction_id = transaction["transaction_id"]
 
+    with SessionLocal() as session:
+        txn = session.get(Transaction, transaction_id)
+        assert txn is not None
+        txn.processing_status = ProcessingStatus.COMPLETED
+        txn.reconciliation_status = ReconciliationStatus.UNCLEARED
+        session.add(txn)
+        session.commit()
+
     session_payload = {
         "statement_date": date.today().isoformat(),
         "ending_balance": str(amount),
@@ -190,8 +201,9 @@ async def test_reconcile_window_zero_difference_flow(
         headers=authenticated_headers,
     )
     assert_status(unreconciled_resp, 200)
-    entries = unreconciled_resp.json()
-    print("DEBUG ENTRIES", entries)
+    entries_payload = unreconciled_resp.json()
+    entries = entries_payload.get("transactions", [])
+    print("DEBUG ENTRIES", entries_payload)
     assert any(entry["id"] == transaction_id for entry in entries)
 
     update_resp = await api_client.post(
@@ -204,3 +216,66 @@ async def test_reconcile_window_zero_difference_flow(
     assert Decimal(str(diff_body["difference"])) == Decimal("0")
     assert diff_body["difference_status"] == "balanced"
     assert diff_body["remaining_uncleared"] == 0
+
+
+@pytest.mark.asyncio
+async def test_unreconciled_transactions_endpoint_filters_by_cutoff_and_status(
+    api_client: AsyncClient,
+    authenticated_headers: dict[str, str],
+    seeded_accounts: dict[str, dict[str, object]],
+) -> None:
+    """Ensure the unreconciled endpoint respects cutoff dates and status filters."""
+    source = seeded_accounts["visible"]
+    target = seeded_accounts["balancing"]
+    today = date.today()
+    older_date = today - timedelta(days=5)
+
+    async def create_txn(txn_date: date) -> str:
+        payload = {
+            "transfer_from": source["id"],
+            "transfer_to": target["id"],
+            "action": "Recon Filter Test",
+            "amount": "10.00",
+            "currency": "USD",
+            "description": "Filtered transaction",
+            "memo": "Reconcile filter",
+            "date": txn_date.isoformat(),
+        }
+        response = await api_client.post("/transactions/", json=payload, headers=authenticated_headers)
+        assert_status(response, 201)
+        body = response.json()
+        return str(body["transaction_id"])
+
+    old_transaction_id = await create_txn(older_date)
+    recent_transaction_id = await create_txn(today)
+    failed_transaction_id = await create_txn(today)
+
+    with SessionLocal() as session:
+        for txn_id, processing_status, reconciliation_status in [
+            (old_transaction_id, ProcessingStatus.COMPLETED, ReconciliationStatus.RECONCILED),
+            (recent_transaction_id, ProcessingStatus.COMPLETED, ReconciliationStatus.UNCLEARED),
+            (failed_transaction_id, ProcessingStatus.FAILED, ReconciliationStatus.UNCLEARED),
+        ]:
+            transaction = session.get(Transaction, txn_id)
+            assert transaction is not None
+            transaction.processing_status = processing_status
+            transaction.reconciliation_status = reconciliation_status
+            session.add(transaction)
+        session.commit()
+
+    session_payload = {
+        "statement_date": today.isoformat(),
+        "ending_balance": "0.00",
+    }
+    session_resp = await api_client.post("/reconciliation/sessions", json=session_payload, headers=authenticated_headers)
+    assert_status(session_resp, 200)
+
+    unreconciled_resp = await api_client.get("/reconciliation/sessions/unreconciled", headers=authenticated_headers)
+    assert_status(unreconciled_resp, 200)
+    payload = unreconciled_resp.json()
+    transactions = payload.get("transactions", [])
+    assert len(transactions) == 1
+    listed_txn = transactions[0]
+    assert listed_txn["id"] == recent_transaction_id
+    assert listed_txn["processing_status"] == ProcessingStatus.COMPLETED.value
+    assert listed_txn["reconciliation_status"] == ReconciliationStatus.UNCLEARED.value

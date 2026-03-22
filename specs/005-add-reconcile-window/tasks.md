@@ -55,10 +55,10 @@ description: "Task list for implementing the Reconcile Window feature"
 **Independent Test**: Fetch `GET /reconciliation/sessions/unreconciled` after a statement cutoff, then assert the payload contains only UNCLEARED or CLEARED transactions whose processing_status is `PENDING` or `COMPLETED`, and it omits any FAILED rows or already RECONCILED entries.
 
 ### Implementation Tasks
-- [ ] T014 [US2] Extend `schemas/reconciliation_schema.py` with the `TransactionSummary` schema used by `/sessions/unreconciled`, including status fields defined in the contract (schemas/reconciliation_schema.py).
-- [ ] T015 [US2] Add `get_unreconciled_transactions` to `ReconciliationService` so it filters by the configured statement cutoff, ignores FAILED processing_status values, and returns the DTOs shown in the contract (services/reconciliation_service.py).
-- [ ] T016 [US2] Implement the `GET /reconciliation/sessions/unreconciled` endpoint in `src/sdd_cash_manager/api/reconciliation.py`, injecting the facility to load the latest `BankStatementSnapshot` or the most recent session to determine the cutoff (api/reconciliation.py).
-- [ ] T017 [US2] Add a test case in `tests/api/test_transactions.py` that creates CLEARED/UNCLEARED transactions before and after a cutoff, calls `/sessions/unreconciled`, and asserts only the allowed statuses and time windows appear (tests/api/test_transactions.py).
+- [x] T014 [US2] Extend `schemas/reconciliation_schema.py` with the `TransactionSummary` schema used by `/sessions/unreconciled`, including status fields defined in the contract (schemas/reconciliation_schema.py).
+- [x] T015 [US2] Add `get_unreconciled_transactions` to `ReconciliationService` so it filters by the configured statement cutoff, ignores FAILED processing_status values, and returns the DTOs shown in the contract (services/reconciliation_service.py).
+- [x] T016 [US2] Implement the `GET /reconciliation/sessions/unreconciled` endpoint in `src/sdd_cash_manager/api/reconciliation.py`, injecting the facility to load the latest `BankStatementSnapshot` or the most recent session to determine the cutoff (api/reconciliation.py).
+- [x] T017 [US2] Add a test case in `tests/api/test_transactions.py` that creates CLEARED/UNCLEARED transactions before and after a cutoff, calls `/sessions/unreconciled`, and asserts only the allowed statuses and time windows appear (tests/api/test_transactions.py).
 
 ### Parallel execution example (US2)
 - Schema updates (T014) and the service filter (T015) can advance in parallel because one defines the DTO while the other defines how rows map to it.

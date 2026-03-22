@@ -1,5 +1,4 @@
 import logging
-from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -11,6 +10,7 @@ from sdd_cash_manager.schemas.reconciliation_schema import (
     ReconciliationSessionResponse,
     TransactionSelectionRequest,
     TransactionSummary,
+    UnreconciledTransactionsResponse,
 )
 from sdd_cash_manager.services.reconciliation_service import ReconciliationService
 
@@ -46,14 +46,14 @@ async def create_reconciliation_session(
     )
 
 
-@router.get("/sessions/unreconciled", response_model=List[TransactionSummary])
+@router.get("/sessions/unreconciled", response_model=UnreconciledTransactionsResponse)
 async def list_unreconciled_transactions(
     db: Session = _get_db_dependency,
-) -> List[TransactionSummary]:
+) -> UnreconciledTransactionsResponse:
     service = ReconciliationService(db)
     cutoff = service.get_latest_statement_cutoff(db)
     transactions = service.get_unreconciled_transactions(db, cutoff)
-    return [
+    payload = [
         TransactionSummary(
             id=tx.id,
             amount=tx.amount,
@@ -64,6 +64,7 @@ async def list_unreconciled_transactions(
         )
         for tx in transactions
     ]
+    return UnreconciledTransactionsResponse(transactions=payload)
 
 
 @router.post("/sessions/{session_id}/transactions", response_model=DifferenceResponse)

@@ -188,14 +188,13 @@ class ReconciliationService:
             ),
             Transaction.reconciliation_status.in_(
                 [
-                    ReconciliationStatus.PENDING_RECONCILIATION,
                     ReconciliationStatus.UNCLEARED,
                     ReconciliationStatus.CLEARED,
                 ]
             ),
         )
         if cutoff_date:
-            stmt = stmt.where(Transaction.effective_date <= cutoff_date)
+            stmt = stmt.where(Transaction.effective_date >= cutoff_date)
         stmt = stmt.order_by(Transaction.effective_date)
         return list(session.scalars(stmt))
 
@@ -211,7 +210,7 @@ class ReconciliationService:
             closing_date=closing_date,
             closing_balance=quantized_balance,
             statement_id=statement_id,
-            transaction_cutoff=closing_date + timedelta(days=1),
+            transaction_cutoff=closing_date,
         )
         session.add(snapshot)
         session.flush()
