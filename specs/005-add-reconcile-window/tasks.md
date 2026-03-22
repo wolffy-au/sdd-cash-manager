@@ -11,9 +11,9 @@ description: "Task list for implementing the Reconcile Window feature"
 
 **Purpose**: Align the repo with the documented stack before touching feature code.
 
-- [ ] T001 Create `.python-version` pinned to `3.12` so contributors can install the same interpreter (root).
-- [ ] T002 [P] Add `pytest-httpx>=0.24.0,<1.0.0` to the `[tool.poetry.dependencies.tests]` group in `pyproject.toml` to support httpx-based integration scenarios (pyproject.toml).
-- [ ] T003 [P] Extend `tests/api/README.md` with a reconciliation quickstart step that lists the new `pytest tests/api/test_transactions.py::test_reconcile_window_flow -v` command and the required JWT env vars (tests/api/README.md).
+- [x] T001 Create `.python-version` pinned to `3.12` so contributors can install the same interpreter (root).
+- [x] T002 [P] Add `pytest-httpx>=0.24.0,<1.0.0` to the `[tool.poetry.dependencies.tests]` group in `pyproject.toml` to support httpx-based integration scenarios (pyproject.toml).
+- [x] T003 [P] Extend `tests/api/README.md` with a reconciliation quickstart step that lists the new `pytest tests/api/test_transactions.py::test_reconcile_window_flow -v` command and the required JWT env vars (tests/api/README.md).
 
 ---
 
@@ -130,4 +130,3 @@ US1   US2   US3
 ### Parallel Team Strategy
 1. Developers A/B can split Schema/Service work per story while Developer C drafts matching integration tests and documentation updates.
 2. Once foundational models (T004–T007) exist, the API/router wires in earnest while tests are authored independently.
-

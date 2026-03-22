@@ -6,5 +6,6 @@ This directory holds httpx-based pytest modules that exercise the running `uvico
 2. Set `SDD_CASH_MANAGER_SECURITY_ENABLED=true`, `SDD_CASH_MANAGER_JWT_SECRET`, and `SDD_CASH_MANAGER_JWT_ALGORITHM` before running tests.
 3. Start the API (`uvicorn src.main:app --reload`).
 4. Execute `pytest tests/api` to run the regression suite. Each test seeds deterministic accounts, posts transactions, or verifies validation errors with httpx clients.
+5. For the Reconcile Window flow, run `pytest tests/api/test_transactions.py::test_reconcile_window_flow -v` to focus on the new endpoints described in `specs/005-add-reconcile-window/contracts/reconcile.yaml`.
 
 Use `pytest -k <pattern>` to run subsets (e.g., `-k balance`), and refer back to this file for environment hygiene.
