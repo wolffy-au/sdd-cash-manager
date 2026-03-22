@@ -3,6 +3,8 @@
 # Exit immediately if a command exits with a non-zero status.
 set -euo pipefail
 
+export PATH="$HOME/.local/bin:$PATH"
+
 echo "Starting pre-commit checks..."
 echo "Updating dependency locks to the latest compatible versions..."
 uv run poetry update

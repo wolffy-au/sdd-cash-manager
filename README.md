@@ -5,7 +5,7 @@ This document outlines the steps to set up the development environment for the s
 
 ## Prerequisites
 
-- Python 3.11
+- Python 3.12
 - pip
 - virtualenv (or equivalent)
 
