@@ -142,3 +142,65 @@ async def test_record_transaction_updates_both_accounts(
     assert_status(target_resp, 200)
     new_target_balance = Decimal(str(target_resp.json()["available_balance"]))
     assert new_target_balance == Decimal(str(target_account["available_balance"])) + amount
+
+
+@pytest.mark.asyncio
+async def test_reconcile_window_zero_difference_flow(
+    api_client: AsyncClient,
+    authenticated_headers: dict[str, str],
+    seeded_accounts: dict[str, dict[str, object]],
+) -> None:
+    """Ensure adding transactions to a reconciliation session drives the Difference to zero."""
+    source = seeded_accounts["visible"]
+    target = seeded_accounts["balancing"]
+    amount = Decimal("45.00")
+
+    payload = {
+        "transfer_from": source["id"],
+        "transfer_to": target["id"],
+        "action": "Recon Test",
+        "amount": str(amount),
+        "currency": "USD",
+        "description": "Reconcile test transaction",
+        "memo": "Reconcile flow",
+        "date": date.today().isoformat(),
+    }
+
+    creation_resp = await api_client.post("/transactions/", json=payload, headers=authenticated_headers)
+    assert_status(creation_resp, 201)
+    transaction = creation_resp.json()
+    transaction_id = transaction["transaction_id"]
+
+    session_payload = {
+        "statement_date": date.today().isoformat(),
+        "ending_balance": str(amount),
+    }
+    session_resp = await api_client.post(
+        "/reconciliation/sessions",
+        json=session_payload,
+        headers=authenticated_headers,
+    )
+    assert_status(session_resp, 200)
+    session_body = session_resp.json()
+    assert session_body["difference"] == str(amount)
+    assert session_body["state"] == "IN_PROGRESS"
+
+    unreconciled_resp = await api_client.get(
+        "/reconciliation/sessions/unreconciled",
+        headers=authenticated_headers,
+    )
+    assert_status(unreconciled_resp, 200)
+    entries = unreconciled_resp.json()
+    print("DEBUG ENTRIES", entries)
+    assert any(entry["id"] == transaction_id for entry in entries)
+
+    update_resp = await api_client.post(
+        f"/reconciliation/sessions/{session_body['id']}/transactions",
+        json={"transaction_ids": [transaction_id]},
+        headers=authenticated_headers,
+    )
+    assert_status(update_resp, 200)
+    diff_body = update_resp.json()
+    assert Decimal(str(diff_body["difference"])) == Decimal("0")
+    assert diff_body["difference_status"] == "balanced"
+    assert diff_body["remaining_uncleared"] == 0
