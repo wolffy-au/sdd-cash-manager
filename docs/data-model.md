@@ -60,6 +60,119 @@ Transaction "1" -- "*" Entry : generates
 - **Entry**: A single debit or credit line item within a `Transaction`, linked to an `Account`.
 - **Validation**: String lengths, character restrictions, numeric constraints, enum types, UUID formats, existence checks, ISO 4217 currencies, and double-entry integrity.
 
+## API Testing Artifacts Data Model
+
+Details from `specs/002-add-api-pytests/data-model.md`. These models describe testing-related entities.
+
+### Testing Constructs
+
+```plantuml
+@startuml
+skinparam classAttributeIconSize 0
+
+class ApiTestCase {
+  +method: str
+  +path: str
+  +payload: JSON
+  +headers: Dict
+  +assertions: AssertionBundle
+}
+
+class TestFixture {
+  +seed_accounts: List[Account]
+  +balancing_account: Account
+  +transactions: List[Transaction]
+  +cleanup_strategy: str
+}
+
+class AssertionBundle {
+  +status_code: int
+  +schema_keys: List[str]
+  +business_rules: List[str]
+}
+
+' Placeholder for core entities, assuming they exist from other specs
+class Account {
+  ' ...
+}
+class Transaction {
+  ' ...
+}
+
+ApiTestCase "N" -- "1" AssertionBundle : expects
+TestFixture "1" -- "N" ApiTestCase : sets up
+TestFixture "1" -- "*" Account : seeds
+TestFixture "1" -- "*" Transaction : includes
+@enduml
+```
+- **Entities**: `API Test Case`, `Test Fixture`, `Assertion Bundle`.
+- **API Test Case**: Represents an HTTP interaction with the API.
+- **Test Fixture**: Sets up the necessary environment state (accounts, transactions) for tests.
+- **Assertion Bundle**: Defines expected outcomes and business rules for API responses.
+- **Validation**: Deterministic test data, isolated fixtures, and comprehensive assertion checks.
+
+## Balance Adjustment Data Model
+
+Details from `specs/003-adjust-balance/data-model.md`.
+
+### Adjustment Entities
+
+```plantuml
+@startuml
+skinparam classAttributeIconSize 0
+
+class ManualBalanceAdjustment {
+  +account_id: UUID
+  +target_balance: Decimal
+  +effective_date: Date
+  +submitted_by_user_id: UUID
+  +adjustment_attempt_timestamp: DateTime
+  +created_transaction_id: Optional UUID
+  +status: str (PENDING, COMPLETED, ZERO_DIFFERENCE)
+}
+
+class AdjustmentTransaction {
+  +transaction_id: UUID
+  +account_id: UUID
+  +effective_date: Date
+  +amount: Decimal
+  +transaction_type: str (ADJUSTMENT_DEBIT, ADJUSTMENT_CREDIT)
+  +description: String
+  +reconciliation_metadata: JSON
+  +created_at: DateTime
+}
+
+class ReconciliationViewEntry {
+  +entry_id: UUID
+  +account_id: UUID
+  +entry_date: Date
+  +amount: Decimal
+  +description: String
+  +is_adjustment: Boolean
+  +reconciled_status: str
+  +original_transaction_id: Optional UUID
+}
+
+class Account {
+  ' ...
+}
+class User {
+  ' ...
+}
+
+ManualBalanceAdjustment "1" -- "1" Account : for_account
+ManualBalanceAdjustment "1" -- "1" User : submitted_by
+ManualBalanceAdjustment "1" -- "0..1" AdjustmentTransaction : creates
+AdjustmentTransaction "1" -- "1" Account : applies_to
+ReconciliationViewEntry ..> AdjustmentTransaction : represents (optional)
+@enduml
+```
+- **Entities**: `ManualBalanceAdjustment`, `AdjustmentTransaction`, `ReconciliationViewEntry`.
+- **ManualBalanceAdjustment**: Represents a user-initiated request to manually adjust an account's balance.
+- **AdjustmentTransaction**: An automatically generated ledger entry for the balance adjustment.
+- **ReconciliationViewEntry**: A projection for reconciliation display, potentially including adjustment data.
+- **Validation**: Target balance non-negative, date considerations, user reference, amount calculation, transaction type consistency.
+
 ## Transaction Management Data Model
 
 Details from `specs/004-transaction-management/data-model.md`.
@@ -128,119 +241,6 @@ AccountMergePlan "1" -- "*" Account : reparents child accounts
 - **QuickFillTemplate**: Generated from historical transactions for pre-populating forms.
 - **DuplicateCandidate**: Flags potential duplicate transactions for review.
 - **AccountMergePlan**: Details account merging, hierarchy reassignment, and audit logging.
-
-## Balance Adjustment Data Model
-
-Details from `specs/003-adjust-balance/data-model.md`.
-
-### Adjustment Entities
-
-```plantuml
-@startuml
-skinparam classAttributeIconSize 0
-
-class ManualBalanceAdjustment {
-  +account_id: UUID
-  +target_balance: Decimal
-  +effective_date: Date
-  +submitted_by_user_id: UUID
-  +adjustment_attempt_timestamp: DateTime
-  +created_transaction_id: Optional UUID
-  +status: str (PENDING, COMPLETED, ZERO_DIFFERENCE)
-}
-
-class AdjustmentTransaction {
-  +transaction_id: UUID
-  +account_id: UUID
-  +effective_date: Date
-  +amount: Decimal
-  +transaction_type: str (ADJUSTMENT_DEBIT, ADJUSTMENT_CREDIT)
-  +description: String
-  +reconciliation_metadata: JSON
-  +created_at: DateTime
-}
-
-class ReconciliationViewEntry {
-  +entry_id: UUID
-  +account_id: UUID
-  +entry_date: Date
-  +amount: Decimal
-  +description: String
-  +is_adjustment: Boolean
-  +reconciled_status: str
-  +original_transaction_id: Optional UUID
-}
-
-class Account {
-  ' ...
-}
-class User {
-  ' ...
-}
-
-ManualBalanceAdjustment "1" -- "1" Account : for_account
-ManualBalanceAdjustment "1" -- "1" User : submitted_by
-ManualBalanceAdjustment "1" -- "0..1" AdjustmentTransaction : creates
-AdjustmentTransaction "1" -- "1" Account : applies_to
-ReconciliationViewEntry ..> AdjustmentTransaction : represents (optional)
-@enduml
-```
-- **Entities**: `ManualBalanceAdjustment`, `AdjustmentTransaction`, `ReconciliationViewEntry`.
-- **ManualBalanceAdjustment**: Represents a user-initiated request to manually adjust an account's balance.
-- **AdjustmentTransaction**: An automatically generated ledger entry for the balance adjustment.
-- **ReconciliationViewEntry**: A projection for reconciliation display, potentially including adjustment data.
-- **Validation**: Target balance non-negative, date considerations, user reference, amount calculation, transaction type consistency.
-
-## API Testing Artifacts Data Model
-
-Details from `specs/002-add-api-pytests/data-model.md`. These models describe testing-related entities.
-
-### Testing Constructs
-
-```plantuml
-@startuml
-skinparam classAttributeIconSize 0
-
-class ApiTestCase {
-  +method: str
-  +path: str
-  +payload: JSON
-  +headers: Dict
-  +assertions: AssertionBundle
-}
-
-class TestFixture {
-  +seed_accounts: List[Account]
-  +balancing_account: Account
-  +transactions: List[Transaction]
-  +cleanup_strategy: str
-}
-
-class AssertionBundle {
-  +status_code: int
-  +schema_keys: List[str]
-  +business_rules: List[str]
-}
-
-' Placeholder for core entities, assuming they exist from other specs
-class Account {
-  ' ...
-}
-class Transaction {
-  ' ...
-}
-
-ApiTestCase "N" -- "1" AssertionBundle : expects
-TestFixture "1" -- "N" ApiTestCase : sets up
-TestFixture "1" -- "*" Account : seeds
-TestFixture "1" -- "*" Transaction : includes
-@enduml
-```
-- **Entities**: `API Test Case`, `Test Fixture`, `Assertion Bundle`.
-- **API Test Case**: Represents an HTTP interaction with the API.
-- **Test Fixture**: Sets up the necessary environment state (accounts, transactions) for tests.
-- **Assertion Bundle**: Defines expected outcomes and business rules for API responses.
-- **Validation**: Deterministic test data, isolated fixtures, and comprehensive assertion checks.
 
 ## Data Model Assumptions & Relationships Summary
 

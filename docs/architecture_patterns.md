@@ -198,6 +198,48 @@ note right: at points across the app
 
 ---
 
+## Spec-Driven Architecture Governance
+
+- **Aliases**: Specification-first Development, Speckit Workflow, Requirements Traceability
+- **Category**: Conceptual, Logical
+- **Description**: Specs (`/specs/[###-feature-name]/spec.md`), plans, and tasks are treated as first-class artifacts. Automation (`/speckit.plan`, `/speckit.tasks`, `/speckit.analyze`) keeps requirements, implementation, and quality gates aligned, highlighting constitution conflicts, ambiguities, or coverage gaps before code changes occur.
+- **Reference**: https://github.com/wolffy-au/spec-kit
+
+```plantuml
+@startuml
+[User Story] --> [Spec Document]
+[Spec Document] --> [Plan / Research]
+[Plan / Research] --> [Tasks]
+[Tasks] --> [Implementation]
+[Implementation] --> [Analysis Report]
+note right: `/speckit.analyze` checks consistency
+@enduml
+```
+
+---
+
+## CI / Quality Automation Pipeline
+
+- **Aliases**: Pre-commit Gate, Continuous Validation, Quality Guardrails
+- **Category**: Implementation, Physical
+- **Description**: `scripts/pre_commit_checks.sh` (Ruff, Pyright, Mypy, Snyk, Behave, Pytest+coverage) enforces linting, typing, security, and regression tests before every commit. SonarCloud and coverage reports ensure long-running services (API routers, services, models) remain within quality budgets.
+- **Reference**: https://docs.sonarqube.org/latest/
+
+```plantuml
+@startuml
+[Git Commit] --> [scripts/pre_commit_checks.sh]
+[scripts/pre_commit_checks.sh] --> [Ruff]
+[scripts/pre_commit_checks.sh] --> [Pyright]
+[scripts/pre_commit_checks.sh] --> [Mypy]
+[scripts/pre_commit_checks.sh] --> [Behave]
+[scripts/pre_commit_checks.sh] --> [Pytest w/ Coverage]
+[Pytest w/ Coverage] --> [Coverage Report]
+[Coverage Report] --> [SonarCloud]
+@enduml
+```
+
+---
+
 ## Enum / Adapter for Compatibility
 
 - **Aliases**: Adapter Pattern, Legacy Bridge, Canonical Value Mapping
