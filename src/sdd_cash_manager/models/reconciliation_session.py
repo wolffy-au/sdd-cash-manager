@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from enum import Enum
 from typing import TYPE_CHECKING, List
@@ -40,7 +40,7 @@ class ReconciliationSession(Base):
     difference: Mapped[Decimal] = mapped_column(SqlNumeric(18, 2), nullable=False)
     state: Mapped[ReconciliationSessionState] = mapped_column(String(32), default=ReconciliationSessionState.IN_PROGRESS.value)
     created_by: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     transactions: Mapped[List["Transaction"]] = relationship(
         "Transaction",
@@ -58,4 +58,4 @@ class BankStatementSnapshot(Base):
     closing_balance: Mapped[Decimal] = mapped_column(SqlNumeric(18, 2), nullable=False)
     statement_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     transaction_cutoff: Mapped[date] = mapped_column(Date, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
