@@ -198,6 +198,80 @@ body {
   text-transform: uppercase;
 }
 
+.discrepancy-insight {
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 0.9rem;
+  padding: 1rem;
+  background: rgba(4, 58, 80, 0.4);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  box-shadow: 0 10px 25px rgba(5, 8, 12, 0.45);
+}
+
+.discrepancy-insight__header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.discrepancy-insight__icon {
+  font-size: 1.4rem;
+}
+
+.discrepancy-insight__title {
+  margin: 0;
+  font-weight: 600;
+}
+
+.discrepancy-insight__subtitle {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #d5e5ff;
+}
+
+.discrepancy-insight__amount {
+  font-weight: 700;
+  font-size: 1.2rem;
+}
+
+.discrepancy-insight__guidance {
+  margin: 0;
+  color: #e2effb;
+}
+
+.discrepancy-insight__action {
+  align-self: flex-start;
+  padding: 0.4rem 0.9rem;
+  border-radius: 999px;
+  border: none;
+  background: #4dd0e1;
+  color: #0d1116;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.discrepancy-insight__action:hover {
+  background: #3ab6ca;
+}
+
+.insight-balanced {
+  border-color: rgba(84, 255, 205, 0.3);
+  background: rgba(84, 255, 205, 0.1);
+}
+
+.insight-under {
+  border-color: rgba(255, 185, 71, 0.3);
+  background: rgba(255, 185, 71, 0.08);
+}
+
+.insight-over {
+  border-color: rgba(255, 107, 107, 0.3);
+  background: rgba(255, 107, 107, 0.08);
+}
+
 .status-amber {
   background: rgba(255, 193, 7, 0.1);
   color: #ffd166;

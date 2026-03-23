@@ -14,7 +14,8 @@
    ```bash
    npm run test:ui
    ```
-   - Vitest covers MVVM hooks; Playwright integration specs live under `tests/ui` and hit the mocked reconciliation endpoints via Axios.
+   - Vitest now covers ledger, reconciliation, and the new discrepancy insight guidance panel, while Playwright verifies the reconciliation workflow and highlights UNCLEARED filtering.
+   - In this container, Playwright attempts to launch Chromium and currently fails because the runtime lacks `libatk-1.0.so.0`. Install the matching system dependencies (e.g., `libatk1.0-0`, `libatk-bridge2.0-0`, `libgtk-3-0`) before re-running `npm run test:ui` to see the three Playwright flows succeed.
 4. Build for staging
    ```bash
    npm run build

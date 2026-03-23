@@ -1,6 +1,7 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import SessionControls from '../components/reconciliation/SessionControls';
 import UnreconciledList from '../components/reconciliation/UnreconciledList';
+import DiscrepancyInsight from '../components/guidance/DiscrepancyInsight';
 import { useReconciliationStore } from '../stores/reconciliationStore';
 import { useReconciliationViewModel } from '../hooks/useReconciliationViewModel';
 import { ReconciliationTransaction, DifferencePayload } from '../types';
@@ -26,12 +27,6 @@ const ReconciliationFeature: React.FC = () => {
   const [statementBalance, setStatementBalance] = useState('0');
   const { commands } = useReconciliationStore();
 
-  const badgeColor = useMemo(() => {
-    if (difference.difference_status === 'balanced') return 'badge-balanced';
-    if (difference.difference_status === 'over') return 'badge-over';
-    return 'badge-under';
-  }, [difference.difference_status]);
-
   const handleFetchSessions = () => commands.fetchSessions('session-1');
   const handleFetchUnreconciled = () => commands.fetchUnreconciled('session-1', sampleDifference, sampleTransactions);
 
@@ -43,10 +38,15 @@ const ReconciliationFeature: React.FC = () => {
         onFetchSessions={handleFetchSessions}
         onFetchUnreconciled={handleFetchUnreconciled}
       />
-      <div className="reconciliation__badge" data-testid="difference-badge">
-        Difference: <span className={badgeColor}>{difference.amount.toFixed(2)}</span>
-        <p>{difference.guidance_text}</p>
-      </div>
+      <DiscrepancyInsight
+        difference={difference}
+        onFilterUncleared={() => {
+          const unclearedIds = filteredRows
+            .filter((row) => row.status === 'UNCLEARED')
+            .map((row) => row.id);
+          commands.applySelection(unclearedIds);
+        }}
+      />
       <div className="reconciliation__status">
         <span>UNCLEARED: {statusTotals.UNCLEARED}</span>
         <span>CLEARED: {statusTotals.CLEARED}</span>
