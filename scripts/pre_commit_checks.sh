@@ -24,7 +24,8 @@ run_quiet "pyright"         poetry run pyright src/ tests/
 run_quiet "mypy"            poetry run mypy src/
 run_quiet "pytest unit"     poetry run pytest tests/unit/
 
-# Frontend UI harness skipped (npm chmod not permitted in this environment)
+# Frontend unit tests: cd frontend && npm config set bin-links false && npm install && npm run test:unit
+# Skipped in this environment — npm chmod not permitted on devcontainer filesystem.
 
 echo "✅ Pre-commit checks completed."
 echo "Run scripts/pre_push_checks.sh before merging to exercise api, integration, and security suites."
