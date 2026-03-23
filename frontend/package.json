@@ -1,0 +1,45 @@
+{
+  "name": "sdd-ui-makeover",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test:unit": "vitest run",
+    "test:e2e": "playwright test",
+    "test:ui": "npm run test:unit && npm run test:e2e",
+    "lint": "eslint --ext .ts,.tsx src",
+    "format": "prettier --write src",
+    "check:deps": "npm run lint && npm run test:unit"
+  },
+  "dependencies": {
+    "axios": "^1.7.2",
+    "classnames": "^2.3.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "zustand": "^5.0.3"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.48.0",
+    "@testing-library/jest-dom": "^6.0.5",
+    "@testing-library/react": "^15.0.6",
+    "@testing-library/user-event": "^14.4.3",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.0.3",
+    "autoprefixer": "^10.4.18",
+    "eslint": "^9.9.0",
+    "eslint-config-prettier": "^9.0.0",
+    "eslint-plugin-react": "^7.34.1",
+    "eslint-plugin-testing-library": "^6.0.3",
+    "playwright": "^1.48.0",
+    "postcss": "^8.4.33",
+    "prettier": "^3.0.4",
+    "tailwindcss": "^3.4.3",
+    "typescript": "^5.3.3",
+    "vite": "^5.0.0",
+    "vitest": "^1.4.3"
+  }
+}
