@@ -55,10 +55,10 @@ description: "Task list template for feature implementation"
 
 **Independent Test**: Trigger `frontend/src/features/reconciliation.tsx`, hit `/sessions/unreconciled`, select rows, and assert the Difference badge updates via the store.
 
-- [ ] T011 [US2] Build `frontend/src/components/reconciliation/SessionControls.tsx` with inputs/buttons wired to `reconciliationStore.commands.fetchSessions` and `fetchUnreconciled`
-- [ ] T012 [US2] Implement `frontend/src/components/reconciliation/UnreconciledList.tsx` that virtualizes the transactions list, renders status badges, and updates `reconciliationStore.selectedIds`
-- [ ] T013 [US2] Create `frontend/src/features/reconciliation.tsx` to layer session controls, the unreconciled list, and the Difference badge tied to `difference.amount` + `remaining_uncleared`
-- [ ] T014 [US2] Add `frontend/tests/ui/reconciliation.spec.ts` that mocks `/reconciliation/sessions/unreconciled`, manipulates checkboxes, and verifies the Difference guidance text updates
+- [x] T011 [US2] Build `frontend/src/components/reconciliation/SessionControls.tsx` with inputs/buttons wired to `reconciliationStore.commands.fetchSessions` and `fetchUnreconciled`
+- [x] T012 [US2] Implement `frontend/src/components/reconciliation/UnreconciledList.tsx` that virtualizes the transactions list, renders status badges, and updates `reconciliationStore.selectedIds`
+- [x] T013 [US2] Create `frontend/src/features/reconciliation.tsx` to layer session controls, the unreconciled list, and the Difference badge tied to `difference.amount` + `remaining_uncleared`
+- [x] T014 [US2] Add `frontend/tests/ui/reconciliation.spec.ts` that mocks `/reconciliation/sessions/unreconciled`, manipulates checkboxes, and verifies the Difference guidance text updates
 
 **Checkpoint**: Reconciliation panel functions independently with live difference updates.
 
