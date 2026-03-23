@@ -88,8 +88,8 @@ description: "Task list for implementing the Reconcile Window feature"
 
 **Purpose**: Tie documentation, verification, and walkthrough steps together after all stories land.
 
-- [ ] T022 [P] Refresh `specs/005-add-reconcile-window/quickstart.md` to reference the new reconciliation endpoints, the targeted `test_transactions` task, and the difference insight messaging so contributors have a single onboarding reference (specs/005-add-reconcile-window/quickstart.md).
-- [ ] T023 Run `scripts/run_api_tests.sh` to exercise the new reconciliation endpoints and capture the result in project logs (scripts/run_api_tests.sh).
+- [x] T022 [P] Refresh `specs/005-add-reconcile-window/quickstart.md` to reference the new reconciliation endpoints, the targeted `test_transactions` task, and the difference insight messaging so contributors have a single onboarding reference (specs/005-add-reconcile-window/quickstart.md).
+- [x] T023 Run `scripts/run_api_tests.sh` to exercise the new reconciliation endpoints and capture the result in project logs (scripts/run_api_tests.sh).
 
 ---
 

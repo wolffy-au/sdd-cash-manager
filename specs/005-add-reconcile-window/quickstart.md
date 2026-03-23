@@ -6,7 +6,7 @@
    ```bash
    pytest tests/api/test_transactions.py -k reconcile_window -v
    ```
-   This includes the zero-difference flow, the filtered unreconciled payload, and the new difference insight metadata.
-4. **Verify the full API surface.** After landing the reconciliation routes, run `scripts/run_api_tests.sh` (the same script invoked by the pre-commit hook) to exercise the entire FastAPI suite with coverage and confirm no regressions.
-5. **Review contracts and models.** Keep `specs/005-add-reconcile-window/contracts/reconcile.yaml` handy; it defines the `/reconciliation/sessions` endpoints and the `DifferenceResponse` payload used by the UI.
-6. **Reference the new endpoints in docs.** Mention `/reconciliation/sessions`, `/reconciliation/sessions/unreconciled`, and `/reconciliation/sessions/{session_id}/transactions` whenever you describe the reconciliation workflow so contributors can connect the UI behavior with the backend validation.
+   This exercise covers the zero-difference session, the filtered unreconciled payload, and the difference-insight metadata (`difference_status`, `remaining_uncleared`, guidance text) so you can validate both balanced and outstanding cases.
+4. **Exercise the entire API surface.** Run `scripts/run_api_tests.sh` (the same script invoked by the pre-commit hook) to smoke-test every FastAPI route, capture structured logs, and ensure the reconciliation helpers coexist with the rest of the suite.
+5. **Review contracts and docs.** Keep `specs/005-add-reconcile-window/contracts/reconcile.yaml` open; it defines `/reconciliation/sessions`, `/reconciliation/sessions/unreconciled`, and `/reconciliation/sessions/{session_id}/transactions` along with the enriched `DifferenceResponse` fields that feed the UI guidance text.
+6. **Reference the endpoints in UI documentation.** When describing the Reconcile Window, highlight the three reconciliation endpoints so contributors can trace how selecting UNCLEARED transactions updates `DifferenceResponse` to zero (or surfaces `difference_status != balanced` when the discrepancy remains).
