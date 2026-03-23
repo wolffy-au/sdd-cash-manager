@@ -8,7 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "test:unit": "node ./node_modules/vitest/vitest.mjs run",
-    "test:e2e": "playwright test",
+    "test:e2e": "node ./node_modules/playwright/cli.js test --config=tests/ui/playwright.config.ts",
     "test:ui": "npm run test:unit && npm run test:e2e",
     "lint": "eslint --ext .ts,.tsx src",
     "format": "prettier --write src",

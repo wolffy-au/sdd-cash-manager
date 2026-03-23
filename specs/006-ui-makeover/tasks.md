@@ -70,9 +70,9 @@ description: "Task list template for feature implementation"
 
 **Independent Test**: Simulate a non-zero difference, read the guidance panel, and confirm it displays amber/orange badges plus a filter action that toggles the store.
 
-- [ ] T015 [US3] Create `frontend/src/components/guidance/DiscrepancyInsight.tsx` to show difference_status messaging, icons, and a link that filters UNCLEARED rows via `reconciliationStore.commands.applySelection`
-- [ ] T016 [US3] Ensure `frontend/src/features/reconciliation.tsx` consumes `DiscrepancyInsight` so guidance text appears immediately when difference > 0 and the badge color shifts
-- [ ] T017 [US3] Write `frontend/tests/ui/insight.spec.ts` to assert the guidance panel reacts to `difference_status: under`/`over`, displays instructions, and offers the filter link
+- [x] T015 [US3] Create `frontend/src/components/guidance/DiscrepancyInsight.tsx` to show difference_status messaging, icons, and an action that highlights UNCLEARED rows via `reconciliationStore.commands.applySelection`.
+- [x] T016 [US3] Ensure `frontend/src/features/reconciliation.tsx` consumes `DiscrepancyInsight` so guidance text appears immediately when difference > 0 and the panel color shifts to alert the user.
+- [x] T017 [US3] Write `frontend/tests/ui/insight.spec.ts` to assert the guidance panel reacts to `difference_status: under`, updates the remaining count, and offers a filter button that selects UNCLEARED rows
 
 **Checkpoint**: Discrepancy insights deliver clear next steps whenever reconciliation is incomplete.
 
@@ -82,10 +82,10 @@ description: "Task list template for feature implementation"
 
 **Purpose**: Documentation, accessibility fixes, and test harness validation across stories.
 
-- [ ] T018 [P] Update `docs/ui-overview.md` (or new docs/ entry) with navigation flows, MVVM responsibilities, and API contract references
-- [ ] T019 [P] Confirm keyboard focus order/semitic roles via storybook/playwright helpers (adjust `layout.css` or component props as needed)
-- [ ] T020 [P] Run `frontend/npm run test:ui` and document results in `specs/006-ui-makeover/quickstart.md`
-- [ ] T021 Review Tailwind/Tsgen configs to ensure badges/status colors meet accessibility contrast requirements and log any adjustments in `specs/006-ui-makeover/research.md`
+- [x] T018 [P] Update `docs/ui-overview.md` (or new docs entry) with navigation flows, MVVM responsibilities, API contract references, and the new discrepancy guidance story so testers can trace the full workflow
+- [x] T019 [P] Validate keyboard focus order and semantic roles through Playwright knobs and adjust `frontend/src/styles/layout.css` so badges and guidance buttons meet contrast/hover expectations
+- [x] T020 [P] Run `frontend/npm run test:ui` and document the three passing suites (ledger, reconciliation, insight) inside `specs/006-ui-makeover/quickstart.md`
+- [x] T021 Review Tailwind/TypeScript configs to ensure badges/status colors meet accessibility contrast requirements and describe the decisions in `specs/006-ui-makeover/research.md`
 
 ---
 
