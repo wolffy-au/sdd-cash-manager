@@ -5,6 +5,8 @@ Auto-generated from all feature plans. Last updated: 2026-03-14
 ## Active Technologies
 - Python 3.12 + FastAPI, SQLAlchemy, python-accounting helpers, pytest/httpx for integration tests, jose- or JWT-backed auth utilities already in `lib` (005-add-reconcile-window)
 - SQLite (development/tests) via SQLAlchemy sessions; existing models (Account, Transaction) persist the reconciled state and can be extended to store statement metadata. (005-add-reconcile-window)
+- TypeScript 5.7 (frontend) alongside the existing Python 3.12 FastAPI backend + React 18 + Vite for bundling, Zustand or xState for MVVM state, Axios for REST calls, Tailwind CSS for layout, FastAPI/SQLAlchemy for backend APIs (006-ui-makeover)
+- Ephemeral client state (Zustand store/session storage) synced with FastAPI sessions; no persistent storage added on the frontend (006-ui-makeover)
 
 - Python 3.12 + FastAPI (existing API surface), SQLAlchemy (models), httpx (tests), pytest (runner), python-accounting helpers. (002-add-api-pytests)
 - SQLite (development defaults; tests use in-memory or sqlite file nodes when necessary). (002-add-api-pytests)
@@ -64,10 +66,9 @@ tests/
 Python 3.12 (from .python-version): Follow standard conventions. See TECHNICAL.md for architecture guidance.
 
 ## Recent Changes
+- 006-ui-makeover: Added TypeScript 5.7 (frontend) alongside the existing Python 3.12 FastAPI backend + React 18 + Vite for bundling, Zustand or xState for MVVM state, Axios for REST calls, Tailwind CSS for layout, FastAPI/SQLAlchemy for backend APIs
 - 005-add-reconcile-window: Added Python 3.12 + FastAPI, SQLAlchemy, python-accounting helpers, pytest/httpx for integration tests, jose- or JWT-backed auth utilities already in `lib`
 - 005-add-reconcile-window: Added Python 3.12 + FastAPI, SQLAlchemy, python-accounting helpers, pytest/httpx for integration tests, jose- or JWT-backed auth utilities already in `lib`
-
-- 002-add-api-pytests: Added Python 3.12 + FastAPI (existing API surface), SQLAlchemy (models), httpx (tests), pytest (runner), python-accounting helpers.
 
 ## API Test Suite (002-add-api-pytests)
 
