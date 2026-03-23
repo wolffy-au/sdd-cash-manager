@@ -1,3 +1,17 @@
+## v0.5.0 (2026-03-23)
+
+### Feat
+
+- add discrepancy insight metadata
+- add unreconciled transactions endpoint
+- add reconciliation schema and docs
+- add reconciliation session plumbing
+
+### Fix
+
+- use timezone aware timestamps
+- persist reconciliation session updates
+
 ## v0.4.1 (2026-03-22)
 
 ### Fix
