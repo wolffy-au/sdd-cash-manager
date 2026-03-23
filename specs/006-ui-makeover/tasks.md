@@ -26,9 +26,9 @@ description: "Task list template for feature implementation"
 
 **Purpose**: Build the MVVM glue, API wiring, and virtualization hooks required by every story.
 
-- [ ] T004 [P] Implement `frontend/src/stores/ledgerStore.ts` and `frontend/src/stores/reconciliationStore.ts` with the fields/commands defined in the data model (selectedAccountId, registerRows, statementBalance, unreconciled, difference, statusFlags)
-- [ ] T005 [P] Create `frontend/src/services/apiClient.ts` that wraps `/accounts`, `/reconciliation/sessions`, `/reconciliation/sessions/unreconciled`, and `/reconciliation/sessions/{session_id}/transactions` APIs and normalizes the Difference payload
-- [ ] T006 [P] Build helper abstractions (`frontend/src/hooks/useVirtualizedList.ts`, `frontend/src/hooks/useReconciliationViewModel.ts`) plus layout helpers (responsive panels in `layout.css`) to keep the MVVM stores decoupled from rendering details
+- [x] T004 [P] Implement `frontend/src/stores/ledgerStore.ts` and `frontend/src/stores/reconciliationStore.ts` with the fields/commands defined in the data model (selectedAccountId, registerRows, statementBalance, unreconciled, difference, statusFlags)
+- [x] T005 [P] Create `frontend/src/services/apiClient.ts` that wraps `/accounts`, `/reconciliation/sessions`, `/reconciliation/sessions/unreconciled`, and `/reconciliation/sessions/{session_id}/transactions` APIs and normalizes the Difference payload
+- [x] T006 [P] Build helper abstractions (`frontend/src/hooks/useVirtualizedList.ts`, `frontend/src/hooks/useReconciliationViewModel.ts`) plus layout helpers (responsive panels in `layout.css`) to keep the MVVM stores decoupled from rendering details
 
 **Checkpoint**: With stores, API wiring, and virtualization hooks in place, user stories can now be implemented independently.
 
