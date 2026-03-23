@@ -40,10 +40,10 @@ description: "Task list template for feature implementation"
 
 **Independent Test**: Load `frontend/src/features/ledger.tsx`, expand accounts, select register rows, and verify the tree highlights + register updates without reloading.
 
-- [ ] T007 [US1] Build `frontend/src/components/ledger/AccountTree.tsx` to render the hierarchical account tree, animate expansions, and call `ledgerStore.commands.expandAccount`
-- [ ] T008 [US1] Implement `frontend/src/components/ledger/Register.tsx` using `useVirtualizedList` to render register rows and invoke `ledgerStore.commands.selectRow`
-- [ ] T009 [US1] Create `frontend/src/features/ledger.tsx` that assembles the tree, register, and breadcrumb panels while binding focus order and keyboard navigation per FR-005
-- [ ] T010 [US1] Add `frontend/tests/ui/ledger.spec.ts` (Playwright/Vitest) to verify account expansion, row selection, and MVVM binding updates
+- [x] T007 [US1] Build `frontend/src/components/ledger/AccountTree.tsx` to render the hierarchical account tree, animate expansions, and call `ledgerStore.commands.expandAccount`
+- [x] T008 [US1] Implement `frontend/src/components/ledger/Register.tsx` using `useVirtualizedList` to render register rows and invoke `ledgerStore.commands.selectRow`
+- [x] T009 [US1] Create `frontend/src/features/ledger.tsx` that assembles the tree, register, and breadcrumb panels while binding focus order and keyboard navigation per FR-005
+- [x] T010 [US1] Add `frontend/tests/ui/ledger.spec.ts` (Playwright/Vitest) to verify account expansion, row selection, and MVVM binding updates
 
 **Checkpoint**: The ledger workspace stands alone with working tree/register interactions.
 

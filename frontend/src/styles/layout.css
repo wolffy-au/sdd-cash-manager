@@ -55,3 +55,66 @@ body {
   min-height: 220px;
   box-shadow: 0 20px 40px rgba(5, 8, 12, 0.4);
 }
+
+.ledger {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 1rem;
+  width: 100%;
+}
+
+.ledger__tree-panel,
+.ledger__register-panel {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 1rem;
+  padding: 1rem;
+}
+
+.account-tree {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.account-node {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.25rem 0.35rem;
+  border-radius: 0.35rem;
+  cursor: pointer;
+  color: #f5f5ff;
+}
+
+.account-node.selected {
+  background: rgba(77, 208, 225, 0.15);
+}
+
+.register__controls {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.register__controls button {
+  padding: 0.35rem 0.9rem;
+  border-radius: 0.25rem;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: transparent;
+  color: #f5f5ff;
+  cursor: pointer;
+}
+
+.register__row {
+  display: grid;
+  grid-template-columns: 1fr 2fr 1fr;
+  padding: 0.45rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+}
+
+.register__row:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
