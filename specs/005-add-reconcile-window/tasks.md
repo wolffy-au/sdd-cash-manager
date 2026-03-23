@@ -73,10 +73,10 @@ description: "Task list for implementing the Reconcile Window feature"
 **Independent Test**: Call `POST /reconciliation/sessions/{session_id}/transactions` with a subset of matching IDs so the Difference stays non-zero, then verify the response includes `difference_status`, `remaining_uncleared`, and a guidance message describing the next steps.
 
 ### Implementation Tasks
-- [ ] T018 [US3] Add the extended `DifferenceResponse` schema fields (`difference_status`, `remaining_uncleared`, `guidance`) to `schemas/reconciliation_schema.py` per the contract (schemas/reconciliation_schema.py).
-- [ ] T019 [US3] Update `ReconciliationService.apply_selected_transactions` so it calculates the difference sign, computes the count of remaining UNCLEARED transactions, and returns the guidance metadata used by the response (services/reconciliation_service.py).
-- [ ] T020 [US3] Modify the `POST /reconciliation/sessions/{session_id}/transactions` route to include the enriched difference response declared in the contract and to surface the guidance text when the difference is not zero (api/reconciliation.py).
-- [ ] T021 [US3] Add an integration test in `tests/api/test_transactions.py` that leaves a non-zero difference and asserts the response contains `difference_status != balanced`, a positive `remaining_uncleared`, and the textual guidance (tests/api/test_transactions.py).
+- [x] T018 [US3] Add the extended `DifferenceResponse` schema fields (`difference_status`, `remaining_uncleared`, `guidance`) to `schemas/reconciliation_schema.py` per the contract (schemas/reconciliation_schema.py).
+- [x] T019 [US3] Update `ReconciliationService.apply_selected_transactions` so it calculates the difference sign, computes the count of remaining UNCLEARED transactions, and returns the guidance metadata used by the response (services/reconciliation_service.py).
+- [x] T020 [US3] Modify the `POST /reconciliation/sessions/{session_id}/transactions` route to include the enriched difference response declared in the contract and to surface the guidance text when the difference is not zero (api/reconciliation.py).
+- [x] T021 [US3] Add an integration test in `tests/api/test_transactions.py` that leaves a non-zero difference and asserts the response contains `difference_status != balanced`, a positive `remaining_uncleared`, and the textual guidance (tests/api/test_transactions.py).
 
 ### Parallel execution example (US3)
 - Schema evolution (T018) and service logic (T019) can progress side-by-side because they touch different files but converge on the same response shape.

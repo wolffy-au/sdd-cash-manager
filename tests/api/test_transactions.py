@@ -279,3 +279,63 @@ async def test_unreconciled_transactions_endpoint_filters_by_cutoff_and_status(
     assert listed_txn["id"] == recent_transaction_id
     assert listed_txn["processing_status"] == ProcessingStatus.COMPLETED.value
     assert listed_txn["reconciliation_status"] == ReconciliationStatus.UNCLEARED.value
+
+
+@pytest.mark.asyncio
+async def test_reconcile_window_difference_insight(
+    api_client: AsyncClient,
+    authenticated_headers: dict[str, str],
+    seeded_accounts: dict[str, dict[str, object]],
+) -> None:
+    """Validate the difference response shows insight metadata when the gap remains."""
+    source = seeded_accounts["visible"]
+    target = seeded_accounts["balancing"]
+    today = date.today()
+
+    async def create_txn(amount: str) -> str:
+        payload = {
+            "transfer_from": source["id"],
+            "transfer_to": target["id"],
+            "action": "Recon Insight",
+            "amount": amount,
+            "currency": "USD",
+            "description": "Discrepancy check",
+            "memo": "Reconcile insight",
+            "date": today.isoformat(),
+        }
+        response = await api_client.post("/transactions/", json=payload, headers=authenticated_headers)
+        assert_status(response, 201)
+        body = response.json()
+        return str(body["transaction_id"])
+
+    txn_to_select = await create_txn("25.00")
+    txn_to_ignore = await create_txn("30.00")
+
+    with SessionLocal() as session:
+        for txn_id in (txn_to_select, txn_to_ignore):
+            txn = session.get(Transaction, txn_id)
+            assert txn is not None
+            txn.processing_status = ProcessingStatus.COMPLETED
+            txn.reconciliation_status = ReconciliationStatus.UNCLEARED
+            session.add(txn)
+        session.commit()
+
+    session_payload = {
+        "statement_date": today.isoformat(),
+        "ending_balance": "70.00",
+    }
+    session_resp = await api_client.post("/reconciliation/sessions", json=session_payload, headers=authenticated_headers)
+    assert_status(session_resp, 200)
+    session_body = session_resp.json()
+
+    update_resp = await api_client.post(
+        f"/reconciliation/sessions/{session_body['id']}/transactions",
+        json={"transaction_ids": [txn_to_select]},
+        headers=authenticated_headers,
+    )
+    assert_status(update_resp, 200)
+    diff_body = update_resp.json()
+    assert diff_body["difference_status"] == "positive"
+    assert Decimal(str(diff_body["difference"])) == Decimal("45.00")
+    assert diff_body["remaining_uncleared"] >= 1
+    assert diff_body["guidance"] == "Review missing transactions or adjust the ending balance downward."
