@@ -16,9 +16,9 @@ description: "Task list template for feature implementation"
 
 **Purpose**: Prepare the frontend workspace, tooling, and style system.
 
-- [ ] T001 Create `frontend/package.json` with React 18, Vite, Tailwind, Zustand/xState, Axios, Vitest, and Playwright dependencies
-- [ ] T002 Add `frontend/tailwind.config.js`, `frontend/postcss.config.js`, and global styles in `frontend/src/styles/layout.css` per the MVVM layout plan
-- [ ] T003 [P] Establish tooling scripts (`frontend/vite.config.ts`, `frontend/vitest.config.ts`, `frontend/tests/ui/playwright.config.ts`) and editor settings so linting/testing run consistently
+- [x] T001 Create `frontend/package.json` with React 18, Vite, Tailwind, Zustand/xState, Axios, Vitest, and Playwright dependencies
+- [x] T002 Add `frontend/tailwind.config.js`, `frontend/postcss.config.js`, and global styles in `frontend/src/styles/layout.css` per the MVVM layout plan
+- [x] T003 [P] Establish tooling scripts (`frontend/vite.config.ts`, `frontend/vitest.config.ts`, `frontend/tests/ui/playwright.config.ts`) and editor settings so linting/testing run consistently
 
 ---
 
