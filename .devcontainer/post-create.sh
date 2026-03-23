@@ -54,6 +54,12 @@ echo -e "\n🤖 Installing Specify CLI..."
 run_command "uv tool install specify-cli --from git+https://github.com/github/spec-kit.git"
 echo "✅ Done"
 
+if [ -f /workspaces/sdd-cash-manager/frontend/package.json ]; then
+    echo -e "\n🌐 Installing frontend dependencies and Playwright browser..."
+    run_command "cd /workspaces/sdd-cash-manager/frontend && npm config set bin-links false && npm install && node ./node_modules/playwright/cli.js install --with-deps chromium"
+    echo "✅ Done"
+fi
+
 # Installing commitizen
 echo -e "\n🛠️ Installing commitizen..."
 run_command "pip install commitizen"
@@ -62,6 +68,7 @@ echo "✅ Done"
 # Installing SonarQube
 echo -e "\n🔍 Installing SonarQube Scanner..."
 run_command "sudo apt-get update && sudo apt-get install -y default-jre"
+run_command "sudo apt-get install -y libatk1.0-0 at-spi2-common libatk-bridge2.0-0 libgtk-3-0 libgtk-4-1 libgdk-pixbuf-xlib-2.0-0 libasound2 libasound2-data libcups2 libx11-xcb1 libxcomposite1 libxrandr2 libxss1 libwayland-client0 libwayland-egl1 libxdamage1 libxkbcommon0 libxshmfence1 libdbus-1-3 libdrm2 libegl1 libgbm1 libgl1-mesa-dri libgstreamer1.0-0"
 echo "✅ Done"
 
 # Installing Snyk CLI
