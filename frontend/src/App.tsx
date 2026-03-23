@@ -1,5 +1,6 @@
 import React from 'react';
 import LedgerFeature from './features/ledger';
+import ReconciliationFeature from './features/reconciliation';
 import './styles/layout.css';
 
 const App: React.FC = () => (
@@ -9,8 +10,14 @@ const App: React.FC = () => (
       <p className="app-shell__subtitle">Modernized ledger + reconciliation workspaces.</p>
     </header>
     <main className="app-shell__grid">
-      <LedgerFeature />
-      <section className="app-shell__panel">Reconciliation workspace & insights coming next.</section>
+      <section className="app-shell__panel">
+        <h1>Ledger Workspace</h1>
+        <LedgerFeature />
+      </section>
+      <section className="app-shell__panel">
+        <h1>Reconciliation Kit</h1>
+        <ReconciliationFeature />
+      </section>
     </main>
   </div>
 );
