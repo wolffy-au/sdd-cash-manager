@@ -51,7 +51,8 @@ echo "Running pytest..."
 # Runs pytest for unit and integration tests.
 uv run pytest --cov-fail-under=90 --cov=src --cov-report=term-missing 
 
-echo "Skipping frontend UI harness (npm run test:unit) because npm chmod fails in this environment."
+echo "Running frontend UI harness..."
+cd frontend && npm config set bin-links false && npm install && npm run test:unit && cd ..
 
 echo "Pre-commit checks passed successfully."
 exit 0
