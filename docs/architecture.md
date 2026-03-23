@@ -132,7 +132,7 @@ This architecture promotes modularity, testability, and maintainability.
 - **API Pytest coverage (`specs/002-add-api-pytests/`)** ensures JWT enforcement, quick-fill helpers, and validation errors stay covered by the `tests/api` suite, validating both happy and unhappy paths for each endpoint.
 - **Adjust Balance Window (`specs/003-adjust-balance/`)** formalizes the adjustment UI payload, timing, and logging requirements that the API and `AdjustmentService` implement.
 - **Transaction Management (`specs/004-transaction-management/`)** drives the quick-fill heuristics, duplicate consolidation, and double-entry guarantees that appear in service code and data models.
-- **Next up (reconciliation):** The requirements in `PROJECT_SPECIFICATION.md:74-86` cue `/specs/005-reconciliation/`, which will surface the reconcile window, difference monitoring, and reconciliation-status transitions for the services above.
+-- **Reconcile window:** With specs delivered in `specs/005-add-reconcile-window/`, the API now exposes `/reconciliation/sessions`, `/reconciliation/sessions/unreconciled`, and `/reconciliation/sessions/{session_id}/transactions`. These endpoints support entering statement balances, filtering UNCLEARED/CLEARED transactions, and delivering difference-insight metadata so the UI can confirm zero-difference reconciliation attempts alongside guidance for outstanding gaps.
 
 ## Supporting Infrastructure and Quality
 
