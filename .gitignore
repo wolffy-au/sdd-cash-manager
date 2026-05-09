@@ -53,6 +53,7 @@ Thumbs.db
 frontend/node_modules/
 frontend/dist/
 frontend/.cache
+frontend/test-results/
 .mypy_cache/
 
 # Ruff cache
