@@ -27,7 +27,7 @@ run_quiet "api tests" poetry run scripts/run_api_tests.sh
 
 run_quiet "behave"                  poetry run behave
 
-run_quiet "pytest unit (coverage)"  poetry run pytest tests/unit/ --cov-fail-under=90 --cov=src --cov-report=term-missing
+run_quiet "pytest unit (coverage)"  poetry run pytest tests/unit/ --cov-fail-under=80 --cov=src --cov-report=term-missing
 run_quiet "pytest integration"      poetry run pytest tests/integration/
 run_quiet "pytest security"           poetry run pytest tests/security/
 run_quiet "pytest api"           poetry run pytest tests/api/

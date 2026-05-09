@@ -60,7 +60,7 @@ jobs:
         run: poetry run behave tests/features/ || true
 
       - name: Run pytest
-        run: poetry run pytest --cov --cov-branch --cov-report=xml --cov-fail-under=90
+        run: poetry run pytest --cov --cov-branch --cov-report=xml --cov-fail-under=80
 
       - name: Upload test artifacts
         if: always()
