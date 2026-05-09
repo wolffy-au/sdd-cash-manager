@@ -72,14 +72,6 @@ This document consolidates technical specifications, patterns, utilities, and pr
   - Implement explicit error checking and informative logging for commands.
   - Prefer using helper functions for common operations (e.g., `run_command`).
 
-## Balance Semantics and Adjustments
-
-- **Running vs. Cleared Balances**: `AccountService.calculate_running_balance_as_of` performs a ledger-based aggregation of `Entry` rows up to the requested `effective_date`, while `calculate_running_balance` returns the current `available_balance`. Reconciliation and adjustment flows that refer to historical statements should always use the `_as_of` helpers so they stay aligned with ledger history.
-- **Cleared Balances**: Use `AccountService.calculate_cleared_balance_as_of` when you explicitly need only reconciled entries; this removes pending transactions and other in-flight entries, ensuring reporting consumers do not confuse cleared totals with the running balance.
-- **Zero-Difference Adjustments**: Zero-difference submissions still produce a `ManualBalanceAdjustment` record (status `ZERO_DIFFERENCE`) and a reconciliation-view entry. Use `ManualBalanceAdjustmentService` together with `ReconciliationService.create_reconciliation_entry_for_manual_adjustment` to record that auditable action even when no ledger entries change, so downstream UI/reporting layers can show the attempt without replaying double-entry rows.
-
-## Automated Code Uplift and Quality Improvement
-
 ## Automated Code Uplift and Quality Improvement
 
 The concept of using autonomous agents to uplift code quality and incrementally increase test coverage involves leveraging AI-driven tools and automated processes for iterative improvement. It is designed for an iterative development process where an AI coding assistant works alongside static analysis and test coverage tools.
@@ -108,14 +100,13 @@ The concept of using autonomous agents to uplift code quality and incrementally 
 
 ## API Testing Patterns (Integration Testing with httpx)
 
-Building on the implementation of feature 002-add-api-pytests, the following patterns and practices have been established for API-level integration testing:
+The following patterns and practices have been established for API-level integration testing:
 
 ### Test Infrastructure Architecture
 
 - **In-Process ASGI Testing**: Use `httpx.AsyncClient` with `ASGITransport` to test FastAPI applications without spinning up external servers. This provides realistic full-stack coverage with minimal overhead (~2-3 seconds for 7 tests).
 - **Deterministic Fixtures**: Create seeded test data via pytest fixtures that:
   - Set up known, repeatable account hierarchies (visible, hidden, placeholder accounts)
-  - Include balancing accounts for double-entry accounting invariant validation
   - Provide explicit cleanup (teardown) hooks to ensure test isolation
   - Use fixture-scoped cleanup to prevent test pollution
 
@@ -134,11 +125,6 @@ Building on the implementation of feature 002-add-api-pytests, the following pat
   - Delete test-created accounts after each test
   - Reset database state (SQLite) to clean slate
   - Ensure tests are truly independent and can run in any order
-- **Balancing Accounts**: For financial applications using double-entry accounting, include a dedicated balancing account fixture that:
-  - Gets created once per test session or module
-  - Absorbs offsetting transactions automatically
-  - Never appears in normal user queries (marked as `hidden=True`)
-  - Validates hierarchy invariants remain intact
 
 ### Test Assertion Helpers
 
@@ -147,10 +133,6 @@ Building on the implementation of feature 002-add-api-pytests, the following pat
   - `assert_payload_contains(response, required_keys)` - Validate response structure
   - `reset_test_database(db_session)` - Clean state between tests
   - These helpers reduce duplication and provide consistent error messaging
-- **Financial Data Validation**: Include helpers that validate:
-  - Decimal precision (e.g., currency values quantized to 2 decimal places)
-  - Double-entry invariants (debits = credits)
-  - Account hierarchy constraints (parent-child relationships)
 
 ### Test Module Organization
 
@@ -194,6 +176,25 @@ Building on the implementation of feature 002-add-api-pytests, the following pat
   - Schemas (DTOs): 100%
   - Services: 50-60% (complementary unit tests for edge cases)
 
+## XML Round-Trip Testing and Field Mapping Patterns
+
+The following patterns ensure data fidelity when reading, modifying, and writing XML-based ArchiMate formats:
+
+### Round-Trip Fidelity Testing
+
+- **Test Structure**: Create integration tests that verify export/import cycles:
+  1. Create model with specific data (elements, relationships, metadata)
+  2. Export to target format (.archimate or OpenGroup XML)
+  3. Re-import the exported file
+  4. Assert that imported data matches original exactly (or within expected transformations)
+  5. Export again and compare to previous export (ensuring idempotency)
+
+- **Metadata Preservation**: When testing round-trip fidelity for metadata fields:
+  - Create test fixtures with known metadata values in test files (place in `tests/fixtures/archimate_v3/`)
+  - Verify field names are correctly mapped during import (canonical Python names in model)
+  - Verify field names are correctly written during export (format-specific names in XML)
+  - Test both happy path (valid values) and edge cases (empty, special characters, Unicode)
+
 ### Requirements Traceability
 
 - **Explicit Mapping**: Maintain a Requirements Traceability Matrix linking:
@@ -224,6 +225,12 @@ Building on the implementation of feature 002-add-api-pytests, the following pat
   - Full command reference for running tests
   - Current coverage and performance metrics
   - Dependencies and prerequisites
+
+## Error Management
+
+- **Consistent Error Responses**: Define a standard format for API error responses (e.g., JSON structure including error code, message, and details) for predictable client-side handling.
+- **Exception Handling**: Implement robust try-except blocks to catch and handle exceptions gracefully, preventing application crashes.
+- **Meaningful Error Codes**: Utilize standardized HTTP status codes for API errors and define custom error codes for specific application-level issues.
 
 ## Observability and Logging
 
@@ -270,7 +277,7 @@ Building on the implementation of feature 002-add-api-pytests, the following pat
 - **Testing Frameworks**: `pytest`, `pytest-mock`, `behave` (for BDD)
 - **Linters/Formatters**: `Ruff`
 - **Type Checkers**: `MyPy`, `PyRight`
-- **Build/Dependency Management**: Prefer `uv` for dependency installation and resolution from `pyproject.toml`. Avoid use of `requirements.txt`. Only use `poetry` when `uv` has no equivalent option.
+- **Build/Dependency Management**: This repository uses Poetry for dependency/deployment scripts, so prefer `poetry install`, `poetry run`, and pipeline scripts defined in `pyproject.toml`. Keep `requirements.txt` in sync with `pyproject.toml`. Fall back to `uv` only when Poetry lacks the needed capability or when a spec explicitly says so.
 - **Package Installation/Running**: `UV`
 - **API Framework**: `FastAPI`
 - **UI Frameworks**: `Streamlit`, `Chainlit` (for building interactive UIs and LLM-based applications)
@@ -314,67 +321,67 @@ pip install --upgrade uv
 - Initialize a project
   Use this when starting a new Python project.
   - Create a new project with a pyproject.toml.
-  `uv init`
-  `uv init my-project`
-  `uv init --package`
-  `uv init --app`
+  `poetry init`
+  `poetry init my-project`
+  `poetry init --package`
+  `poetry init --app`
 
-- Env / venv management (uv venv namespace)
-  - List venvs: `uv venv list`
-  - Create venv: `uv venv create [--python <python>] [--path <path>]`
-  - Use/select venv: `uv venv use <name-or-path>`
-  - Remove venv: `uv venv remove <name>`
-  - Show venv info: `uv venv show <name>`
-  - Activate shell for specific venv: `uv venv shell <name>`
+- Env / venv management (poetry env namespace)
+  - List venvs: `poetry env list`
+  - Create venv: `poetry env create [--python <python>] [--path <path>]`
+  - Use/select venv: `poetry env use <name-or-path>`
+  - Remove venv: `poetry env remove <name>`
+  - Show venv info: `poetry env show <name>`
+  - Activate shell for specific venv: `poetry env shell <name>`
 
 - Add dependency
-  - uv: `uv add <package> [--group <group>] [--dev] [--version <constraint>]`
-  - examples: `uv add requests`, `uv add pytest --group dev`
+  - uv: `poetry add <package> [--group <group>] [--dev] [--version <constraint>]`
+  - examples: `poetry add requests`, `poetry add pytest --group dev`
 
 - Remove dependency
-  - uv: `uv remove <package>`
+  - uv: `poetry remove <package>`
 
 - Install / sync including all groups / extras
-  - uv: `uv sync --upgrade --all-groups`
-  - or to include specific groups: `uv sync --upgrade --groups dev,tests,lint,docs`
+  - uv: `poetry update`
+  - or to include specific groups: `poetry sync --upgrade --groups dev,tests,lint,docs`
 
 - Update dependencies
   - Upgrade one package:
-  `uv lock --upgrade-package requests`
+  `poetry lock --upgrade-package requests`
   - Upgrade all packages:
-  `uv lock --upgrade`
+  `poetry lock --upgrade`
   - Then sync:
-  `uv sync`
+  `poetry sync`
 
 - Lock dependencies / generate lockfile
-  - uv: `uv lock [--no-update]`
+  - uv: `poetry lock [--no-update]`
 
 - Show dependencies / tree
-  - uv: `uv show [--tree] [<package>]`
+  - uv: `poetry show [--tree] [<package>]`
 
 - Run a command in the venv, run scripts / entry points defined in pyproject
-  - uv: `uv run -- <command>` or `uv run <command> [args...]`
-  - example: `uv run python`, `uv run pytest`
-  - uv: `uv run <script-name>` (scripts exposed via project config)
+  - uv: `poetry run -- <command>` or `poetry run <command> [args...]`
+  - example: `poetry run python`, `poetry run pytest`
+  - uv: `poetry run <script-name>` (scripts exposed via project config)
 
 - Spawn a shell in the venv
-  - uv: `uv shell`
+  - uv: `poetry shell`
 
 - Build package
-  - uv: `uv build [--format wheel,sdist]`
+  - uv: `poetry build [--format wheel,sdist]`
 
 - Publish package
-  - uv: `uv publish [--repository <repo>]`
+  - uv: `poetry publish [--repository <repo>]`
 
 - Show project info / metadata
-  - uv: `uv info`
+  - uv: `poetry info`
 
 - Security audit
-  - uv: `uv audit`
+  - uv: `poetry audit`
 
 Notes:
 
-- Flags/option names above follow the uv CLI documented patterns (e.g., `--all`, `--groups`, `--python`). Use `uv <command> --help` for full option lists and exact formatting for your uv version.
+- Flags/option names above follow the poetry CLI documented patterns (e.g., `--all`, `--groups`, `--python`). Use `poetry <command> --help` for full option lists and exact formatting for your poetry version.
 
 ## SonarQube
 
@@ -385,10 +392,10 @@ sudo apt-get update && sudo apt-get install -y default-jre
 pysonar --sonar-token=<token-from-.secrets>
 ```
 
-You can also query SonarCloud’s public API for the current critical issues list; the token value is stored in the project `.secrets` directory (look for the Sonar token key there) and should not be committed.
+You can also query SonarCloud public API for the current critical issues list; the token value is stored in the project `.env` file (look for the SONAR_TOKEN key there) and should not be committed.
 
 ```
-https://sonarcloud.io/api/issues/search?componentKeys=wolffy-au_sdd-cash-manager&branch=main&ps=50&p=1&token=<token-from-.secrets>
+https://sonarcloud.io/api/issues/search?projectKeys=pyArchimate_pyArchimate&severities=CRITICAL,MAJOR&statuses=OPEN,CONFIRMED
 ```
 
 ### SonarCloud Remediation Workflow
@@ -446,16 +453,16 @@ Experience from implementing feature 002-add-api-pytests has revealed critical p
 
 - **Specification Before Implementation**: Write spec.md, plan.md, and tasks.md *before* coding to clarify scope, detect conflicts early, and enable team review.
 - **Quickstart Guides**: Create feature-specific quickstart guides (`specs/<feature>/quickstart.md`) that provide step-by-step setup, environment variables, test commands, and failure modes.
-- **Artifact Interconnection**: Link artifacts explicitly with cross-references between spec.md, plan.md, and tasks.md to show how architecture decisions address requirements and phases map to task groupings.
+- **Artifact Interconnection**: Link artifacts explicitly with cross-references between spec.md, plan.md, and tasks.md to show how design decisions address requirements and how phases map to task groupings.
 
 ### Constitution Alignment Verification
 
 - **Non-Negotiable Principles**: Before implementation, verify compliance with project constitution:
-  - Financial Data Accuracy (VII): Tests validate calculations and double-entry invariants
-  - Data Longevity (VIII): Use standard, portable storage formats
-  - Cross-Platform Consistency (IX): Avoid OS-specific code
+  - System Integrity & Accuracy (VII): Validate computations, flows, and state transitions for correctness
+  - Durability & Interoperability (VIII): Protect data continuity and integration contracts
+  - Cross-Platform Consistency (IX): Avoid OS-specific code and verify UI/behavioral parity
   - Code Quality (I), Testing (II), Security (V): Build in from day 1
-- **Constitution Violations**: Any conflict must be resolved *before* implementation starts—never proceed if a constitution principle is violated.
+- **Constitution Violations**: Any conflict must be resolved *before* implementation starts�never proceed if a constitution principle is violated.
 
 ### Quality Gate Patterns
 

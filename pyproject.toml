@@ -1,20 +1,25 @@
 [project]
 name = "sdd-cash-manager"
+version = "0.5.0"
 description = "A project for managing cash movements and reconciliation."
 authors = [
     { name = "Stephan Borg", email = "wolffborg1@gmail.com" }
 ]
 readme = "README.md"
+requires-python = ">=3.10,<3.13.0"
 packages = [{include = "sdd_cash_manager", from = "src"}]
 include = [
     "config/*",
     "docs/*",
     "CHANGELOG.md",
-    "uv.lock",
+    "poetry.lock",
 ]
-dynamic = ["version"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
 
-requires-python = ">=3.10,<3.13.0"
+
 dependencies = [
     "fastapi>=0.128.0,<0.129.0",
     "uvicorn (>=0.23.0,<0.27.0)",
@@ -38,7 +43,6 @@ dev = [
     "commitizen>=4.11.0,<5.0.0",
     "snakeviz>=2.2.2,<3.0.0",
     "locust (>=2.43.3,<3.0.0)",
-    "pymarkdownlnt>=0.9.35",
 ]
 
 tests = [
@@ -52,6 +56,7 @@ tests = [
     "jaraco.context>=6.1.1,<7.0.0",
     "jaraco.functools>=4.4.0,<5.0.0",
     "pytest-httpx>=0.24.0,<1.0.0",
+    "httpx>=0.27.0,<0.32.0",
 ]
 
 lint = [
@@ -60,36 +65,30 @@ lint = [
     "mypy>=1.19.1,<2.0.0",
     "pyright>=1.1.407,<2.0.0",
     "ruff>=0.14.10,<1.0.0",
-    "pysonar>=1.3.0.4086",
+    "pymarkdownlnt>=0.9.35",
 ]
-
-[tool.poetry]
-version = "0.5.0"
-
-[tool.commitizen]
-name = "cz_conventional_commits"
-tag_format = "v$version"
-version_scheme = "pep440"
-version_provider = "poetry"
-update_changelog_on_bump = true
-
-[tool.poetry-dynamic-versioning]
-# Versions derive from git tags prefixed with "v" (e.g., v1.2.3) and follow semver.
-enable = true
-vcs = "git"
-style = "semver"
 
 [tool.pyright]
 typeCheckingMode = "basic"
 reportMissingImports = true
-reportUnusedVariable = "warning"
-reportMissingTypeStubs = "none"
+reportUnusedVariable = "error"
+reportUnusedImport = "none" # ruff handles this
+reportAttributeAccessIssue = "warning"
+reportArgumentType = "warning"
+reportOptionalMemberAccess = "warning"
+reportMissingTypeStubs = "warning"
 reportUnknownMemberType = false
+extraPaths = ["src", "scripts"]
+exclude = [
+    "**/node_modules",
+    "**/__pycache__",
+    "**/.*",
+]
 
 [tool.mypy]
 strict = true
 mypy_path = "src"
-packages = ["sdd_cash_manager", "tests"]
+explicit_package_bases = true
 show_error_codes = true
 ignore_missing_imports = false
 allow_redefinition = false
@@ -104,15 +103,20 @@ warn_unreachable = true
 plugins = [
   "pydantic.mypy"
 ]
+exclude = [
+]
 
 [tool.ruff]
 line-length = 120
 target-version = "py312"
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "B", "C", "I"]
+select = ["E", "F", "W", "B", "C", "I", "S110"]
 ignore = [
-    "E501",
+    "E501",    # line too long — handled by formatter
+    "C901",    # complexity — legacy monolithic functions
+    "N999",    # module names — project uses camelCase for some files
+    "PLC0415", # top-level imports — project uses local imports for dynamic loading
 ]
 exclude = [
     ".venv",
@@ -137,27 +141,38 @@ exclude = [
     "*.md",
 ]
 
+[tool.ruff.lint.flake8-bandit]
+check-typed-exception = true
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]  # ignore assertions in tests
+
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
 
 [tool.pytest.ini_options]
-pythonpath = "src"
-testpaths = ["./tests/unit", "./tests/security", "./tests/integration", "./tests/api"]
+pythonpath = [".", "src/sdd_cash_manager"]  # "." lets tests use `from src.sdd_cash_manager import …`; "src/pyArchimate" lets readers/writers use bare `from pyArchimate import …` fallbacktestpaths = ["./tests/unit", "./tests/security", "./tests/integration", "./tests/api"]
 python_files = "*_test.py test_*.py *_spec.py"
-asyncio_default_fixture_loop_scope = "module"
+testpaths = ["./tests/unit", "./tests/security", "./tests/integration", "./tests/api"]
 addopts = """
---cov=src
---cov-report=xml:build/coverage.xml
---cov-report=term-missing 
+ --cov=src
+ --cov-report=xml:build/coverage.xml
+ --cov-report=term-missing
 --junitxml=build/unit-tests.xml
 """
-asyncio_mode = "auto"
 cache_dir = "/tmp/.pytest_cache"
 
+[tool.pytest-asyncio]
+asyncio_default_fixture_loop_scope = "module"
+asyncio_mode = "auto"
+
 [tool.coverage.run]
-branch = true
+branch = false
 source = ["src"]
+omit = [
+    "tests/*",
+]
 
 [tool.coverage.report]
 show_missing = true
@@ -183,6 +198,13 @@ plugins.md004.style = "dash"
 
 [tool.pymarkdown.plugins.md013]
 line_length = 120
+
+[tool.commitizen]
+name = "cz_conventional_commits"
+tag_format = "v$version"
+version_scheme = "pep440"
+version_provider = "pep621"
+update_changelog_on_bump = true
 
 [build-system]
 requires = ["poetry-core>=2.0.0", "poetry-dynamic-versioning>=1.6.0,<2.0.0"]

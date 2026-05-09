@@ -14,7 +14,7 @@ Build a pytest-driven API regression suite that uses httpx clients to verify acc
 **Language/Version**: Python 3.12  
 **Primary Dependencies**: FastAPI (existing API surface), SQLAlchemy (models), httpx (tests), pytest (runner), python-accounting helpers.  
 **Storage**: SQLite (development defaults; tests use in-memory or sqlite file nodes when necessary).  
-**Testing**: pytest with httpx AsyncClient fixtures, leveraging existing pytest config and tox/uv pipelines.  
+**Testing**: pytest with httpx AsyncClient fixtures, leveraging existing pytest config and tox/poetry pipelines.  
 **Target Platform**: Linux-based development servers/CI agents where uvicorn and pytest run.  
 **Project Type**: Web-service API.  
 **Performance Goals**: Test suite completes in under five minutes against the local API and surfaces deterministic outputs for every scenario.  

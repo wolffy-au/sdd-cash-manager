@@ -107,7 +107,7 @@ With the feature code stabilized, these deliverables ensure the supporting artif
 - [x] T060 Update `plan.md` to capture the Python 3.12 stack, SQLite/PostgreSQL migration strategy, exact dependencies, performance targets, and scale assumptions for the adjustment feature.
 - [x] T061 Replace the previous research TODOs with a decision log that covers the chosen storage strategy, performance goals, security/audit constraints, scale assumptions, and the FastAPI+SQLAlchemy+python-accounting integration pattern.
 - [x] T062 Publish `quickstart.md` that shows how to spin up the API, call `/accounts/{account_id}/adjust-balance`, and run the relevant integration/unit suites.
-- [x] T063 Document the targeted regression tests that prove the manual adjustment, zero-difference audit trail, reconciliation entry persistence, and RBAC protections (`uv run pytest tests/integration/test_adjustment_api.py tests/integration/test_reconciliation_api.py tests/integration/test_adjustment_reconciliation_flow.py tests/unit/test_reconciliation.py tests/unit/test_auth_events.py` and any additional suites).
+- [x] T063 Document the targeted regression tests that prove the manual adjustment, zero-difference audit trail, reconciliation entry persistence, and RBAC protections (`poetry run pytest tests/integration/test_adjustment_api.py tests/integration/test_reconciliation_api.py tests/integration/test_adjustment_reconciliation_flow.py tests/unit/test_reconciliation.py tests/unit/test_auth_events.py` and any additional suites).
 
 ## Dependencies
 

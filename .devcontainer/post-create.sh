@@ -26,15 +26,15 @@ echo -e "\n🐍 Installing UV - Python Package Manager..."
 run_command "pip install uv"
 echo "✅ Done"
 
+# Installing Poetry (Python package manager)
+echo -e "\n🐍 Installing Poetry - Python Package Manager..."
+run_command "pip install poetry"
+echo "✅ Done"
+
 # Installing CLI-based AI Agents
 
 echo -e "\n🤖 Installing Copilot CLI..."
 run_command "npm install -g @github/copilot@latest"
-echo "✅ Done"
-
-echo -e "\n🤖 Installing Codex CLI..."
-run_command "npm install -g @openai/codex@latest"
-run_command "cp -rv /workspaces/sdd-cash-manager/.codex/prompts/ ~/.codex/"
 echo "✅ Done"
 
 echo -e "\n🤖 Installing Gemini CLI..."
@@ -45,28 +45,37 @@ echo "✅ Done"
 # run_command "npm install -g opencode-ai@latest"
 # echo "✅ Done"
 
-# Installing Aider
-echo -e "\n🤖 Installing Aider CLI..."
-run_command "uv tool install aider-chat --from git+https://github.com/Aider-AI/aider.git"
+echo -e "\n🤖 Installing Claude CLI..."
+run_command "curl -fsSL https://claude.ai/install.sh | bash"
 echo "✅ Done"
 
 echo -e "\n🤖 Installing Specify CLI..."
 run_command "uv tool install specify-cli --from git+https://github.com/github/spec-kit.git"
 echo "✅ Done"
 
-# Installing commitizen
-echo -e "\n🛠️ Installing commitizen..."
-run_command "pip install commitizen"
+# Installing PlantUML
+echo -e "\n🌱 Installing PlantUML..."
+run_command "sudo apt-get install -y plantuml"
+run_command "sudo curl -L https://github.com/plantuml/plantuml/releases/latest/download/plantuml.jar -o /usr/share/plantuml/plantuml.jar"
 echo "✅ Done"
 
-# Installing SonarQube
-echo -e "\n🔍 Installing SonarQube Scanner..."
-run_command "sudo apt-get update && sudo apt-get install -y default-jre"
+# Installing GitHub CLI
+echo -e "\n🐙 Installing GitHub CLI..."
+run_command "curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg"
+run_command "sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg"
+run_command "echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main' | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null"
+run_command "sudo apt-get update && sudo apt install -y gh"
 echo "✅ Done"
 
 # Installing Snyk CLI
 echo -e "\n🔒 Installing Snyk CLI..."
 run_command "npm install -g snyk@latest"
+echo "✅ Done"
+
+# Installing Git Hooks
+echo -e "\n🪝 Installing Git Hooks..."
+run_command "ln -sf ../../scripts/pre_commit_checks.sh .git/hooks/pre-commit"
+run_command "ln -sf ../../scripts/pre_push_checks.sh .git/hooks/pre-push"
 echo "✅ Done"
 
 echo -e "\n🧹 Cleaning cache..."

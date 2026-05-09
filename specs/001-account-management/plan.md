@@ -98,6 +98,6 @@ No constitution violations detected that require tracking at this time.
 
 ## Immediate Next Steps
 
-- Run `uv run pytest tests/unit/test_account_service.py` before making additional changes.
-- Run `uv run pytest tests/integration/test_account_api.py` to ensure the integration contracts remain satisfied.
+- Run `poetry run pytest tests/unit/test_account_service.py` before making additional changes.
+- Run `poetry run pytest tests/integration/test_account_api.py` to ensure the integration contracts remain satisfied.
 - Review any failures reported by the above suites and rerun `/speckit.analyze` if regressions appear prior to further edits.

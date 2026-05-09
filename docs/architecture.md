@@ -87,7 +87,7 @@ Deployment_Node(web_server, "API Host", "Ubuntu container") {
 }
 
 Deployment_Node(ci_runner, "CI Runner", "CI/CD agent") {
-    Container(test_runner, "CI Test Runner", "Pytest + uv scripts", "Executes `scripts/pre_commit_checks.sh` with coverage reporting.")
+    Container(test_runner, "CI Test Runner", "Pytest + poetry scripts", "Executes `scripts/pre_commit_checks.sh` with coverage reporting.")
 }
 
 Rel(test_runner, api_app, "Deploys & tests")
