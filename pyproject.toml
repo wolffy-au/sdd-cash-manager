@@ -163,10 +163,8 @@ addopts = """
 --junitxml=build/unit-tests.xml
 """
 cache_dir = "/tmp/.pytest_cache"
-
-[tool.pytest-asyncio]
-asyncio_default_fixture_loop_scope = "module"
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "module"
 
 [tool.coverage.run]
 branch = true
