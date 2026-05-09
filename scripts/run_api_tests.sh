@@ -15,7 +15,7 @@ else
   PYTEST_BASE=("pytest")
 fi
 
-PYTEST_ARGS=("tests/api" "--maxfail=1" "--log-cli-level=INFO" "--durations=5" "-o" "addopts=--verbose --junitxml=build/unit-tests.xml")
+PYTEST_ARGS=("tests/api" "--maxfail=1" "--log-cli-level=INFO" "--durations=5" "--asyncio-mode=auto" "-o" "addopts=--verbose --junitxml=build/unit-tests.xml")
 
 RUN_CMD=("${PYTEST_BASE[@]}" "${PYTEST_ARGS[@]}")
 
