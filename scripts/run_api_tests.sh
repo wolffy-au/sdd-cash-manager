@@ -10,7 +10,7 @@ echo "Running API regression suite (tests/api) with pytest..."
 
 # Compose the base pytest command. Prefer `poetry run` when available so `uv.lock` tooling is respected.
 if command -v poetry >/dev/null 2>&1; then
-  PYTEST_BASE=("uv" "run" "pytest")
+  PYTEST_BASE=("poetry" "run" "pytest")
 else
   PYTEST_BASE=("pytest")
 fi
