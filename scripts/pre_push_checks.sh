@@ -16,6 +16,7 @@ run_quiet() {
 }
 
 run_quiet "pre-commit checks"    poetry run scripts/pre_commit_checks.sh
+run_quiet "layer boundaries"      python scripts/check_layer_boundaries.py
 run_quiet "api tests" poetry run scripts/run_api_tests.sh
 
 # --- Code Quality Checks ---

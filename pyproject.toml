@@ -111,10 +111,11 @@ line-length = 120
 target-version = "py312"
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "B", "C", "I", "S110"]
+select = ["E", "F", "W", "B", "C", "I", "S110", "N"]
 ignore = [
     "E501",    # line too long — handled by formatter
     "C901",    # complexity — legacy monolithic functions
+    "N805",    # Pydantic @field_validator uses cls by convention, not self
     "N999",    # module names — project uses camelCase for some files
     "PLC0415", # top-level imports — project uses local imports for dynamic loading
 ]
@@ -145,7 +146,7 @@ exclude = [
 check-typed-exception = true
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S101"]  # ignore assertions in tests
+"tests/**" = ["S101", "N806"]  # assertions OK in tests; PascalCase vars used for mock/session factories
 
 [tool.ruff.format]
 quote-style = "double"
@@ -168,7 +169,7 @@ asyncio_default_fixture_loop_scope = "module"
 asyncio_mode = "auto"
 
 [tool.coverage.run]
-branch = false
+branch = true
 source = ["src"]
 omit = [
     "tests/*",
@@ -187,6 +188,7 @@ output = "build/coverage.xml"
 paths = [
     "tests/features/"
 ]
+tags = ["~@wip"]
 
 [tool.pymarkdown]
 # MD010 - no hard tabs
