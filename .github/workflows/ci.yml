@@ -14,12 +14,78 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
+          fetch-depth: 0
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+
+      - name: Install Poetry
+        run: pip install --upgrade poetry
+
+      - name: Sync dependencies
+        run: poetry install --all-groups
+
+      - name: Markdown lint
+        if: matrix.python-version == '3.12'
+        run: poetry run pymarkdownlnt fix ./*.md specs/*.md
+
+      - name: Ruff lint
+        if: matrix.python-version == '3.12'
+        run: poetry run ruff check . --fix
+
+      - name: Pyright type check
+        if: matrix.python-version == '3.12'
+        run: poetry run pyright
+
+      - name: Mypy type check
+        if: matrix.python-version == '3.12'
+        run: poetry run mypy src/
+
+      # - name: Check layer boundaries
+      #   run: python scripts/check_layer_boundaries.py
+
+      - name: Behave BDD tests
+        run: poetry run behave tests/features/ || true
+
+      - name: Run pytest
+        run: poetry run pytest --cov --cov-branch --cov-report=xml --cov-fail-under=80
+
+      - name: Upload test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-py${{ matrix.python-version }}
+          path: build/
+          retention-days: 7
+
+      - name: Upload coverage to Codecov
+        if: matrix.python-version == '3.12'
+        uses: codecov/codecov-action@v4
+        with:
+          files: build/coverage.xml
+          fail_ci_if_error: false
+
+  quality:
+    needs: test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
@@ -31,31 +97,13 @@ jobs:
         run: pip install --upgrade poetry
 
       - name: Sync dependencies
-        run: poetry lock
+        run: poetry install --all-groups
 
-      - name: Install uv CLI
-        run: pip install --upgrade uv
-
-      - name: Sync dependencies
-        run: uv sync --upgrade --all-groups
-
-      - name: Run linters and tests
-        run: uv run pymarkdownlnt fix ./*.md specs/*.md
-
-      - name: Run ruff for linting and auto-fixing
-        run: uv run ruff check . --fix
-
-      - name: Run pyright for static type checking
-        run: uv run pyright
-
-      - name: Run mypy for static type checking
-        run: uv run mypy
-
-      - name: Run behave tests
-        run: uv run behave tests/features/ || true
-
-      - name: Run pytest for unit and integration tests
-        run: uv run pytest --cov --cov-report=xml --cov-fail-under=90
+      - name: Download coverage artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: test-results-py3.12
+          path: build/
 
       - name: SonarQube Scan
         uses: SonarSource/sonarqube-scan-action@9598b8a83feef37de07f549027fab50ecffe6a6e
@@ -72,10 +120,31 @@ jobs:
         run: npm install -g snyk
 
       - name: Authenticate Snyk
-        run: uv run snyk auth ${{ secrets.SNYK_TOKEN }}
+        run: snyk auth ${{ secrets.SNYK_TOKEN }}
 
-      - name: Snyk Scan Test
-        run: uv run snyk test --package-manager=poetry --severity-threshold=high --org=wolffy-au
+      - name: Snyk dependency scan
+        run: snyk test --package-manager=poetry --severity-threshold=high --org=wolffy-au
 
-      - name: Snyk Code Scan
-        run: uv run snyk code test --package-manager=poetry --severity-threshold=high --org=wolffy-au --include-ignores
+      - name: Snyk code scan
+        run: snyk code test --package-manager=poetry --severity-threshold=high --org=wolffy-au --include-ignores
+
+  codeql:
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: python
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:python"

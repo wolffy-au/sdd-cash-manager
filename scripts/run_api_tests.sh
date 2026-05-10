@@ -8,14 +8,14 @@ set -euo pipefail
 
 echo "Running API regression suite (tests/api) with pytest..."
 
-# Compose the base pytest command. Prefer `uv run` when available so `uv.lock` tooling is respected.
-if command -v uv >/dev/null 2>&1; then
-  PYTEST_BASE=("uv" "run" "pytest")
+# Compose the base pytest command. Prefer `poetry run` when available so `uv.lock` tooling is respected.
+if command -v poetry >/dev/null 2>&1; then
+  PYTEST_BASE=("poetry" "run" "pytest")
 else
   PYTEST_BASE=("pytest")
 fi
 
-PYTEST_ARGS=("tests/api" "--maxfail=1" "--log-cli-level=INFO" "--durations=5" "-o" "addopts=--verbose --junitxml=build/unit-tests.xml")
+PYTEST_ARGS=("tests/api" "--maxfail=1" "--log-cli-level=INFO" "--durations=5" "--asyncio-mode=auto" "-o" "addopts=--verbose --junitxml=build/unit-tests.xml")
 
 RUN_CMD=("${PYTEST_BASE[@]}" "${PYTEST_ARGS[@]}")
 

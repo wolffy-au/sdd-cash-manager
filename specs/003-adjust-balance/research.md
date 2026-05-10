@@ -57,8 +57,8 @@ This research brief captures the resolved decisions and working practices that g
 
 - **Decision**: Keep SQLite as the default for local development while allowing `SDD_CASH_MANAGER_DATABASE_URL` to point at PostgreSQL for production. Maintain Alembic scripts, test them against both engines, and avoid SQLite-only SQL expansions.
 - **Plan**:
-  1. Make schema changes via Alembic revisions and run the migration against Postgres in CI (`uv run alembic upgrade head --sql` for dry runs or `uv run alembic upgrade head` with a Postgres sandbox).
+  1. Make schema changes via Alembic revisions and run the migration against Postgres in CI (`poetry run alembic upgrade head --sql` for dry runs or `poetry run alembic upgrade head` with a Postgres sandbox).
   2. Validate that `Numeric(18, 2)` columns, UUID PKs, and foreign keys behave identically across SQLite and Postgres (adjust column defaults if Postgres requires explicit `server_default` clauses).
   3. Run the adjustment + reconciliation integration suites (especially `tests/integration/test_adjustment_reconciliation_flow.py`) against a Postgres container or service to confirm concurrency, locking, and reconciliation entries persist as expected.
-  4. Update deployment docs so operations teams set `SDD_CASH_MANAGER_DATABASE_URL` to the targeted Postgres DSN and include `uv run alembic upgrade head` as part of deployments.
+  4. Update deployment docs so operations teams set `SDD_CASH_MANAGER_DATABASE_URL` to the targeted Postgres DSN and include `poetry run alembic upgrade head` as part of deployments.
 - **Alternatives Considered**: Shipping the feature on SQLite only would simplify dev flows but leave production deployments underprepared for Postgres’s stricter constraints, so the hybrid approach is the safer compromise.

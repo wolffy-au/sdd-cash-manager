@@ -1,9 +1,0 @@
-{
-  "commandsDir": ".gemini/commands",
-  "contextFileName": [
-    "GEMINI.md"
-  ],
-  "model": {
-    "name": "gemini-2.5-flash-lite"
-  }
-}

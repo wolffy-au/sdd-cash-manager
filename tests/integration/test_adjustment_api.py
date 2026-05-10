@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal  # Import Decimal
 from typing import Optional
 from unittest.mock import MagicMock, patch
@@ -190,7 +190,7 @@ def test_create_manual_balance_adjustment_invalid_date_validation_error():
     # Pydantic validation for effective_date occurs before service call
     payload = {
         "target_balance": "1500.00",
-        "effective_date": "2027-03-31", # Date outside the expected range
+        "effective_date": (date.today() + timedelta(days=400)).isoformat(),  # Date outside the ±1 year range
         "submitted_by_user_id": TEST_USER_ID,
     }
 

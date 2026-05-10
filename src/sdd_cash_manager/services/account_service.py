@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, time, timezone  # using timezone.utc for timezone-aware snapshots
 from decimal import Decimal
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any, Callable, TypeAlias
 
 from sqlalchemy import Select, and_, delete, func, or_, select, update
 from sqlalchemy.orm import Session
@@ -23,7 +23,7 @@ from sdd_cash_manager.schemas.transaction_schema import AccountMergePlanRequest
 if TYPE_CHECKING:
     from sdd_cash_manager.services.transaction_service import TransactionService
 
-type AccountFieldValue = str | Decimal | float | bool | None
+AccountFieldValue: TypeAlias = str | Decimal | float | bool | None  # NOSONAR - TypeAlias needed for 3.10/3.11 compatibility
 
 
 @dataclass

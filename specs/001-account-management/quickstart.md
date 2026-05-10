@@ -19,9 +19,9 @@ This guide provides a quick start for setting up and interacting with the Accoun
 2. **Set up virtual environment and install dependencies**:
 
     ```bash
-    uv venv create --python 3.11
-    uv venv shell  # Activate the virtual environment
-    uv sync --upgrade --all-groups
+    poetry env use python3.11
+    poetry shell  # Activate the virtual environment
+    poetry sync --upgrade --all-groups
     ```
 
 3. **Database Setup**:
@@ -51,7 +51,7 @@ For horizontal scaling of the application layer, run multiple Uvicorn worker pro
 
 1. **Install Gunicorn**:
     ```bash
-    uv pip install gunicorn
+    poetry add gunicorn
     ```
 
 2. **Run with Gunicorn and multiple Uvicorn workers**:
