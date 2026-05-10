@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - develop
       - "feature/**"
       - "bugfix/**"
   pull_request:
@@ -35,7 +36,7 @@ jobs:
         run: pip install --upgrade poetry
 
       - name: Sync dependencies
-        run: poetry sync --upgrade --all-groups
+        run: poetry install --all-groups
 
       - name: Markdown lint
         if: matrix.python-version == '3.12'
@@ -97,7 +98,7 @@ jobs:
         run: pip install --upgrade poetry
 
       - name: Sync dependencies
-        run: poetry sync --upgrade --all-groups
+        run: poetry install --all-groups
 
       - name: Download coverage artifact
         uses: actions/download-artifact@v4
