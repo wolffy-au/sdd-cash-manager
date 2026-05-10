@@ -19,7 +19,7 @@ router = APIRouter(prefix="/reconciliation", tags=["reconciliation"])
 _get_db_dependency = Depends(get_db)
 
 
-@router.post("/sessions", response_model=ReconciliationSessionResponse)
+@router.post("/sessions")
 async def create_reconciliation_session(
     payload: ReconciliationSessionRequest,
     db: Session = _get_db_dependency,
@@ -46,7 +46,7 @@ async def create_reconciliation_session(
     )
 
 
-@router.get("/sessions/unreconciled", response_model=UnreconciledTransactionsResponse)
+@router.get("/sessions/unreconciled")
 async def list_unreconciled_transactions(
     db: Session = _get_db_dependency,
 ) -> UnreconciledTransactionsResponse:
@@ -67,7 +67,7 @@ async def list_unreconciled_transactions(
     return UnreconciledTransactionsResponse(transactions=payload)
 
 
-@router.post("/sessions/{session_id}/transactions", response_model=DifferenceResponse)
+@router.post("/sessions/{session_id}/transactions")
 async def apply_reconciliation_transactions(
     session_id: str,
     payload: TransactionSelectionRequest,

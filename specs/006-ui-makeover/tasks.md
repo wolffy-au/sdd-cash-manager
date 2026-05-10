@@ -136,3 +136,138 @@ description: "Task list template for feature implementation"
 - QA: Playwright/Vitest suites per story
 
 ---
+
+## Phase 7: React Query Foundation (Blocking Prerequisites for FR-008/010/011)
+
+**Purpose**: Replace static sample data with live API data via React Query; build the tree utility and hook layer all remaining user stories depend on.
+
+**⚠️ CRITICAL**: Phases 8–10 cannot begin until this phase is complete.
+
+- [ ] T022 Install @tanstack/react-query v5 in `frontend/package.json` and wrap the root with `QueryClientProvider` in `frontend/src/main.tsx`
+- [ ] T023 [P] Create `frontend/src/services/accountsApi.ts` — typed Axios wrappers for `GET /accounts/?include_hidden=true&include_placeholder=true`, `POST /accounts/`, `PUT /accounts/{id}`, `DELETE /accounts/{id}`; add request interceptor reading `localStorage['auth-token']` and attaching `Authorization: Bearer` header
+- [ ] T024 [P] Write Vitest unit tests in `frontend/src/lib/buildAccountTree.test.ts` FIRST (TDD) — cover: flat list → tree assembly, category sort order (ASSET→LIABILITY→EQUITY→REVENUE→EXPENSE then name), leaf `type` from `banking_product_type`, placeholder `type` from `accounting_category`, missing parent gracefully ignored
+- [ ] T025 Create `frontend/src/lib/buildAccountTree.ts` — pure O(n) utility mapping `AccountResponse[]` to `AccountNode[]` hierarchy; all T024 tests must pass
+- [ ] T026 [P] Write Vitest unit tests in `frontend/src/hooks/useAccounts.test.ts` FIRST (TDD) — cover: `useQuery` returns `AccountNode[]`; `useCreateAccount` calls POST and invalidates `['accounts']` cache; `useUpdateAccount` calls PUT with only changed fields; `useDeleteAccount` calls DELETE and invalidates cache on success
+- [ ] T027 Create `frontend/src/hooks/useAccounts.ts` — `useQuery(['accounts'])` wrapping `accountsApi.getAccounts()` + `buildAccountTree()`; `useCreateAccount` / `useUpdateAccount` / `useDeleteAccount` mutations each calling `invalidateQueries({ queryKey: ['accounts'] })` on success; all T026 tests must pass
+- [ ] T028 [P] Update `frontend/src/types.ts` — extend `AccountNode` with `parentId`, `hidden`, `notes`, `currency`, `colour?`, `lastReconcileDate?`, `futureMinimum?`; add `AccountFormData` type (all dialog fields per `data-model.md`); add `FilterState` type (`accountTypes: Set<string>`, `showHidden`, `showZeroTotal`, `showUnused` booleans)
+- [ ] T029 Update `frontend/src/stores/ledgerStore.ts` — remove `accountTree` field (now owned by React Query); add `accountDialogOpen: boolean`, `accountDialogMode: 'create' | 'edit'`, `filterDialogOpen: boolean`, `deleteDialogOpen: boolean`; retain `selectedAccountId`, `registerRows`, tab list, and other existing UI state
+- [ ] T030 Update `frontend/src/features/ledger.tsx` — call `useAccounts()` instead of static `sampleAccounts`; render shimmer/skeleton rows when `isLoading`; render an error banner with retry when `isError`
+- [ ] T031 Create `frontend/src/components/common/Modal.tsx` — focus-trapped accessible dialog wrapper; `role="dialog"`, `aria-modal="true"`; Tab/Shift+Tab cycling through focusable children via `useRef` + `keydown`; Escape calls `onClose`; accepts `title`, `children`, `footer`, `onClose` props; no external library
+
+**Checkpoint**: App fetches live account data from `GET /accounts/`; tree renders real data; `Modal.tsx` ready for all dialogs.
+
+---
+
+## Phase 8: User Story 4 - New / Edit / Delete Account Dialog (Priority: P1) 🎯
+
+**Goal**: Deliver FR-008 — a 3-tab modal for creating and editing accounts backed by POST/PUT `/accounts/`, with auto-refresh via React Query cache invalidation.
+
+**Independent Test**: Click New → fill Account Name → OK → assert `POST /accounts/` called and new row appears in tree without page reload. Click Edit with account selected → assert all fields pre-filled. Click Delete → confirm → assert `DELETE /accounts/{id}` called and row removed.
+
+- [ ] T032 [P] [US4] Create `frontend/src/hooks/useAccountColours.ts` — reads/writes `localStorage['account-colours']` as `Record<accountId, string>`; exports `getColour(id)`, `setColour(id, value)`, `resetColour(id)`
+- [ ] T033 [P] [US4] Create `frontend/src/components/common/ColourSwatch.tsx` — renders `<input type="color">` alongside a coloured square preview using `useAccountColours`; includes a "Default" button calling `resetColour(accountId)`; zero external dependencies
+- [ ] T034 [P] [US4] Write Vitest component tests in `frontend/src/components/ledger/AccountDialog.spec.tsx` FIRST (TDD) — cover: name required validation blocks submit; invalid currency code rejected; edit mode pre-fills name, code, notes from `AccountNode`; OK in create mode calls `useCreateAccount` with correct `AccountFormData` → API payload mapping; OK in edit mode calls `useUpdateAccount` with only changed fields; mutation error displayed inline
+- [ ] T035 [US4] Create `frontend/src/components/ledger/AccountDialog.tsx` — 3-tab `Modal.tsx` dialog (General / More Properties / Opening Balance); General tab: name input (required, 1–100 chars, alphanumeric + `. , - _ ( ) & '`), code input (optional), description textarea, parent-account scrollable tree picker with expand/collapse, account type dropdown (AccountingCategory + BankingProductType per `data-model.md`), currency read-only field + Select button (AUD default), `ColourSwatch`, notes textarea, placeholder/hidden checkboxes; More Properties tab: `higherBalanceLimit` / `lowerBalanceLimit` number inputs; Opening Balance tab (create mode only): balance number input (≥0, 2 dp), date picker (today default), transfer radio group (equity account vs. select account); validate all fields before submit; call `useCreateAccount` or `useUpdateAccount`; display mutation errors inline; all T034 tests must pass
+- [ ] T036 [US4] Create `frontend/src/components/ledger/DeleteConfirmDialog.tsx` — `Modal.tsx`-based single-step confirmation; shows "Delete account: {name}?" with the full account name; OK fires `useDeleteAccount(selectedAccountId)`; inline error if mutation fails; Cancel / Escape closes without action
+- [ ] T037 [US4] Update `frontend/src/features/ledger.tsx` — wire New button to open `AccountDialog` in create mode; wire Edit button to open `AccountDialog` in edit mode passing selected `AccountNode` as initial data; wire Delete button to open `DeleteConfirmDialog`; read/write `accountDialogOpen`, `accountDialogMode`, `deleteDialogOpen` from `ledgerStore`; keep Edit and Delete toolbar buttons disabled when `selectedAccountId` is null or selected account is a placeholder
+
+**Checkpoint**: Full create/edit/delete account CRUD workflow functional; tree auto-refreshes after each mutation without page reload.
+
+---
+
+## Phase 9: User Story 5 - Filter Accounts Dialog (Priority: P2)
+
+**Goal**: Deliver FR-010 — a 2-tab client-side filter dialog with per-type checkboxes and other flags; filter state persisted to `localStorage` and applied reactively.
+
+**Independent Test**: Click Filter → uncheck Expense type → Apply → assert Expense rows disappear from tree → reload page → assert filter still applied from `localStorage['account-filter']`.
+
+- [ ] T038 [P] [US5] Create `frontend/src/hooks/useFilterState.ts` — reads `FilterState` from `localStorage['account-filter']` (JSON, with fallback to defaults); exports `filterState` and `setFilter(patch: Partial<FilterState>)`; defaults: all `AccountingCategory` types enabled, `showHidden=false`, `showZeroTotal=true`, `showUnused=true`
+- [ ] T039 [US5] Create `frontend/src/components/ledger/FilterDialog.tsx` — 2-tab `Modal.tsx` dialog; Account Type tab: one checkbox per `AccountingCategory` mapped to display label (Asset / Liability / Equity / Income / Expense) plus Select All / Clear All / Default buttons; Other tab: Show hidden accounts / Show zero total accounts / Show unused accounts checkboxes; Apply writes to `useFilterState` and closes; Cancel discards in-progress changes
+- [ ] T040 [US5] Update `frontend/src/features/ledger.tsx` — after `buildAccountTree()` result, apply `filterTree(nodes, filterState)` that: excludes `hidden=true` when `!showHidden`; excludes zero-balance accounts (no children with balance) when `!showZeroTotal`; excludes no-transaction accounts when `!showUnused`; excludes accounts whose `accounting_category` is not in `accountTypes`; always preserves placeholder parents whose children pass; wire Filter toolbar button to open `FilterDialog` (`filterDialogOpen` in `ledgerStore`); tree rerenders reactively on `filterState` change without page reload
+
+**Checkpoint**: Account tree filters reactively; filter state survives page reload.
+
+---
+
+## Phase 10: User Story 6 - Richer Account Tree Columns (Priority: P3)
+
+**Goal**: Deliver FR-011 — add Description, Last Reconcile Date, Future Minimum (—), and C/H/P indicator columns to the account tree table.
+
+**Independent Test**: Account tree displays 6 new columns; Description shows `account.notes`; Future Minimum column always shows `—`; clicking a C cell opens the colour picker and the swatch updates immediately; H checkbox toggles hidden via `PUT /accounts/{id}`.
+
+- [ ] T041 [US6] Update `frontend/src/components/ledger/AccountTree.tsx` — add Description column (renders `account.notes` or empty); add Last Reconcile Date column (renders `account.lastReconcileDate` as locale date string or `—` if undefined); add Future Minimum column (always renders `—`, stub for Scheduled Transactions API); add C column (`ColourSwatch` per row, reads/writes `localStorage['account-colours']` via `useAccountColours`); add H column (checkbox bound to `account.hidden`, `onChange` calls `useUpdateAccount({ hidden: !account.hidden })`); add P column (readonly checkbox displaying `account.placeholder`)
+
+**Checkpoint**: All FR-011 columns visible and interactive; tree layout stable with 10 total columns; Future Minimum gracefully renders `—`.
+
+---
+
+## Phase 11: Polish & E2E Tests
+
+**Purpose**: End-to-end verification of all new CRUD and filter functionality; update existing test files for React Query compatibility.
+
+- [ ] T042 [P] Write Playwright E2E test in `frontend/tests/ui/accounts-crud.spec.ts` — create: click New, fill name/type, OK, assert new row in tree; edit: select row, click Edit, change name, OK, assert row updated in tree; delete: select row, click Delete, confirm, assert row removed; all mutations occur without page reload
+- [ ] T043 [P] Write Playwright E2E test in `frontend/tests/ui/accounts-filter.spec.ts` — open Filter, uncheck one type, Apply, assert matching rows hidden; reopen Filter, click Default, Apply, assert all rows visible; reload page and assert filter persists from `localStorage`
+- [ ] T044 [P] Update `frontend/src/App.spec.tsx` and `frontend/src/features/ledger.spec.tsx` — wrap renders in `QueryClientProvider`; mock `accountsApi` with `vi.mock` to prevent real HTTP calls in unit tests
+
+---
+
+## Dependencies & Execution Order (Phases 7–11)
+
+### Phase Dependencies
+- **Phase 7 (Foundation)**: Must complete before Phases 8–10; T022 must complete before T023–T031 can begin
+- **Phase 8 (US4)**: Depends on Phase 7; T031 (Modal.tsx) must exist before T035 and T039
+- **Phase 9 (US5)**: Depends on Phase 7 + T031 (Modal.tsx); independent of Phase 8
+- **Phase 10 (US6)**: Depends on Phase 7 + T032 (useAccountColours) + T033 (ColourSwatch); independent of Phases 8–9
+- **Phase 11 (E2E)**: Depends on Phases 8–10 being feature-complete
+
+### User Story Dependencies
+- **US4 (P1)**: Starts after Phase 7; no dependency on US5 or US6
+- **US5 (P2)**: Starts after Phase 7; no dependency on US4 or US6
+- **US6 (P3)**: Starts after Phase 7 + T032/T033; no dependency on US4 or US5
+
+### Parallel Opportunities (Phases 7–11)
+1. After T022 completes: T023, T024, T026, T028 target different files — run in parallel
+2. T025 (implementation) follows T024 (tests); T027 (implementation) follows T026 (tests)
+3. After T031 (Modal.tsx) completes: T032, T033, T034, T038 are all parallel
+4. T042, T043, T044 are independent suites — run in parallel in Phase 11
+
+---
+
+## Parallel Example: Phase 8 (US4)
+
+```bash
+# After Phase 7 completes, launch in parallel:
+Task: "Create useAccountColours.ts — T032"
+Task: "Create ColourSwatch.tsx — T033"
+Task: "Write AccountDialog.spec.tsx (TDD) — T034"
+
+# Then sequentially:
+Task: "Create AccountDialog.tsx (make T034 pass) — T035"
+Task: "Create DeleteConfirmDialog.tsx — T036"
+Task: "Wire dialogs into features/ledger.tsx — T037"
+```
+
+---
+
+## Implementation Strategy (Phases 7–11)
+
+### MVP First (React Query + Account CRUD)
+1. Complete Phase 7 — app shows live API data
+2. Complete Phase 8 (US4) — full create/edit/delete CRUD
+3. **STOP and VALIDATE**: Confirm CRUD round-trips with real backend before continuing
+4. Add Phase 9 (US5 filter) and Phase 10 (US6 richer columns) incrementally
+
+### Incremental Delivery
+1. Phase 7 complete → live data from `GET /accounts/`
+2. Phase 8 complete → full CRUD → demo to stakeholders
+3. Phase 9 complete → filter → improved account navigation
+4. Phase 10 complete → richer columns → matches GnuCash reference screenshots
+5. Phase 11 complete → E2E coverage → production-ready
+
+### Parallel Team Strategy (Phases 8–10)
+- Developer A: US4 — AccountDialog + DeleteConfirmDialog (T032–T037)
+- Developer B: US5 — FilterDialog + filter logic (T038–T040)
+- Developer C: US6 — richer AccountTree columns (T041)
+- QA: E2E suites after each story (T042–T044)
+
+---
