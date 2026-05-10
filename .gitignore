@@ -3,6 +3,7 @@
 # General Python ignore patterns
 __pycache__/
 *.pyc
+
 # Virtual environment
 .venv
 .venv/
@@ -50,12 +51,20 @@ Thumbs.db
 # MyPy cache
 .mypy_cache/
 
+# Frontend artifacts
+frontend/node_modules/
+frontend/dist/
+frontend/.cache
+frontend/test-results/
+
 # Ruff cache
 .ruff_cache/
 .sonar/
-.sonarlint/
-.codex/*
-!.codex/AGENTS.md
+
+.github/agents/
+.github/prompts/
+.codex/
 .gemini/
+.claude/
 .aider/
 .secrets

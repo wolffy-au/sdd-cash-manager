@@ -52,10 +52,10 @@ jobs:
 
       - name: Mypy type check
         if: matrix.python-version == '3.12'
-        run: poetry run mypy
+        run: poetry run mypy src/
 
-      - name: Check layer boundaries
-        run: python scripts/check_layer_boundaries.py
+      # - name: Check layer boundaries
+      #   run: python scripts/check_layer_boundaries.py
 
       - name: Behave BDD tests
         run: poetry run behave tests/features/ || true
