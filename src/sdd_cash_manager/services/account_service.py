@@ -23,7 +23,7 @@ from sdd_cash_manager.schemas.transaction_schema import AccountMergePlanRequest
 if TYPE_CHECKING:
     from sdd_cash_manager.services.transaction_service import TransactionService
 
-AccountFieldValue: TypeAlias = str | Decimal | float | bool | None  # NOSONAR(python:S6794) - TypeAlias needed for 3.10/3.11 compatibility
+AccountFieldValue: TypeAlias = str | Decimal | float | bool | None  # NOSONAR - TypeAlias needed for 3.10/3.11 compatibility
 
 
 @dataclass
