@@ -1,7 +1,6 @@
 import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
-from pathlib import Path
 from typing import cast
 from unittest.mock import MagicMock
 
@@ -53,9 +52,7 @@ def mock_uuid(monkeypatch):
 
 @pytest.fixture(scope="function")
 def db_session():
-    # Use a named in-memory database for shared access
-    db_file = Path("file:test_db_tx")
-    engine = create_engine(f"sqlite:///{db_file}?mode=memory&cache=shared")
+    engine = create_engine("sqlite:///:memory:")
     Base.metadata.create_all(bind=engine)
     TestingSession = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     session = TestingSession()
@@ -64,8 +61,6 @@ def db_session():
     finally:
         session.close()
         Base.metadata.drop_all(bind=engine)
-        if db_file.exists():
-            db_file.unlink()
 
 
 @pytest.fixture

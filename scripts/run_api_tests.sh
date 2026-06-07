@@ -8,7 +8,7 @@ set -euo pipefail
 
 echo "Running API regression suite (tests/api) with pytest..."
 
-# Compose the base pytest command. Prefer `poetry run` when available so `uv.lock` tooling is respected.
+# Compose the base pytest command. Prefer `poetry run` when available so the managed virtualenv is used.
 if command -v poetry >/dev/null 2>&1; then
   PYTEST_BASE=("poetry" "run" "pytest")
 else
