@@ -1,4 +1,4 @@
-#C/spe!/bin/sh
+#!/bin/sh
 
 git fetch --all --prune
 git checkout master
@@ -9,3 +9,6 @@ echo "Please check if you have any stale branches that need to be deleted locall
 git branch -a
 # echo "Deleting stale branches..."
 # git branch -vv | grep ': gone]' | awk '{print $1}' | xargs git branch -d
+
+echo "Updating Python dependencies..."
+poetry update
