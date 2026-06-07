@@ -2,13 +2,13 @@ import threading
 import time
 import uuid
 from decimal import Decimal
-from pathlib import Path
 from typing import Callable, cast
 from unittest.mock import MagicMock
 
 import pytest
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.pool import StaticPool
 
 from sdd_cash_manager.models.account import Account
 from sdd_cash_manager.models.base import Base
@@ -78,8 +78,11 @@ def _assert_update_error(
 
 @pytest.fixture(scope="function")
 def db_session():
-    db_file = Path("file:test_db")
-    engine = create_engine(f"sqlite:///{db_file}?mode=memory&cache=shared")
+    engine = create_engine(
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
     Base.metadata.create_all(bind=engine)
     TestingSession = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     session = TestingSession()
@@ -88,8 +91,6 @@ def db_session():
     finally:
         session.close()
         Base.metadata.drop_all(bind=engine)
-        if db_file.exists():
-            db_file.unlink()
 
 @pytest.fixture
 def db_account_service(db_session):
