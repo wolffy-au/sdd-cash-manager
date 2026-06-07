@@ -122,6 +122,7 @@ ignore = [
 exclude = [
     ".venv",
     ".git",
+    ".agents/**",
     "docs",
     "build",
     "dist",
