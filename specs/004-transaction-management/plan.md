@@ -14,7 +14,7 @@ Deliver the transaction management capabilities outlined in the feature spec by 
 **Language/Version**: Python 3.12.13 (project targets >=3.10,<3.13)  
 **Primary Dependencies**: FastAPI 0.128+, SQLAlchemy 2.0.x, httpx for API tests, pytest/pytest-asyncio/behave, python-accounting helpers, and existing JWT/auth utilities.  
 **Storage**: SQLAlchemy-backed relational store – SQLite during local/testing and PostgreSQL in production (via existing `database.py` session management).  
-**Testing**: `pytest` drives unit, integration, and API suites under `tests/`, behave covers placeholder BDD checks, plus `uv`-managed dependency updates via `uv.lock`.  
+**Testing**: `pytest` drives unit, integration, and API suites under `tests/`, behave covers placeholder BDD checks, plus `poetry`-managed dependency updates via `poetry.lock`.  
 **Target Platform**: Linux containerized server running FastAPI (`uvicorn`) inside the repository’s standard devcontainer/CI environments.  
 **Project Type**: Web service backend with HTTP APIs for account/transaction management.  
 **Performance Goals**: QuickFill latency within ~200ms while typing, duplicate-detection scans 1,000 transactions in <3 seconds with deterministic snapshots, and pytest coverage stays ≥90%.  

@@ -21,5 +21,4 @@ if [ ! -e ".venv" ]; then
 fi
 
 # uv cache clean
-rm uv.lock
-uv sync --upgrade --all-groups
+poetry install --all-groups
